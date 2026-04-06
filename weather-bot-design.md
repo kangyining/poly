@@ -1,7 +1,8 @@
 # Polymarket Weather Bot — 系统性设计 v2
 
 *设计日期：2026年4月*
-*策略基础：@chunxiangai NO-first + 排行榜实证数据* 
+*策略基础：@chunxiangai NO-first + 排行榜实证数据*
+*Phase 0 验证：2026-04-06（Chicago / Dallas / NYC API 实侦）*
 
 ---
 
@@ -136,105 +137,177 @@ polymarket-weather-bot/
 
 ### 0.1 Polymarket 市场结构侦察
 
-**做什么**：调 Gamma API + CLOB API，搞清楚天气市场的真实数据结构
+> **⚠️ Phase 0 实侦结论（2026-04-06）— 已更新**
+
+**Gamma API 访问方式（已验证）**：
 
 ```python
-# 侦察脚本（notebook 00_api_recon.ipynb）
+# ✅ 正确方式：按 slug 拉具体城市的天气市场
+GET https://gamma-api.polymarket.com/events?slug=highest-temperature-in-{city}-on-april-{dd}-2026
 
-# Step 1: 获取所有活跃天气市场
-GET https://gamma-api.polymarket.com/events?tag=weather&closed=false&limit=200
+# ❌ 错误方式：tag 过滤器无效，会被静默忽略
+# GET https://gamma-api.polymarket.com/events?tag=weather&closed=false&limit=200
+# 原因：Polymarket 没有 "weather" tag，该参数不起作用
 
-# 需要记录：
-# - 返回的 JSON 结构（event → market → token 层级）
-# - 有多少个城市？每个城市几个市场？每个市场几个 bin？
-# - bin 标签格式（"22°C" vs "72°F" vs "22-23°C"）
-# - neg-risk 标记在哪个字段？
-# - token_id 怎么区分 YES 和 NO？
+# ✅ 天气市场入口页面
+# https://polymarket.com/weather
+# 包含 40+ 城市的每日最高温市场
 
-# Step 2: 看一个远端 bin 的 order book
-GET https://clob.polymarket.com/book?token_id={远端bin的token_id}
+# ✅ 查已结算市场（用于回测数据收集）
+GET https://gamma-api.polymarket.com/events?slug=highest-temperature-in-{city}-on-april-{dd}-2026&closed=true
 
-# 需要记录：
-# - book 深度（bids/asks 各几层？每层多少量？）
-# - spread 有多大？
-# - NO 是否有独立 token 可以直接买？
-# - 还是只有 YES token（买 NO = 卖 YES）？
-
-# Step 3: 查已结算市场
-GET https://gamma-api.polymarket.com/events?tag=weather&closed=true&limit=50
-
-# 需要记录：
-# - 结算结果在哪个字段？
-# - 能不能看到是哪个温度 bin 赢了？
-# - 有没有结算数据源的说明？
-# - 价格历史能不能拉到？
+# ✅ 拉指定 bin 的 order book（NO token 直接可交易）
+GET https://clob.polymarket.com/book?token_id={clobTokenIds[1]}  # [1] = NO token
 ```
 
-**必须回答的问题**：
+**已确认的市场结构**：
 
 ```
-□ bin 边界精确定义
-    → "22°C" 是精确匹配（21.5-22.4 四舍五入）？
-    → 还是区间匹配（22.0-22.9）？
-    → 开放区间 ">30°C" 包不包含 30°C？
+bin 格式：2°F 区间，整数华氏度（Fahrenheit）
+         示例："38-39°F"、"≤27°F"（开放低端）、"≥46°F"（开放高端）
+bin 数量：每城市 11 个
+neg_risk：true（互斥，所有 bin 概率之和 = 1）
+token：   clobTokenIds[0] = YES token
+          clobTokenIds[1] = NO token（直接可买）
+```
 
-□ 结算机制
-    → 结算数据源：哪个气象站/服务？
-    → 结算时区：UTC？当地时间？
-    → "最高温"的时间窗口：00:00-23:59？还是别的？
-    → 如果气象站数据缺失怎么办？
+**已回答的问题**：
 
-□ NO token 操作路径
-    → 方法 A: 直接买 NO token（CLOB 上有 NO 的 order book？）
-    → 方法 B: split USDC → YES+NO → 卖掉 YES
-    → 方法 C: convertPositions()（neg-risk 特有）
-    → 哪种路径成本最低？速度最快？
+```
+✅ bin 边界精确定义
+    → 整数华氏度精度（市场描述明确："whole degrees Fahrenheit"）
+    → 2°F 区间：[38, 39] 表示 38°F 和 39°F 均落入该 bin
+    → 开放区间："≤27°F" 包含所有 ≤27 的整数，"≥46°F" 包含所有 ≥46 的整数
 
-□ 流动性实况
-    → 远端 bin 的 book 深度（能不能填 $5？$20？$100？）
-    → Maker 挂单 vs Taker 吃单的流动性差异
-    → 中心 bin vs 远端 bin 的流动性差多少倍？
+✅ 结算机制
+    → 结算数据源：Wunderground 历史数据（非 METAR 直接源，但底层相同）
+    → 结算时区：UTC，endDate = 目标日期 12:00 UTC（本地时间早上）
+    → "最高温"时间窗口：目标日历天全天，Wunderground 数据完成后结算
+    → 注意：交易在 12:00 UTC 停止，但结算可能次日才完成（等 Wunderground 数据定稿）
+    → 数据定稿后的修订不计入结算（明确声明）
 
-□ 市场日历
-    → 市场提前几天开放？
-    → 最早什么时候能下单？
-    → 什么时候停止接单？
-    → 从停止接单到结算有多久？
+✅ NO token 操作路径（三种方法全部验证，2026-04-06）
 
-□ 实际规模
-    → 目前有多少个城市有天气市场？
-    → 每天新开多少个市场？
-    → 能不能凑到 30 个城市？
+    方法 A：直接 CLOB 买 NO token（clobTokenIds[1]）         ← 推荐
+      费用：taker = 5% × p_NO × (1-p_NO)（Weather 类别费率 5%）
+            远端 NO @ $0.9945：$0.027/百股（0.03%，可忽略）
+            中段 NO @ $0.70：$1.05/百股（1.5%，有意义）
+            maker：0 费 + 获得对手方 taker 费的 25% 返还
+      速度：taker market order 秒级；maker limit order 等对手方（分钟到小时）
+      结论：最简、最快、无额外风险 ✅
+
+    方法 B：splitPosition() → YES+NO → CLOB 卖掉 YES           ← 不推荐
+      split 费用：无（仅 Polygon gas ≈ $0.001-0.01）
+      卖 YES taker 费：5% × p_YES × (1-p_YES) = 与方法 A 完全相同（公式对称）
+      总成本：与方法 A 相同 + gas，但多一步链上交易（5-15 秒）
+      远端 bin 问题：YES @ $0.005，流动性极薄，市价卖出滑点严重
+      结论：成本相同但更慢更复杂，被方法 A 支配 ❌
+
+    方法 C：convertPositions()（neg-risk adapter 合约）          ← 不适用
+      作用：将已持有的 NO token 转换为其他结果的 YES token + USDC
+      费用：feeBips/10000 作用于 collateral 输出（具体值未知）
+      结论：这是持仓再平衡工具，不是买入 NO 的路径，与策略无关 ❌
+
+    费用（完全确认，2026-04-06）：
+      来源：Gamma API feeSchedule 字段 + Fees.sol 合约 + 官方文档费率表
+
+      feesEnabled: true（天气市场确认已启用费用）
+      feeType: "weather_fees"
+      taker fee rate = 5%（feeSchedule.rate = 0.05）
+      maker fee = 0%，rebateRate = 0.25（获对手 taker 费的 25% 返还）
+
+      公式：fee = shares × 0.05 × p × (1−p)
+      注：makerBaseFee/takerBaseFee = 1000 bps 是合约层面的上限（MAX_FEE_RATE_BIPS）
+          不是实际费率；实际费率由 feeSchedule.rate = 0.05 决定
+
+      实际影响（远端 NO bin）：
+        NO @ $0.999：fee = 0.05 × 0.999 × 0.001 = 0.005% → 可忽略
+        NO @ $0.970：fee = 0.05 × 0.97 × 0.03 ≈ 0.15%
+        NO @ $0.700：fee = 0.05 × 0.70 × 0.30 ≈ 1.05%（中段才有意义）
+        p=0.50 时最大：fee = 1.25%（每 100 股 $1.25）
+
+      结论：5% 是费率参数，非"5% 交易额"——远端 bin 实际费用极低
+
+✅ 流动性实况（NYC ≤41°F NO bin 实测，2026-04-06）
+    → best bid $0.994（$379 USDC 可用）/ best ask $0.999（$1,159 USDC 可用）
+    → spread: $0.005
+    → $5 ✅ / $20 ✅ / $100 ✅ 均可在最优价格成交
+    → 94 bid 档 / 3 ask 档
+
+✅ 市场日历（已观察）
+    → 市场在目标日期约 24-36 小时前开放
+    → 停止接单：目标日 12:00 UTC（本地时间早上，日最高温尚未出现）
+    → 从停止接单到结算：几小时到次日（等 Wunderground 数据）
+
+✅ 实际规模
+    → 已确认 40+ 城市有活跃天气市场（polymarket.com/weather）
+    → 可覆盖 30 城市的目标可达
+```
+
+**⚠️ 关键修正 — 结算气象站**：
+
+```
+设计文档原配置 vs 实际 Polymarket 结算站（差异巨大！）
+
+城市      设计文档配置   Polymarket 实际结算   是否匹配
+Chicago   KORD          KORD (O'Hare)        ✅ 正确
+Dallas    KDFW (DFW)    KDAL (Love Field)    ❌ 错误！
+NYC       KJFK (JFK)    KLGA (LaGuardia)     ❌ 错误！
+
+→ Dallas 和 NYC 的 METAR 监控必须使用 KDAL 和 KLGA
+→ config/cities.py 已于 Phase 0 修正
+→ Wunderground URLs:
+    Chicago: https://www.wunderground.com/history/daily/us/il/chicago/KORD
+    Dallas:  https://www.wunderground.com/history/daily/us/tx/dallas/KDAL
+    NYC:     https://www.wunderground.com/history/daily/us/ny/new-york-city/KLGA
 ```
 
 ### 0.2 气象数据管道验证
 
+> **⚠️ Phase 0 实侦结论（2026-04-06）— 已更新**
+
+**已验证的数据源**：
+
 ```python
-# 侦察脚本（notebook 00_api_recon.ipynb 续）
+# ✅ Open-Meteo — 已验证可用，两模型均返回
+GET https://api.open-meteo.com/v1/forecast
+    ?latitude={lat}&longitude={lon}
+    &daily=temperature_2m_max
+    &models=ecmwf_ifs025,gfs_seamless
+    &forecast_days=3
+    &timezone={tz}
 
-# Step 1: Open-Meteo（入门首选）
-GET https://api.open-meteo.com/v1/forecast?latitude=51.51&longitude=-0.13
-    &daily=temperature_2m_max&models=ecmwf_ifs025,gfs_seamless
-    &forecast_days=3&timezone=auto
+# 返回字段：
+#   daily.temperature_2m_max_ecmwf_ifs025  → ECMWF 预报最高温（°C）
+#   daily.temperature_2m_max_gfs_seamless  → GFS 预报最高温（°C）
+# 注意：Polymarket 结算用 °F，需转换：°F = °C × 9/5 + 32
 
-# 记录：返回格式、ECMWF vs GFS 预报差异、更新延迟
+# 三城市 2026-04-07 实测预报（2026-04-06 ~15:10 UTC 拉取）：
+#   Chicago:  ECMWF 0.8°C (33.4°F) / GFS 0.4°C (32.7°F) — 模型一致
+#   Dallas:   ECMWF 20.6°C (69.1°F) / GFS 23.1°C (73.6°F) — ⚠️ 2.5°C 分歧！
+#   NYC:      ECMWF 8.9°C (48°F) / GFS 8.5°C (47.3°F) — 模型一致
 
-# Step 2: METAR
-GET https://aviationweather.gov/api/data/metar?ids=EGLL&format=json
+# ✅ METAR — 已验证，温度精度为小数
+GET https://aviationweather.gov/api/data/metar?ids=KORD,KDAL,KLGA&format=json
+# 更新频率：每小时（整点前约 10 分钟）
+# 温度精度：小数（如 7.2°C），但 Polymarket 结算取整数 °F
 
-# 记录：
-# - 温度精度（整数？小数？）
-# - 更新频率（每小时？每半小时？）
-# - 哪些 ICAO 可用？与 Polymarket 城市的对应关系
+# ⚠️ 重要：监控的 ICAO 站与设计文档不同（见 0.1 修正）
+#   Chicago 监控 KORD  ✅
+#   Dallas  监控 KDAL  ← 非 KDFW
+#   NYC     监控 KLGA  ← 非 KJFK
 
-# Step 3: 关键验证 — METAR 实测 vs Polymarket 结算
-# 拉一个已结算市场 → 看结算温度
-# 拉同一天同一城市的 METAR 历史 → 找当天最高温
-# 两者是否一致？
+# ✅ Iowa Environmental Mesonet — KORD 历史数据已验证
+GET https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py
+    ?station=KORD&data=tmpf&format=onlycomma&report_type=3
+    &year1=YYYY&month1=MM&day1=DD&year2=YYYY&month2=MM&day2=DD
+# 频率：每小时（:51 分观测）
+# 精度：°F 小数
+# 可用性：确认可拉多年历史 METAR 数据
 
-# METAR 历史数据源：
-# Iowa Environmental Mesonet: https://mesonet.agron.iastate.edu/request/download.phtml
-# 可以拉到多年历史 METAR 数据
+# ⚠️ 关键验证（仍需完成）：METAR/Wunderground 实测 vs Polymarket 结算
+# Polymarket 用 Wunderground，Wunderground 底层来自 ASOS（与 METAR 同源）
+# 但 Dallas/NYC 使用不同气象站，需交叉验证历史结算数据确认一致性
 ```
 
 ### 0.3 数据录制系统
@@ -243,6 +316,8 @@ GET https://aviationweather.gov/api/data/metar?ids=EGLL&format=json
 
 ```python
 # data/models.py — 数据模型
+# 注：bin_label 格式为华氏度字符串，如 "38-39°F"、"≤27°F"、"≥46°F"
+#     Gamma API slug 格式: highest-temperature-in-{city}-on-april-{dd}-2026
 
 @dataclass
 class MarketSnapshot:
@@ -251,9 +326,9 @@ class MarketSnapshot:
     city: str
     date: str                    # 目标日期
     event_id: str
-    bin_label: str               # "22°C"
-    token_id_yes: str
-    token_id_no: str
+    bin_label: str               # "38-39°F"（华氏度，非摄氏度）
+    token_id_yes: str            # clobTokenIds[0]
+    token_id_no: str             # clobTokenIds[1]（直接可买 NO）
     yes_price: float
     no_price: float
     yes_best_bid: float          # order book 最优买
@@ -294,9 +369,10 @@ class SettlementRecord:
     city: str
     date: str
     event_id: str
-    winning_bin: str             # 哪个 bin 赢了
-    settlement_temp: float       # 结算温度（如果能获取）
-    settlement_source: str       # 结算数据源（如果能获取）
+    winning_bin: str             # 哪个 bin 赢了，格式如 "38-39°F"
+    settlement_temp: float       # 结算温度（整数华氏度，Wunderground 数据）
+    settlement_source: str       # 固定为 "wunderground"
+    wunderground_station: str    # 结算气象站（如 KDAL，非 KDFW）
 ```
 
 ```python
@@ -324,6 +400,8 @@ class DataRecorder:
 
     def record_market_snapshots(self):
         """每小时调用：录制所有活跃天气市场"""
+        # 注：不能用 ?tag=weather（无效），改用按城市 slug 拉取
+        # slug 格式: highest-temperature-in-{city}-on-april-{dd}-2026
         events = self._fetch_gamma_weather_events()
         for event in events:
             for market in event["markets"]:
@@ -340,6 +418,8 @@ class DataRecorder:
         """每小时调用：录制所有城市 METAR"""
         icao_list = [c["icao"] for c in CITIES.values()]
         # 批量请求 aviationweather.gov
+        # 注意：Dallas 用 KDAL（Love Field），NYC 用 KLGA（LaGuardia）
+        # 与 Polymarket Wunderground 结算站一致
         # ...
 
     def record_forecasts(self):
@@ -422,13 +502,25 @@ CREATE INDEX idx_settlement_city_date ON settlement_records(city, date);
 ```
 必须全部通过才能进入 Phase 1：
 
-✅/❌ 搞清楚了 bin 结构和结算规则
-✅/❌ 确认了 NO token 买入路径和成本
-✅/❌ 远端 bin 有足够流动性（>$5/bin）
-✅/❌ 至少 10 个城市有活跃天气市场
-✅/❌ METAR 数据源和结算数据源一致（或已知差异）
-✅/❌ 数据录制系统稳定运行 >3 天
-✅/❌ 已拉到至少 50 个已结算市场的历史数据
+✅ 搞清楚了 bin 结构和结算规则
+     → 2°F bins，整数华氏度，Wunderground 数据源
+     → endDate = 目标日 12:00 UTC（交易截止），结算可次日完成
+
+✅ 确认了 NO token 买入路径和成本
+     → 直接买 clobTokenIds[1]（NO token），无需 split 或 convert
+
+✅ 远端 bin 有足够流动性（>$5/bin）
+     → NYC ≤41°F NO 实测：$100 可在最优价格成交
+
+✅ 至少 10 个城市有活跃天气市场
+     → polymarket.com/weather 确认 40+ 城市
+
+✅ METAR 数据源和结算数据源一致（或已知差异）
+     → 已知差异已修正：Dallas → KDAL，NYC → KLGA
+     → Wunderground 底层与 ASOS/METAR 同源，精度对齐待历史验证
+
+❌ 数据录制系统稳定运行 >3 天        ← 尚未开始
+❌ 已拉到至少 50 个已结算市场的历史数据  ← 尚未开始
 
 → 通过：进入 Phase 1
 → 不通过：继续侦察 + 录数据，直到通过
@@ -509,7 +601,12 @@ class BacktestEngine:
           3. 模拟买入（用开盘价或录制的快照价）
           4. 如果 use_metar_confirm：模拟日内 METAR 调仓
           5. 用结算结果计算 P&L
-          6. 扣除费用（taker: 1.25% × p × (1-p)，或 maker: 0%）
+          6. 扣除费用（已完全确认）
+             taker: fee = shares × 0.05 × p × (1-p)
+             maker: 0 费（+ 25% rebate on taker fees）
+             远端 NO @ $0.97+：fee < 0.15%，可忽略
+             中段 NO @ $0.70：fee ≈ 1.05%，需计入回测
+             注：5% 是费率参数，非 5% 交易额；远端 bin 实际费用极低
         """
         pass
 ```
@@ -1213,33 +1310,57 @@ class PaperTrader:
 
 ```python
 # config/cities.py
+#
+# ⚠️ Phase 0 修正（2026-04-06）：
+#   Polymarket 用 Wunderground 结算，气象站与直觉不同：
+#     Dallas → KDAL（Love Field），不是 KDFW（DFW 机场）
+#     NYC    → KLGA（LaGuardia），不是 KJFK（JFK 机场）
+#   每新增城市前必须先查 Polymarket 市场描述里的 Wunderground URL 确认结算站。
+#
+# Gamma API slug 格式（已验证）：
+#   highest-temperature-in-{polymarket_slug_city}-on-{month}-{dd}-2026
+# 访问方式：GET https://gamma-api.polymarket.com/events?slug={slug}
+#   注：?tag=weather 过滤器无效，勿用
 
 CITIES = {
-    # ── Tier 1: 优先（流动性 + 预报准确率高）──
-    "London":     {"lat": 51.51, "lon": -0.13,  "icao": "EGLL", "tz": "Europe/London"},
-    "NYC":        {"lat": 40.71, "lon": -74.01, "icao": "KJFK", "tz": "America/New_York"},
-    "Seoul":      {"lat": 37.57, "lon": 126.98, "icao": "RKSI", "tz": "Asia/Seoul"},
-    "Chicago":    {"lat": 41.88, "lon": -87.63, "icao": "KORD", "tz": "America/Chicago"},
-    "Toronto":    {"lat": 43.65, "lon": -79.38, "icao": "CYYZ", "tz": "America/Toronto"},
+    # ── Phase 0 已验证（Chicago / Dallas / NYC）──
+    "Chicago": {
+        "lat": 41.88, "lon": -87.63,
+        "icao": "KORD",                    # O'Hare — 与 Polymarket 结算站一致 ✅
+        "tz": "America/Chicago",
+        "polymarket_slug_city": "chicago",
+        "wunderground_station": "KORD",
+    },
+    "Dallas": {
+        "lat": 32.84, "lon": -96.85,       # Love Field 坐标（非 DFW）
+        "icao": "KDAL",                    # Love Field ✅（原设计错误写了 KDFW）
+        "tz": "America/Chicago",
+        "polymarket_slug_city": "dallas",
+        "wunderground_station": "KDAL",
+    },
+    "NYC": {
+        "lat": 40.78, "lon": -73.87,       # LaGuardia 坐标（非 JFK）
+        "icao": "KLGA",                    # LaGuardia ✅（原设计错误写了 KJFK）
+        "tz": "America/New_York",
+        "polymarket_slug_city": "nyc",
+        "wunderground_station": "KLGA",
+    },
 
-    # ── Tier 2: 中等 ──
-    "Ankara":     {"lat": 39.93, "lon": 32.86,  "icao": "LTAC", "tz": "Europe/Istanbul"},
-    "Miami":      {"lat": 25.76, "lon": -80.19, "icao": "KMIA", "tz": "America/New_York"},
-    "Dallas":     {"lat": 32.78, "lon": -96.80, "icao": "KDFW", "tz": "America/Chicago"},
-    "Atlanta":    {"lat": 33.75, "lon": -84.39, "icao": "KATL", "tz": "America/New_York"},
-    "Tokyo":      {"lat": 35.68, "lon": 139.69, "icao": "RJTT", "tz": "Asia/Tokyo"},
-    "Paris":      {"lat": 48.86, "lon": 2.35,   "icao": "LFPG", "tz": "Europe/Paris"},
-    "Istanbul":   {"lat": 41.01, "lon": 28.98,  "icao": "LTFM", "tz": "Europe/Istanbul"},
+    # ── Tier 1: 待验证（需先确认 Polymarket 结算站再启用）──
+    # "London":   {"lat": 51.51, "lon": -0.13,  "icao": "EGLL", "tz": "Europe/London",      "polymarket_slug_city": "london"},
+    # "Seoul":    {"lat": 37.57, "lon": 126.98, "icao": "RKSI", "tz": "Asia/Seoul",          "polymarket_slug_city": "seoul"},
+    # "Toronto":  {"lat": 43.65, "lon": -79.38, "icao": "CYYZ", "tz": "America/Toronto",     "polymarket_slug_city": "toronto"},
 
-    # ── Tier 3: 利基（可能有更大定价偏差）──
-    "Wellington": {"lat": -41.29, "lon": 174.78, "icao": "NZWN", "tz": "Pacific/Auckland"},
-    "Buenos_Aires": {"lat": -34.60, "lon": -58.38, "icao": "SAEZ", "tz": "America/Argentina/Buenos_Aires"},
-    "Auckland":   {"lat": -36.85, "lon": 174.76, "icao": "NZAA", "tz": "Pacific/Auckland"},
+    # ── Tier 2: 待验证 ──
+    # "Ankara":   {"lat": 39.93, "lon": 32.86,  "icao": "LTAC", "tz": "Europe/Istanbul"},
+    # "Miami":    {"lat": 25.76, "lon": -80.19, "icao": "KMIA", "tz": "America/New_York"},
+    # "Atlanta":  {"lat": 33.75, "lon": -84.39, "icao": "KATL", "tz": "America/New_York"},
+    # "Tokyo":    {"lat": 35.68, "lon": 139.69, "icao": "RJTT", "tz": "Asia/Tokyo"},
+    # "Paris":    {"lat": 48.86, "lon": 2.35,   "icao": "LFPG", "tz": "Europe/Paris"},
+    # "Istanbul": {"lat": 41.01, "lon": 28.98,  "icao": "LTFM", "tz": "Europe/Istanbul"},
 
-    # ── 待确认（Phase 0 验证是否有市场）──
-    # "Mumbai", "São Paulo", "Mexico City", "Cairo", "Bangkok",
-    # "Berlin", "Madrid", "Rome", "Sydney", "Melbourne",
-    # "Denver", "Phoenix", "Houston", "San Francisco", "Seattle",
+    # ── Tier 3: 待确认（Phase 0 验证是否有市场）──
+    # "Wellington", "Buenos_Aires", "Auckland" 等
 }
 ```
 
@@ -1283,13 +1404,13 @@ xarray>=2023.0                 # 气象数据处理
 
 | 风险 | 影响 | 发现时机 | 应对 |
 |------|------|---------|------|
-| NO 流动性不够 | 策略无法执行 | Phase 0 | 转 YES-first 或混合策略 |
+| NO 流动性不够 | 策略无法执行 | Phase 0 ✅已验证 | 远端 bin $100 可成交，流动性充足 |
 | 历史数据不够 | 回测不可靠 | Phase 0-1 | 延长录数据周期到 4 周 |
 | 回测亏钱 | 策略无效 | Phase 1 | 重新审视 NO vs YES 比例 |
 | 资本效率太低 | $500 不够 | Phase 1 | 提高本金 or 调整为 YES-heavy |
 | 模拟盘 vs 回测偏差大 | 执行摩擦 | Phase 2 | 调整滑点假设和成交率 |
 | Maker 挂单不成交 | 被迫用 Taker（1.25% fee） | Phase 2-3 | 调整挂单策略（更激进的价格） |
-| 结算数据源不一致 | P&L 计算错误 | Phase 0 | 找到正确数据源并校准 |
+| 结算数据源不一致 | P&L 计算错误 | Phase 0 ✅已发现 | Wunderground 站确认：Dallas→KDAL，NYC→KLGA |
 | 市场结构变化 | 参数失效 | 持续 | 每周重新跑参数扫描 |
 | Polymarket 费率变化 | 利润压缩 | 持续 | 监控 changelog |
 | Bot 崩溃 | 持仓无人管理 | Phase 3 | 崩溃恢复 + Telegram 告警 |
@@ -1319,6 +1440,57 @@ xarray>=2023.0                 # 气象数据处理
 
 ---
 
-*设计版本：v2.0 | 系统性四阶段设计 | 2026年4月*
-*基于：@chunxiangai NO-first 策略 + 排行榜数据 + 盲区分析*
-*下一步：Phase 0 — 调 Gamma API 看真实天气市场结构*
+---
+
+## Phase 0 实侦记录（2026-04-06，Chicago / Dallas / NYC）
+
+### 主要发现
+
+```
+1. Gamma API tag 过滤器无效
+   ?tag=weather 被静默忽略。正确方式：按 slug 逐城市拉取。
+
+2. 结算站与设计文档不同（最重要修正）
+   Dallas: KDAL（Love Field），非 KDFW（DFW 机场）
+   NYC:    KLGA（LaGuardia），非 KJFK（JFK 机场）
+   → config/cities.py 已修正
+
+3. 市场结构已全面核实
+   - 11 bins / 城市，2°F 区间，华氏度整数精度
+   - negRisk: true，clobTokenIds[1] 为 NO token
+   - 直接 CLOB 购买 NO token 可行（方法 A）
+   - 40+ 城市活跃市场（polymarket.com/weather）
+
+4. NO token 三种路径全部验证
+   - 方法 A（直接 CLOB 买 NO）：最优，秒级，fee = 5%×p×(1-p)
+   - 方法 B（split+卖YES）：成本相同但慢，远端 bin YES 流动性不足
+   - 方法 C（convertPositions）：再平衡工具，不适用于买入
+   - 费率确认：Weather 类别 5% taker，maker 0%
+
+5. 流动性充足
+   远端 bin $100 可在最优价格一次成交，spread ≈ $0.005
+
+5. 市场日历确认
+   交易截止：目标日 12:00 UTC（本地早上），结算次日完成
+
+6. 模型 vs 市场价格 — Chicago 异常（2026-04-07）
+   ECMWF/GFS 预报约 33°F，但市场峰值 bin 为 38-39°F（38% YES）
+   5°F 偏差，待 4 月 7 日 METAR 数据验证归因
+
+7. Dallas 模型分歧高
+   ECMWF 69°F vs GFS 74°F，差 2.5°C → 高不确定性，策略需谨慎
+```
+
+### 当前 Phase 0 状态
+
+```
+✅ API 侦察完成（Go/No-Go 前 5 项通过）
+❌ 数据录制系统：待实现（market_recorder.py）
+❌ 历史数据积累：待开始（目标：50+ 已结算市场）
+```
+
+---
+
+*设计版本：v2.1 | Phase 0 实侦更新 | 2026年4月*
+*基于：@chunxiangai NO-first 策略 + 排行榜数据 + Phase 0 API 实侦（Chicago/Dallas/NYC）*
+*下一步：实现 data/market_recorder.py，开始录制数据*

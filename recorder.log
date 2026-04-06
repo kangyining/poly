@@ -1,0 +1,753 @@
+2026-04-06 18:50:46 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 18:50:46 INFO __main__ — === Running all jobs ===
+2026-04-06 18:50:47 INFO data.metar_recorder — METAR: saved 3/3 records
+2026-04-06 18:53:27 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 18:53:27 INFO __main__ — === Running all jobs ===
+2026-04-06 18:53:27 INFO data.metar_recorder — METAR: saved 3/3 records
+2026-04-06 18:53:28 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:30 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:32 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:37 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:42 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:44 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:46 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:51 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:55 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:53:56 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:53:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:00 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:04 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:05 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:06 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:09 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:11 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:13 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:14 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:15 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:18 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:18 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:20 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:22 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:23 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:27 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:31 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:32 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:36 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:40 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:41 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:45 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:49 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:54 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:54:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:56 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:58 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:54:59 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:03 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:03 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:05 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:07 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:07 INFO data.market_recorder — Snapshots: Chicago 2026-04-06 — 11 bins
+2026-04-06 18:55:08 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:10 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:12 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:13 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:14 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:16 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 18:55:16 INFO __main__ — === Running all jobs ===
+2026-04-06 18:55:16 INFO data.metar_recorder — METAR: saved 3/3 records
+2026-04-06 18:55:17 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:55:18 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:55:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:22 WARNING data.gamma_client — Order book fetch failed for 3671833871055464: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:55:22 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:55:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:55:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:26 WARNING data.gamma_client — Order book fetch failed for 1387258779769578: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:55:27 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:55:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:55:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:31 WARNING data.gamma_client — Order book fetch failed for 9463469843567945: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:55:32 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:32 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:55:32 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:55:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:36 WARNING data.gamma_client — Order book fetch failed for 1000506190887916: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:55:37 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:37 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:55:37 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:55:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:41 WARNING data.gamma_client — Order book fetch failed for 4216251704212207: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:55:41 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:55:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:55:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:46 WARNING data.gamma_client — Order book fetch failed for 8876538280300736: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:55:46 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:46 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:55:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:55:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:50 WARNING data.gamma_client — Order book fetch failed for 3213376289798702: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:55:51 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:55:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:55:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:55 WARNING data.gamma_client — Order book fetch failed for 2549081177562733: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:55:56 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:55:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:55:58 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:01 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:03 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:03 INFO data.market_recorder — Snapshots: Chicago 2026-04-06 — 11 bins
+2026-04-06 18:56:06 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:11 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:12 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:14 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:17 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:17 INFO data.market_recorder — Snapshots: Chicago 2026-04-07 — 11 bins
+2026-04-06 18:56:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:18 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:56:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:56:21 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:22 WARNING data.gamma_client — Order book fetch failed for 7140550468451697: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:56:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:56:23 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:56:26 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:27 WARNING data.gamma_client — Order book fetch failed for 5453545008549337: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:56:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:56:28 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:56:31 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:31 WARNING data.gamma_client — Order book fetch failed for 2616832247719086: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:56:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:32 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:56:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:56:35 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:36 WARNING data.gamma_client — Order book fetch failed for 9577117425456320: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:56:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:56:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:56:40 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:41 WARNING data.gamma_client — Order book fetch failed for 6682471191343723: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:56:41 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:41 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 18:56:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 18:56:45 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:45 WARNING data.gamma_client — Order book fetch failed for 9104236578849704: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 18:56:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:46 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 18:56:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 18:56:49 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:50 WARNING data.gamma_client — Order book fetch failed for 5837604635335681: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 18:56:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 18:56:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 18:56:54 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:56:54 INFO data.market_recorder — Snapshots: Chicago 2026-04-07 — 11 bins
+2026-04-06 18:56:55 WARNING data.gamma_client — Order book fetch failed for 1664637455261774: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 18:56:55 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:56:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:00 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:01 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:03 INFO data.market_recorder — Snapshots: Dallas 2026-04-06 — 11 bins
+2026-04-06 18:57:05 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:06 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:10 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:11 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:12 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:15 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:16 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:16 INFO data.market_recorder — Snapshots: Dallas 2026-04-07 — 11 bins
+2026-04-06 18:57:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 18:57:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:18 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 18:57:20 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:20 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:21 WARNING data.gamma_client — Order book fetch failed for 2866717377217944: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 18:57:21 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 18:57:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:23 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 18:57:24 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:25 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:25 WARNING data.gamma_client — Order book fetch failed for 2890126322923213: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 18:57:26 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 18:57:26 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 18:57:29 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:30 WARNING data.gamma_client — Order book fetch failed for 7997716420068561: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 18:57:30 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 18:57:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:32 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 18:57:33 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:34 WARNING data.gamma_client — Order book fetch failed for 1051100698178493: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 18:57:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 18:57:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 18:57:38 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:39 WARNING data.gamma_client — Order book fetch failed for 1572988264861574: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 18:57:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 18:57:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:41 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 18:57:42 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:43 WARNING data.gamma_client — Order book fetch failed for 9490580330554322: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 18:57:44 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:47 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:52 INFO data.market_recorder — Snapshots: NYC 2026-04-06 — 11 bins
+2026-04-06 18:57:52 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:57:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:55 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:57 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:57:58 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:03 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:03 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:05 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:05 INFO data.market_recorder — Snapshots: NYC 2026-04-07 — 11 bins
+2026-04-06 18:58:05 INFO data.market_recorder — Market snapshots total saved: 66
+2026-04-06 18:58:06 INFO data.forecast_recorder — Forecasts saved for Chicago (3 days)
+2026-04-06 18:58:07 INFO data.forecast_recorder — Forecasts saved for Dallas (3 days)
+2026-04-06 18:58:08 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:08 INFO data.forecast_recorder — Forecasts saved for NYC (3 days)
+2026-04-06 18:58:08 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:10 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:12 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:13 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:14 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:17 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:21 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:23 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:26 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:26 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:28 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:30 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:32 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 18:58:32 INFO __main__ — === Running all jobs ===
+2026-04-06 18:58:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:33 INFO data.metar_recorder — METAR: saved 3/3 records
+2026-04-06 18:58:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:58:35 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:58:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:37 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:38 WARNING data.gamma_client — Order book fetch failed for 3671833871055464: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=36718338710554645335076816326373586809521993490512320096293094217846698561971
+2026-04-06 18:58:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:58:40 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:40 INFO data.market_recorder — Snapshots: Dallas 2026-04-06 — 11 bins
+2026-04-06 18:58:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:58:41 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:43 WARNING data.gamma_client — Order book fetch failed for 1387258779769578: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=13872587797695785893304282945801851928743758207477652117245653094777094479957
+2026-04-06 18:58:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:58:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:58:45 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:46 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:47 WARNING data.gamma_client — Order book fetch failed for 9463469843567945: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94634698435679450059964348462375244873238190019674049862192377111091716120549
+2026-04-06 18:58:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:58:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:58:50 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:52 WARNING data.gamma_client — Order book fetch failed for 1000506190887916: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=100050619088791628554082421996054303148310964121762672357940629161984670794845
+2026-04-06 18:58:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:58:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:58:54 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:58:55 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:56 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:58:57 WARNING data.gamma_client — Order book fetch failed for 4216251704212207: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=42162517042122070638045228194765093393834653767435020019172519146702217019930
+2026-04-06 18:58:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:58:59 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:58:59 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:01 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:01 WARNING data.gamma_client — Order book fetch failed for 8876538280300736: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=88765382803007363571172593871042633438077539225572013738609152233858566967706
+2026-04-06 18:59:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:59:04 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:59:04 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:04 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:06 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:06 WARNING data.gamma_client — Order book fetch failed for 3213376289798702: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=32133762897987029618017974857661600268516178392056708181186110716027357579400
+2026-04-06 18:59:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:59:08 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:59:08 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:10 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:11 WARNING data.gamma_client — Order book fetch failed for 2549081177562733: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=2549081177562733988801334193938850306271919195866266549386750296054088553031
+2026-04-06 18:59:13 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:14 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:16 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:18 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:19 INFO data.market_recorder — Snapshots: Chicago 2026-04-06 — 11 bins
+2026-04-06 18:59:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:21 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:23 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:26 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:28 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:32 INFO data.market_recorder — Snapshots: Chicago 2026-04-07 — 11 bins
+2026-04-06 18:59:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:59:34 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:59:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:38 WARNING data.gamma_client — Order book fetch failed for 7140550468451697: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=71405504684516973355533209455748979832068488764706107568476331649178109287715
+2026-04-06 18:59:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:59:38 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:59:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:42 WARNING data.gamma_client — Order book fetch failed for 5453545008549337: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=54535450085493370763389303531971012183987788903832503704828893819051916788126
+2026-04-06 18:59:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:59:43 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:44 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:59:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:47 WARNING data.gamma_client — Order book fetch failed for 2616832247719086: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=26168322477190868366001732454712035897630875557489296219858354572482756255434
+2026-04-06 18:59:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:59:48 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:49 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:59:50 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:52 WARNING data.gamma_client — Order book fetch failed for 9577117425456320: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=95771174254563201660074089802498735939587383163743319047200928784061554724265
+2026-04-06 18:59:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:59:52 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:59:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:56 WARNING data.gamma_client — Order book fetch failed for 6682471191343723: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=66824711913437233024518425880955526595469149431525943967519013537891541297278
+2026-04-06 18:59:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 18:59:57 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 18:59:58 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 18:59:59 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 18:59:59 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:01 WARNING data.gamma_client — Order book fetch failed for 9104236578849704: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=91042365788497048890187416342611020176416888398484517572679595347412531033602
+2026-04-06 19:00:02 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:03 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 19:00:04 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:04 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 19:00:06 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:07 WARNING data.gamma_client — Order book fetch failed for 5837604635335681: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=58376046353356819052974689866247526074540783061130916073675718035550238734859
+2026-04-06 19:00:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 19:00:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 19:00:11 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:12 WARNING data.gamma_client — Order book fetch failed for 1664637455261774: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=16646374552617740839010123055211394276171125316869441329440499176820083374089
+2026-04-06 19:00:12 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:13 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:16 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:20 INFO data.market_recorder — Snapshots: Dallas 2026-04-06 — 11 bins
+2026-04-06 19:00:21 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:26 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:26 INFO data.market_recorder — Snapshots: Dallas 2026-04-07 — 11 bins
+2026-04-06 19:00:28 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:32 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:33 INFO data.market_recorder — Snapshots: Dallas 2026-04-07 — 11 bins
+2026-04-06 19:00:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 19:00:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 19:00:37 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:37 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:38 WARNING data.gamma_client — Order book fetch failed for 2866717377217944: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28667173772179446820528011301349469732913031635840442915514640476315581695139
+2026-04-06 19:00:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 19:00:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 19:00:41 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:42 WARNING data.gamma_client — Order book fetch failed for 2890126322923213: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=28901263229232135776640378259366582665146896553753323777584520093730322049325
+2026-04-06 19:00:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 19:00:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 19:00:46 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:47 WARNING data.gamma_client — Order book fetch failed for 7997716420068561: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=79977164200685618136167376933583601946276278577887008412186363256655552942200
+2026-04-06 19:00:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 19:00:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:49 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 19:00:51 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:52 WARNING data.gamma_client — Order book fetch failed for 1051100698178493: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=10511006981784933051946849731593840063345102602436722023483875864870909222552
+2026-04-06 19:00:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 19:00:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 19:00:55 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:00:56 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:56 WARNING data.gamma_client — Order book fetch failed for 1572988264861574: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=15729882648615744465860397202485625780682710021159332817169937487242584932200
+2026-04-06 19:00:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 19:00:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:00:58 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 19:01:00 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:01 WARNING data.gamma_client — Order book fetch failed for 9490580330554322: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=94905803305543227007612400894275485892058931554298206130259114323706713027866
+2026-04-06 19:01:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:05 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:05 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:10 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:10 INFO data.market_recorder — Snapshots: NYC 2026-04-06 — 11 bins
+2026-04-06 19:01:10 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:12 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:15 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:15 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:20 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:20 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:23 INFO data.market_recorder — Snapshots: NYC 2026-04-07 — 11 bins
+2026-04-06 19:01:23 INFO data.market_recorder — Market snapshots total saved: 66
+2026-04-06 19:01:23 INFO data.forecast_recorder — Forecasts saved for Chicago (3 days)
+2026-04-06 19:01:24 INFO data.forecast_recorder — Forecasts saved for Dallas (3 days)
+2026-04-06 19:01:25 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:25 INFO data.forecast_recorder — Forecasts saved for NYC (3 days)
+2026-04-06 19:01:25 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:26 INFO data.settlement_tracker — Daily settlement check: saved 3 new records
+2026-04-06 19:01:26 INFO __main__ — Snapshots in DB: 182 | Settlements in DB: 3
+2026-04-06 19:01:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:29 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:30 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:34 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:34 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:38 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:43 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:43 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:47 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:49 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:52 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:52 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:54 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:56 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:01:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:01:58 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:01 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:01 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:03 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:05 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:06 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:07 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:10 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:10 INFO data.market_recorder — Snapshots: NYC 2026-04-06 — 11 bins
+2026-04-06 19:02:11 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:12 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:15 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:15 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:17 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:19 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:20 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:21 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:24 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:26 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:28 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:29 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:30 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:33 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:35 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:37 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:38 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:39 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:42 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:44 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:46 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:47 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:48 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:51 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:51 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:53 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:55 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:02:56 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:02:57 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:00 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:00 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:02 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:04 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:05 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:06 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:08 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:09 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:10 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:13 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:13 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:15 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:17 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:18 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:19 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:22 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:22 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:24 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:26 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:27 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:28 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:31 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:31 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:33 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:35 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:36 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:37 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:40 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:40 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:42 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:44 WARNING data.gamma_client — Order book fetch failed for ": 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%22
+2026-04-06 19:03:45 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 1): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:46 WARNING data.gamma_client — GET https://clob.polymarket.com/book failed (attempt 2): 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:49 WARNING data.gamma_client — Order book fetch failed for [: 404 Client Error: Not Found for url: https://clob.polymarket.com/book?token_id=%5B
+2026-04-06 19:03:49 INFO data.market_recorder — Snapshots: NYC 2026-04-07 — 11 bins
+2026-04-06 19:03:49 INFO data.market_recorder — Market snapshots total saved: 66
+2026-04-06 19:03:50 INFO data.forecast_recorder — Forecasts saved for Chicago (3 days)
+2026-04-06 19:03:50 INFO data.forecast_recorder — Forecasts saved for Dallas (3 days)
+2026-04-06 19:03:51 INFO data.forecast_recorder — Forecasts saved for NYC (3 days)
+2026-04-06 19:03:51 INFO data.settlement_tracker — Daily settlement check: saved 0 new records
+2026-04-06 19:03:51 INFO __main__ — Snapshots in DB: 198 | Settlements in DB: 3
+2026-04-06 19:18:57 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 19:18:57 INFO __main__ — Starting backfill — looking back 60 days
+2026-04-06 19:18:57 INFO data.settlement_tracker — Backfill: Chicago 2026-04-04 -> 57°F or below
+2026-04-06 19:18:58 INFO data.settlement_tracker — Backfill: Chicago 2026-04-03 -> 58°F or higher
+2026-04-06 19:18:58 INFO data.settlement_tracker — Backfill: Chicago 2026-04-02 -> 48°F or higher
+2026-04-06 19:18:59 INFO data.settlement_tracker — Backfill: Chicago 2026-04-01 -> 40-41°F
+2026-04-06 19:19:00 INFO data.settlement_tracker — Backfill: Chicago 2026-03-30 -> 76°F or higher
+2026-04-06 19:19:00 INFO data.settlement_tracker — Backfill: Chicago 2026-03-29 -> 62-63°F
+2026-04-06 19:19:01 INFO data.settlement_tracker — Backfill: Chicago 2026-03-28 -> 48-49°F
+2026-04-06 19:19:01 INFO data.settlement_tracker — Backfill: Chicago 2026-03-27 -> 44-45°F
+2026-04-06 19:19:02 INFO data.settlement_tracker — Backfill: Chicago 2026-03-26 -> 66-67°F
+2026-04-06 19:19:02 INFO data.settlement_tracker — Backfill: Chicago 2026-03-25 -> 68°F or higher
+2026-04-06 19:19:03 INFO data.settlement_tracker — Backfill: Chicago 2026-03-24 -> 50-51°F
+2026-04-06 19:19:03 INFO data.settlement_tracker — Backfill: Chicago 2026-03-23 -> 40-41°F
+2026-04-06 19:19:04 INFO data.settlement_tracker — Backfill: Chicago 2026-03-22 -> 68-69°F
+2026-04-06 19:19:04 INFO data.settlement_tracker — Backfill: Chicago 2026-03-21 -> 76-77°F
+2026-04-06 19:19:05 INFO data.settlement_tracker — Backfill: Chicago 2026-03-20 -> 70-71°F
+2026-04-06 19:19:05 INFO data.settlement_tracker — Backfill: Chicago 2026-03-19 -> 56°F or higher
+2026-04-06 19:19:06 INFO data.settlement_tracker — Backfill: Chicago 2026-03-18 -> 46-47°F
+2026-04-06 19:19:06 INFO data.settlement_tracker — Backfill: Chicago 2026-03-17 -> 24-25°F
+2026-04-06 19:19:07 INFO data.settlement_tracker — Backfill: Chicago 2026-03-16 -> 30-31°F
+2026-04-06 19:19:07 INFO data.settlement_tracker — Backfill: Chicago 2026-03-15 -> 62-63°F
+2026-04-06 19:19:08 INFO data.settlement_tracker — Backfill: Chicago 2026-03-14 -> 36-37°F
+2026-04-06 19:19:08 INFO data.settlement_tracker — Backfill: Chicago 2026-03-13 -> 46-47°F
+2026-04-06 19:19:09 INFO data.settlement_tracker — Backfill: Chicago 2026-03-12 -> 44-45°F
+2026-04-06 19:19:10 INFO data.settlement_tracker — Backfill: Chicago 2026-03-11 -> 46-47°F
+2026-04-06 19:19:10 INFO data.settlement_tracker — Backfill: Chicago 2026-03-10 -> 60-61°F
+2026-04-06 19:19:11 INFO data.settlement_tracker — Backfill: Chicago 2026-03-09 -> 72-73°F
+2026-04-06 19:19:11 INFO data.settlement_tracker — Backfill: Chicago 2026-03-08 -> 62-63°F
+2026-04-06 19:19:12 INFO data.settlement_tracker — Backfill: Chicago 2026-03-07 -> 60°F or higher
+2026-04-06 19:19:12 INFO data.settlement_tracker — Backfill: Chicago 2026-03-06 -> 64-65°F
+2026-04-06 19:19:13 INFO data.settlement_tracker — Backfill: Chicago 2026-03-05 -> 50-51°F
+2026-04-06 19:19:13 INFO data.settlement_tracker — Backfill: Chicago 2026-03-04 -> 44-45°F
+2026-04-06 19:19:14 INFO data.settlement_tracker — Backfill: Chicago 2026-03-03 -> 42-43°F
+2026-04-06 19:19:14 INFO data.settlement_tracker — Backfill: Chicago 2026-03-02 -> 42-43°F
+2026-04-06 19:19:15 INFO data.settlement_tracker — Backfill: Chicago 2026-03-01 -> 32-33°F
+2026-04-06 19:19:15 INFO data.settlement_tracker — Backfill: Chicago 2026-02-28 -> 42°F or higher
+2026-04-06 19:19:16 INFO data.settlement_tracker — Backfill: Chicago 2026-02-27 -> 64-65°F
+2026-04-06 19:19:16 INFO data.settlement_tracker — Backfill: Chicago 2026-02-26 -> 40-41°F
+2026-04-06 19:19:17 INFO data.settlement_tracker — Backfill: Chicago 2026-02-25 -> 36-37°F
+2026-04-06 19:19:18 INFO data.settlement_tracker — Backfill: Chicago 2026-02-24 -> 38-39°F
+2026-04-06 19:19:18 INFO data.settlement_tracker — Backfill: Chicago 2026-02-23 -> 28-29°F
+2026-04-06 19:19:19 INFO data.settlement_tracker — Backfill: Chicago 2026-02-22 -> 26-27°F
+2026-04-06 19:19:20 INFO data.settlement_tracker — Backfill: Chicago 2026-02-21 -> 29°F or below
+2026-04-06 19:19:20 INFO data.settlement_tracker — Backfill: Chicago 2026-02-20 -> 44-45°F
+2026-04-06 19:19:21 INFO data.settlement_tracker — Backfill: Chicago 2026-02-19 -> 54°F or higher
+2026-04-06 19:19:21 INFO data.settlement_tracker — Backfill: Chicago 2026-02-18 -> 62-63°F
+2026-04-06 19:19:22 INFO data.settlement_tracker — Backfill: Chicago 2026-02-17 -> 54°F or higher
+2026-04-06 19:19:22 INFO data.settlement_tracker — Backfill: Chicago 2026-02-16 -> 52°F or higher
+2026-04-06 19:19:23 INFO data.settlement_tracker — Backfill: Chicago 2026-02-15 -> 46°F or higher
+2026-04-06 19:19:24 INFO data.settlement_tracker — Backfill: Chicago 2026-02-14 -> 50-51°F
+2026-04-06 19:19:24 INFO data.settlement_tracker — Backfill: Chicago 2026-02-13 -> 50°F or higher
+2026-04-06 19:19:25 INFO data.settlement_tracker — Backfill: Chicago 2026-02-12 -> 38-39°F
+2026-04-06 19:19:25 INFO data.settlement_tracker — Backfill: Chicago 2026-02-11 -> 42-43°F
+2026-04-06 19:19:26 INFO data.settlement_tracker — Backfill: Chicago 2026-02-10 -> 42°F or higher
+2026-04-06 19:19:27 INFO data.settlement_tracker — Backfill: Chicago 2026-02-09 -> 38-39°F
+2026-04-06 19:19:27 INFO data.settlement_tracker — Backfill: Chicago 2026-02-08 -> 30-31°F
+2026-04-06 19:19:28 INFO data.settlement_tracker — Backfill: Chicago 2026-02-07 -> 24-25°F
+2026-04-06 19:19:28 INFO data.settlement_tracker — Backfill: Chicago 2026-02-06 -> 38-39°F
+2026-04-06 19:19:29 INFO data.settlement_tracker — Backfill: Chicago 2026-02-05 -> 30-31°F
+2026-04-06 19:19:30 INFO data.settlement_tracker — Backfill: Dallas 2026-04-04 -> 74-75°F
+2026-04-06 19:19:30 INFO data.settlement_tracker — Backfill: Dallas 2026-04-03 -> 82-83°F
+2026-04-06 19:19:31 INFO data.settlement_tracker — Backfill: Dallas 2026-04-02 -> 82-83°F
+2026-04-06 19:19:31 INFO data.settlement_tracker — Backfill: Dallas 2026-04-01 -> 84°F or higher
+2026-04-06 19:19:32 INFO data.settlement_tracker — Backfill: Dallas 2026-03-30 -> 82-83°F
+2026-04-06 19:19:33 INFO data.settlement_tracker — Backfill: Dallas 2026-03-29 -> 82-83°F
+2026-04-06 19:19:34 INFO data.settlement_tracker — Backfill: Dallas 2026-03-28 -> 56-57°F
+2026-04-06 19:19:34 INFO data.settlement_tracker — Backfill: Dallas 2026-03-27 -> 74-75°F
+2026-04-06 19:19:35 INFO data.settlement_tracker — Backfill: Dallas 2026-03-26 -> 84-85°F
+2026-04-06 19:19:35 INFO data.settlement_tracker — Backfill: Dallas 2026-03-25 -> 84-85°F
+2026-04-06 19:19:36 INFO data.settlement_tracker — Backfill: Dallas 2026-03-24 -> 82-83°F
+2026-04-06 19:19:36 INFO data.settlement_tracker — Backfill: Dallas 2026-03-23 -> 80-81°F
+2026-04-06 19:19:37 INFO data.settlement_tracker — Backfill: Dallas 2026-03-22 -> 92-93°F
+2026-04-06 19:19:38 INFO data.settlement_tracker — Backfill: Dallas 2026-03-21 -> 90-91°F
+2026-04-06 19:19:38 INFO data.settlement_tracker — Backfill: Dallas 2026-03-20 -> 88-89°F
+2026-04-06 19:19:39 INFO data.settlement_tracker — Backfill: Dallas 2026-03-19 -> 86-87°F
+2026-04-06 19:19:39 INFO data.settlement_tracker — Backfill: Dallas 2026-03-18 -> 74-75°F
+2026-04-06 19:19:40 INFO data.settlement_tracker — Backfill: Dallas 2026-03-17 -> 62-63°F
+2026-04-06 19:19:40 INFO data.settlement_tracker — Backfill: Dallas 2026-03-16 -> 48-49°F
+2026-04-06 19:19:41 INFO data.settlement_tracker — Backfill: Dallas 2026-03-15 -> 84-85°F
+2026-04-06 19:19:42 INFO data.settlement_tracker — Backfill: Dallas 2026-03-14 -> 80-81°F
+2026-04-06 19:19:42 INFO data.settlement_tracker — Backfill: Dallas 2026-03-13 -> 76-77°F
+2026-04-06 19:19:43 INFO data.settlement_tracker — Backfill: Dallas 2026-03-12 -> 62-63°F
+2026-04-06 19:19:43 INFO data.settlement_tracker — Backfill: Dallas 2026-03-11 -> 74°F or higher
+2026-04-06 19:19:44 INFO data.settlement_tracker — Backfill: Dallas 2026-03-10 -> 82°F or higher
+2026-04-06 19:19:45 INFO data.settlement_tracker — Backfill: Dallas 2026-03-09 -> 84-85°F
+2026-04-06 19:19:45 INFO data.settlement_tracker — Backfill: Dallas 2026-03-08 -> 66°F or higher
+2026-04-06 19:19:46 INFO data.settlement_tracker — Backfill: Dallas 2026-03-07 -> 64°F or higher
+2026-04-06 19:19:46 INFO data.settlement_tracker — Backfill: Dallas 2026-03-06 -> 82-83°F
+2026-04-06 19:19:47 INFO data.settlement_tracker — Backfill: Dallas 2026-03-05 -> 80-81°F
+2026-04-06 19:19:47 INFO data.settlement_tracker — Backfill: Dallas 2026-03-04 -> 74°F or higher
+2026-04-06 19:19:48 INFO data.settlement_tracker — Backfill: Dallas 2026-03-03 -> 84°F or higher
+2026-04-06 19:19:49 INFO data.settlement_tracker — Backfill: Dallas 2026-03-02 -> 72°F or higher
+2026-04-06 19:19:49 INFO data.settlement_tracker — Backfill: Dallas 2026-03-01 -> 72°F or higher
+2026-04-06 19:19:50 INFO data.settlement_tracker — Backfill: Dallas 2026-02-28 -> 82-83°F
+2026-04-06 19:19:50 INFO data.settlement_tracker — Backfill: Dallas 2026-02-27 -> 74°F or higher
+2026-04-06 19:19:51 INFO data.settlement_tracker — Backfill: Dallas 2026-02-26 -> 82°F or higher
+2026-04-06 19:19:52 INFO data.settlement_tracker — Backfill: Dallas 2026-02-25 -> 80-81°F
+2026-04-06 19:19:52 INFO data.settlement_tracker — Backfill: Dallas 2026-02-24 -> 70-71°F
+2026-04-06 19:19:53 INFO data.settlement_tracker — Backfill: Dallas 2026-02-23 -> 60-61°F
+2026-04-06 19:19:53 INFO data.settlement_tracker — Backfill: Dallas 2026-02-22 -> 58-59°F
+2026-04-06 19:19:54 INFO data.settlement_tracker — Backfill: Dallas 2026-02-21 -> 62-63°F
+2026-04-06 19:19:55 INFO data.settlement_tracker — Backfill: Dallas 2026-02-20 -> 65°F or below
+2026-04-06 19:19:55 INFO data.settlement_tracker — Backfill: Dallas 2026-02-19 -> 78-79°F
+2026-04-06 19:19:56 INFO data.settlement_tracker — Backfill: Dallas 2026-02-18 -> 76-77°F
+2026-04-06 19:19:56 INFO data.settlement_tracker — Backfill: Dallas 2026-02-17 -> 76-77°F
+2026-04-06 19:19:57 INFO data.settlement_tracker — Backfill: Dallas 2026-02-16 -> 70-71°F
+2026-04-06 19:19:57 INFO data.settlement_tracker — Backfill: Dallas 2026-02-15 -> 68°F or higher
+2026-04-06 19:19:58 INFO data.settlement_tracker — Backfill: Dallas 2026-02-14 -> 68-69°F
+2026-04-06 19:19:59 INFO data.settlement_tracker — Backfill: Dallas 2026-02-13 -> 68°F or higher
+2026-04-06 19:19:59 INFO data.settlement_tracker — Backfill: Dallas 2026-02-12 -> 74-75°F
+2026-04-06 19:20:00 INFO data.settlement_tracker — Backfill: Dallas 2026-02-11 -> 62°F or higher
+2026-04-06 19:20:00 INFO data.settlement_tracker — Backfill: Dallas 2026-02-10 -> 72°F or higher
+2026-04-06 19:20:01 INFO data.settlement_tracker — Backfill: Dallas 2026-02-09 -> 74°F or higher
+2026-04-06 19:20:01 INFO data.settlement_tracker — Backfill: Dallas 2026-02-08 -> 76°F or higher
+2026-04-06 19:20:02 INFO data.settlement_tracker — Backfill: Dallas 2026-02-07 -> 72-73°F
+2026-04-06 19:20:03 INFO data.settlement_tracker — Backfill: Dallas 2026-02-06 -> 82°F or higher
+2026-04-06 19:20:03 INFO data.settlement_tracker — Backfill: Dallas 2026-02-05 -> 58°F or higher
+2026-04-06 19:20:04 INFO data.settlement_tracker — Backfill: NYC 2026-04-04 -> 58°F or higher
+2026-04-06 19:20:04 INFO data.settlement_tracker — Backfill: NYC 2026-04-03 -> 64-65°F
+2026-04-06 19:20:05 INFO data.settlement_tracker — Backfill: NYC 2026-04-02 -> 59°F or below
+2026-04-06 19:20:05 INFO data.settlement_tracker — Backfill: NYC 2026-04-01 -> 78-79°F
+2026-04-06 19:20:06 INFO data.settlement_tracker — Backfill: NYC 2026-03-31 -> 74°F or higher
+2026-04-06 19:20:06 INFO data.settlement_tracker — Backfill: NYC 2026-03-30 -> 68°F or higher
+2026-04-06 19:20:07 INFO data.settlement_tracker — Backfill: NYC 2026-03-29 -> 52-53°F
+2026-04-06 19:20:08 INFO data.settlement_tracker — Backfill: NYC 2026-03-28 -> 42-43°F
+2026-04-06 19:20:08 INFO data.settlement_tracker — Backfill: NYC 2026-03-27 -> 66-67°F
+2026-04-06 19:20:09 INFO data.settlement_tracker — Backfill: NYC 2026-03-26 -> 66°F or higher
+2026-04-06 19:20:09 INFO data.settlement_tracker — Backfill: NYC 2026-03-25 -> 50-51°F
+2026-04-06 19:20:10 INFO data.settlement_tracker — Backfill: NYC 2026-03-24 -> 48-49°F
+2026-04-06 19:20:10 INFO data.settlement_tracker — Backfill: NYC 2026-03-23 -> 51°F or below
+2026-04-06 19:20:11 INFO data.settlement_tracker — Backfill: NYC 2026-03-22 -> 56-57°F
+2026-04-06 19:20:12 INFO data.settlement_tracker — Backfill: NYC 2026-03-21 -> 56-57°F
+2026-04-06 19:20:12 INFO data.settlement_tracker — Backfill: NYC 2026-03-20 -> 52-53°F
+2026-04-06 19:20:13 INFO data.settlement_tracker — Backfill: NYC 2026-03-19 -> 40-41°F
+2026-04-06 19:20:13 INFO data.settlement_tracker — Backfill: NYC 2026-03-18 -> 36-37°F
+2026-04-06 19:20:14 INFO data.settlement_tracker — Backfill: NYC 2026-03-17 -> 50°F or higher
+2026-04-06 19:20:14 INFO data.settlement_tracker — Backfill: NYC 2026-03-16 -> 54-55°F
+2026-04-06 19:20:15 INFO data.settlement_tracker — Backfill: NYC 2026-03-15 -> 46-47°F
+2026-04-06 19:20:15 INFO data.settlement_tracker — Backfill: NYC 2026-03-14 -> 54-55°F
+2026-04-06 19:20:16 INFO data.settlement_tracker — Backfill: NYC 2026-03-13 -> 42-43°F
+2026-04-06 19:20:17 INFO data.settlement_tracker — Backfill: NYC 2026-03-12 -> 56-57°F
+2026-04-06 19:20:17 INFO data.settlement_tracker — Backfill: NYC 2026-03-11 -> 56°F or higher
+2026-04-06 19:20:18 INFO data.settlement_tracker — Backfill: NYC 2026-03-10 -> 68°F or higher
+2026-04-06 19:20:18 INFO data.settlement_tracker — Backfill: NYC 2026-03-09 -> 66°F or higher
+2026-04-06 19:20:19 INFO data.settlement_tracker — Backfill: NYC 2026-03-08 -> 60°F or higher
+2026-04-06 19:20:20 INFO data.settlement_tracker — Backfill: NYC 2026-03-07 -> 48°F or higher
+2026-04-06 19:20:20 INFO data.settlement_tracker — Backfill: NYC 2026-03-06 -> 40-41°F
+2026-04-06 19:20:21 INFO data.settlement_tracker — Backfill: NYC 2026-03-05 -> 44-45°F
+2026-04-06 19:20:22 INFO data.settlement_tracker — Backfill: NYC 2026-03-04 -> 48°F or higher
+2026-04-06 19:20:22 INFO data.settlement_tracker — Backfill: NYC 2026-03-03 -> 34-35°F
+2026-04-06 19:20:23 INFO data.settlement_tracker — Backfill: NYC 2026-03-02 -> 32-33°F
+2026-04-06 19:20:23 INFO data.settlement_tracker — Backfill: NYC 2026-03-01 -> 42-43°F
+2026-04-06 19:20:24 INFO data.settlement_tracker — Backfill: NYC 2026-02-28 -> 50°F or higher
+2026-04-06 19:20:25 INFO data.settlement_tracker — Backfill: NYC 2026-02-27 -> 40-41°F
+2026-04-06 19:20:25 INFO data.settlement_tracker — Backfill: NYC 2026-02-26 -> 46-47°F
+2026-04-06 19:20:26 INFO data.settlement_tracker — Backfill: NYC 2026-02-25 -> 42-43°F
+2026-04-06 19:20:26 INFO data.settlement_tracker — Backfill: NYC 2026-02-24 -> 32-33°F
+2026-04-06 19:20:27 INFO data.settlement_tracker — Backfill: NYC 2026-02-23 -> 36°F or higher
+2026-04-06 19:20:27 INFO data.settlement_tracker — Backfill: NYC 2026-02-22 -> 34-35°F
+2026-04-06 19:20:28 INFO data.settlement_tracker — Backfill: NYC 2026-02-21 -> 46-47°F
+2026-04-06 19:20:28 INFO data.settlement_tracker — Backfill: NYC 2026-02-20 -> 38-39°F
+2026-04-06 19:20:29 INFO data.settlement_tracker — Backfill: NYC 2026-02-19 -> 36-37°F
+2026-04-06 19:20:30 INFO data.settlement_tracker — Backfill: NYC 2026-02-18 -> 38-39°F
+2026-04-06 19:20:30 INFO data.settlement_tracker — Backfill: NYC 2026-02-17 -> 46-47°F
+2026-04-06 19:20:31 INFO data.settlement_tracker — Backfill: NYC 2026-02-16 -> 38-39°F
+2026-04-06 19:20:31 INFO data.settlement_tracker — Backfill: NYC 2026-02-15 -> 38-39°F
+2026-04-06 19:20:32 INFO data.settlement_tracker — Backfill: NYC 2026-02-14 -> 44-45°F
+2026-04-06 19:20:32 INFO data.settlement_tracker — Backfill: NYC 2026-02-13 -> 38-39°F
+2026-04-06 19:20:33 INFO data.settlement_tracker — Backfill: NYC 2026-02-12 -> 36-37°F
+2026-04-06 19:20:34 INFO data.settlement_tracker — Backfill: NYC 2026-02-11 -> 40-41°F
+2026-04-06 19:20:34 INFO data.settlement_tracker — Backfill: NYC 2026-02-10 -> 36°F or higher
+2026-04-06 19:20:35 INFO data.settlement_tracker — Backfill: NYC 2026-02-09 -> 30-31°F
+2026-04-06 19:20:35 INFO data.settlement_tracker — Backfill: NYC 2026-02-08 -> 18-19°F
+2026-04-06 19:20:36 INFO data.settlement_tracker — Backfill: NYC 2026-02-07 -> 26°F or higher
+2026-04-06 19:20:36 INFO data.settlement_tracker — Backfill: NYC 2026-02-06 -> 32-33°F
+2026-04-06 19:20:37 INFO data.settlement_tracker — Backfill: NYC 2026-02-05 -> 32-33°F
+2026-04-06 19:20:37 INFO data.settlement_tracker — Backfill complete: +175 saved, 3 skipped, 178 total in DB
+2026-04-06 19:20:37 INFO __main__ — Backfill done. Total settlements in DB: 178
