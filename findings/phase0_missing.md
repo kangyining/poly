@@ -149,9 +149,9 @@ FORECAST_MAE_F = {
 
 | # | Item | Blocks Phase 1? | Effort | Priority |
 |---|---|---|---|---|
-| 1 | Recorder 3-day stability | ✅ YES | Start process, wait | 🔴 Critical |
-| 2 | Historical market prices | ✅ YES (decision) | Strategic decision | 🔴 Critical |
-| 3 | `config/params.py` | ✅ YES | 30 min | 🔴 Critical |
+| 1 | Recorder 3-day stability | ✅ YES | Start process, wait | 🟡 IN PROGRESS (recording now) |
+| 2 | Historical market prices | ✅ YES (decision) | Wait 2-4 weeks live data | 🟡 DECIDED — wait |
+| 3 | `config/params.py` | ✅ YES | 30 min | ✅ DONE |
 | 4 | Data quality script | Soft block | 2-3 hrs | 🟡 Important |
 | 5 | `phase0_findings.md` update | No | 1 hr | 🟡 Important |
 | 6 | ASOS daily max backfill | No (Phase 1 Wk4) | 2 hrs | 🟢 Deferred |
