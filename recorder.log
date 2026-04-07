@@ -751,3 +751,33 @@
 2026-04-06 19:20:37 INFO data.settlement_tracker — Backfill: NYC 2026-02-05 -> 32-33°F
 2026-04-06 19:20:37 INFO data.settlement_tracker — Backfill complete: +175 saved, 3 skipped, 178 total in DB
 2026-04-06 19:20:37 INFO __main__ — Backfill done. Total settlements in DB: 178
+2026-04-06 20:04:10 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 20:04:10 INFO __main__ — Starting historical forecast backfill
+2026-04-06 20:04:10 INFO data.historical_forecast_backfill — Chicago: fetching 59 missing dates (2026-02-05 to 2026-04-05)
+2026-04-06 20:04:11 INFO data.historical_forecast_backfill — Chicago: saved 59 historical forecast records
+2026-04-06 20:04:11 INFO data.historical_forecast_backfill — Dallas: fetching 59 missing dates (2026-02-05 to 2026-04-05)
+2026-04-06 20:04:12 INFO data.historical_forecast_backfill — Dallas: saved 59 historical forecast records
+2026-04-06 20:04:13 INFO data.historical_forecast_backfill — NYC: fetching 60 missing dates (2026-02-05 to 2026-04-05)
+2026-04-06 20:04:14 INFO data.historical_forecast_backfill — NYC: saved 60 historical forecast records
+2026-04-06 20:04:14 INFO data.historical_forecast_backfill — Historical forecast backfill complete: 178 records saved
+2026-04-06 20:04:14 INFO __main__ — Done. Total forecast records in DB: 205
+2026-04-06 20:19:16 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-06 20:19:16 INFO __main__ — === Running all jobs ===
+2026-04-06 20:19:17 INFO data.metar_recorder — METAR: saved 3/3 records
+2026-04-06 20:19:29 INFO data.taf_nws_recorder — TAF: saved 3/3 records
+2026-04-06 20:19:41 INFO data.market_recorder — Snapshots: Chicago 2026-04-07 — 11 bins
+2026-04-06 20:19:53 INFO data.market_recorder — Snapshots: Chicago 2026-04-08 — 11 bins
+2026-04-06 20:20:05 INFO data.market_recorder — Snapshots: Dallas 2026-04-07 — 11 bins
+2026-04-06 20:20:16 INFO data.market_recorder — Snapshots: Dallas 2026-04-08 — 11 bins
+2026-04-06 20:20:28 INFO data.market_recorder — Snapshots: NYC 2026-04-07 — 11 bins
+2026-04-06 20:20:40 INFO data.market_recorder — Snapshots: NYC 2026-04-08 — 11 bins
+2026-04-06 20:20:40 INFO data.market_recorder — Market snapshots total saved: 66
+2026-04-06 20:20:41 INFO data.forecast_recorder — Forecasts saved for Chicago (3 days)
+2026-04-06 20:20:41 INFO data.forecast_recorder — Forecasts saved for Dallas (3 days)
+2026-04-06 20:20:42 INFO data.forecast_recorder — Forecasts saved for NYC (3 days)
+2026-04-06 20:20:43 INFO data.taf_nws_recorder — NWS forecasts saved for Chicago
+2026-04-06 20:20:44 INFO data.taf_nws_recorder — NWS forecasts saved for Dallas
+2026-04-06 20:20:45 INFO data.taf_nws_recorder — NWS forecasts saved for NYC
+2026-04-06 20:20:45 INFO data.taf_nws_recorder — NWS forecast recorder: saved 21 records
+2026-04-06 20:20:46 INFO data.settlement_tracker — Daily settlement check: saved 0 new records
+2026-04-06 20:20:46 INFO __main__ — Snapshots in DB: 264 | Settlements in DB: 178

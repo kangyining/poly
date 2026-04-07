@@ -21,6 +21,7 @@ CITIES = {
         "tz": "America/Chicago",
         "polymarket_slug_city": "chicago",
         "wunderground_station": "KORD",
+        "nws_forecast_url": "https://api.weather.gov/gridpoints/LOT/76,73/forecast",
     },
     "Dallas": {
         "lat": 32.84,              # Love Field coords (not DFW)
@@ -30,6 +31,7 @@ CITIES = {
         "tz": "America/Chicago",
         "polymarket_slug_city": "dallas",
         "wunderground_station": "KDAL",
+        "nws_forecast_url": "https://api.weather.gov/gridpoints/FWD/87,107/forecast",
     },
     "NYC": {
         "lat": 40.78,              # LaGuardia coords (not JFK)
@@ -39,6 +41,7 @@ CITIES = {
         "tz": "America/New_York",
         "polymarket_slug_city": "nyc",
         "wunderground_station": "KLGA",
+        "nws_forecast_url": "https://api.weather.gov/gridpoints/OKX/37,39/forecast",
     },
 
     # ── Tier 1: Priority cities (to be verified in Phase 0 expansion) ──

@@ -26,6 +26,8 @@ from data.market_recorder import record_market_snapshots
 from data.metar_recorder import record_metars
 from data.forecast_recorder import record_forecasts
 from data.settlement_tracker import daily_check, backfill
+from data.historical_forecast_backfill import backfill_historical_forecasts
+from data.taf_nws_recorder import record_tafs, record_nws_forecasts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,8 +44,10 @@ log = logging.getLogger(__name__)
 def run_all(db: Database):
     log.info("=== Running all jobs ===")
     record_metars(db)
+    record_tafs(db)
     record_market_snapshots(db)
     record_forecasts(db)
+    record_nws_forecasts(db)
     daily_check(db)
     log.info("Snapshots in DB: %d | Settlements in DB: %d",
              db.snapshot_count(), db.settlement_count())
@@ -55,6 +59,8 @@ def main():
                         help="Run all jobs once and exit")
     parser.add_argument("--backfill", action="store_true",
                         help="Pull historical settled markets and exit")
+    parser.add_argument("--backfill-forecasts", action="store_true",
+                        help="Backfill historical ECMWF/GFS forecasts for all settled dates")
     parser.add_argument("--days-back", type=int, default=60,
                         help="Days to look back for backfill (default 60)")
     args = parser.parse_args()
@@ -65,6 +71,14 @@ def main():
         log.info("Starting backfill — looking back %d days", args.days_back)
         count = backfill(db, days_back=args.days_back)
         log.info("Backfill done. Total settlements in DB: %d", count)
+        db.close()
+        return
+
+    if args.backfill_forecasts:
+        log.info("Starting historical forecast backfill")
+        count = backfill_historical_forecasts(db)
+        log.info("Done. Total forecast records in DB: %d", db.conn.execute(
+            "SELECT COUNT(*) FROM forecast_records").fetchone()[0])
         db.close()
         return
 
@@ -81,8 +95,10 @@ def main():
 
     # Then schedule
     schedule.every(1).hours.do(record_metars, db)
+    schedule.every(1).hours.do(record_tafs, db)
     schedule.every(1).hours.do(record_market_snapshots, db)
     schedule.every(6).hours.do(record_forecasts, db)
+    schedule.every(6).hours.do(record_nws_forecasts, db)
     schedule.every().day.at("06:00").do(daily_check, db)
 
     try:
