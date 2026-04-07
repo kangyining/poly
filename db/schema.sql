@@ -66,6 +66,29 @@ CREATE TABLE IF NOT EXISTS settlement_records (
     raw_outcome_prices   TEXT             -- JSON
 );
 
+CREATE TABLE IF NOT EXISTS taf_records (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       TEXT NOT NULL,        -- when fetched (ISO 8601 UTC)
+    icao            TEXT NOT NULL,        -- KORD / KDAL / KLGA
+    city            TEXT NOT NULL,
+    issue_time      TEXT,                 -- TAF issue time (ISO 8601 UTC)
+    valid_from      TEXT,                 -- valid period start (ISO 8601 UTC)
+    valid_to        TEXT,                 -- valid period end (ISO 8601 UTC)
+    raw_taf         TEXT                  -- full raw TAF string
+);
+
+CREATE TABLE IF NOT EXISTS nws_forecasts (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       TEXT NOT NULL,        -- when fetched (ISO 8601 UTC)
+    city            TEXT NOT NULL,
+    target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    period_name     TEXT,                 -- "Monday", "Monday Night", etc.
+    is_daytime      INTEGER,              -- 1 = daytime period
+    temp_f          REAL,                 -- forecast temperature °F
+    short_forecast  TEXT,                 -- "Partly Cloudy", etc.
+    forecast_lead_hours REAL
+);
+
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_snapshots_city_date
     ON market_snapshots(city, target_date);

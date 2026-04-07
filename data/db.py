@@ -119,5 +119,42 @@ class Database:
         ).fetchone()
         return row is not None
 
+    # ── TAF records ───────────────────────────────────────────────────────
+
+    def insert_taf(self, icao: str, city: str, issue_time,
+                   valid_from, valid_to, raw_taf: str):
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute("""
+            INSERT INTO taf_records (
+                timestamp, icao, city, issue_time, valid_from, valid_to, raw_taf
+            ) VALUES (?,?,?,?,?,?,?)
+        """, (
+            now, icao, city,
+            issue_time.isoformat() if hasattr(issue_time, 'isoformat') else issue_time,
+            valid_from.isoformat() if hasattr(valid_from, 'isoformat') else valid_from,
+            valid_to.isoformat() if hasattr(valid_to, 'isoformat') else valid_to,
+            raw_taf,
+        ))
+        self.conn.commit()
+
+    # ── NWS forecast records ──────────────────────────────────────────────
+
+    def insert_nws_forecast(self, city: str, target_date: str, period_name: str,
+                             is_daytime: bool, temp_f: float,
+                             short_forecast: str, lead_hours: float):
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute("""
+            INSERT INTO nws_forecasts (
+                timestamp, city, target_date, period_name,
+                is_daytime, temp_f, short_forecast, forecast_lead_hours
+            ) VALUES (?,?,?,?,?,?,?,?)
+        """, (
+            now, city, target_date, period_name,
+            1 if is_daytime else 0, temp_f, short_forecast, lead_hours,
+        ))
+        self.conn.commit()
+
     def close(self):
         self.conn.close()

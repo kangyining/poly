@@ -102,12 +102,42 @@ Week 9+   → 世界杯专项 + 持续优化
 **Day 5-7：数据录制系统上线**
 
 ```
-□ 实现 market_recorder.py（每小时录制市场快照）
-□ 实现 forecast_recorder.py（每 6 小时录制预报）
-□ 实现正确的结算数据源录制器（不是 METAR，而是实际结算源）
-□ 实现 settlement_tracker.py（每天录制结算结果）
-□ 调度器跑起来，验证数据入库正常
+□ 实现 market_recorder.py（每小时录制市场快照）          ✅ DONE
+□ 实现 forecast_recorder.py（每 6 小时录制预报）         ✅ DONE
+□ 实现 settlement_tracker.py（每天录制结算结果）          ✅ DONE
+□ 调度器跑起来，验证数据入库正常                          ✅ DONE (178 settlements backfilled)
 □ 验证 neg-risk 下单参数（在 testnet 或用极小金额测试）
+
+□ [NEW] 附加数据源 — 按优先级实现:
+
+  P1: Open-Meteo Previous Runs API (历史预报回填)
+    → endpoint: historical-forecast-api.open-meteo.com/v1/forecast
+    → 回填过去 60 天的 ECMWF/GFS 预报（配对已有 settlement 数据）
+    → 实现 data/historical_forecast_backfill.py
+    → run: python run_recorder.py --backfill-forecasts
+    → MAE: Chicago ECMWF 3.9F / GFS 2.4F | Dallas ECMWF 2.4F / GFS 4.6F | NYC ECMWF 3.2F / GFS 1.6F
+    Status: ✅ DONE (178 records, paired with all settlements)
+
+  P2: TAF (Terminal Aerodrome Forecasts)
+    → endpoint: aviationweather.gov/api/data/taf?ids=KORD,KDAL,KLGA
+    → 机场 24-30hr 预报，每小时录制（同 METAR API）
+    → 新增 taf_records 表；data/taf_nws_recorder.py
+    → Note: TAF 无温度字段，存 rawTAF 供后续特征工程（风向/云层）
+    Status: ✅ DONE
+
+  P3: NWS API (api.weather.gov)
+    → 免费，无 key，官方美国天气预报
+    → Grid URLs 存入 CITIES config（LOT/FWD/OKX）
+    → data/taf_nws_recorder.py → record_nws_forecasts()
+    → 每 6 小时录制，nws_forecasts 表，含 daytime high + shortForecast
+    Status: ✅ DONE (21 records first run)
+
+  P4: Weather Underground (结算数据源直连)
+    → 需要免费 API key (developer.wunderground.com)
+    → 历史站点数据: KORD/KDAL/KLGA 每日最高温
+    → 用于交叉验证结算结果
+    → 先获取 API key 再实现
+    Status: □ BLOCKED (需要 API key)
 ```
 
 ### Week 1 Go/No-Go 门控
