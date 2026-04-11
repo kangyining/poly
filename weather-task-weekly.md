@@ -138,6 +138,19 @@ Week 9+   → 世界杯专项 + 持续优化
     → 用于交叉验证结算结果
     → 先获取 API key 再实现
     Status: □ BLOCKED (需要 API key)
+
+  P5: CLOB Price History Backfill                              ✅ DONE (2026-04-11)
+    → endpoint: clob.polymarket.com/prices-history (1-min resolution)
+    → 实现 data/price_history_backfill.py → 降采样为小时级
+    → 实现 data/price_history_missing_bins_backfill.py → 重试 warm bins
+    → 结果: NYC 60日×11bin 25,800行 | Chicago 59日 | Dallas 59日
+    → warm-side bins (7-10) 无交易量，永久缺失，结构性现象
+
+  P6: ASOS Settlement Temperature Backfill                     ✅ DONE (2026-04-11)
+    → 实现 data/asos_daily_high_backfill.py
+    → Iowa Mesonet API, 需 sts/ets + ISO 8601+Z 格式
+    → 结果: 178/178 settlements 全部有 settlement_temp_f
+    → run: python run_recorder.py --backfill-settlement-temps
 ```
 
 ### Week 1 Go/No-Go 门控
@@ -233,53 +246,61 @@ Week 9+   → 世界杯专项 + 持续优化
 **Day 1-2：回测框架实现**
 
 ```
-□ 实现 backtest_engine.py
+✅ 实现 backtest/phase1_backtest.py                           DONE (2026-04-11)
   → 核心逻辑：
-    1. 读历史数据集
-    2. 对每个市场实例，根据预报确定 exclusion_range
+    1. 读历史 settlements + forecasts + price_history
+    2. 对每个市场实例，根据 GFS forecast 确定 exclusion_range
     3. 找远端 bin，检查 NO 价格是否在 [min_no, max_no]
-    4. 模拟买入（用开盘价或实际快照价）
-    5. 用实际结算结果计算 P&L
-    6. 扣除 fee（taker: 1.25% × p × (1-p)，maker: 0 + 25% rebate）
+    4. 模拟买入（用 price_history 中目标 lead time 的价格）
+    5. 用实际 settlement_temp_f 计算 P&L
+    6. 扣除 taker fee（rate × p_yes × p_no）
+  → 支持 --sweep 参数扫描 (exclusion_range × entry_lead)
+  → 支持 Monte Carlo 噪声模拟（真实预报不确定性）
 
-  → 注意：用正确的 P&L 计算（Week 1 评估中修正的版本）
-
-□ 实现 capital_analyzer.py 基础版
-  → NO-only 策略 vs YES-ladder 策略 vs 混合
+□ capital_analyzer.py 基础版（待实现）
+  → NO-only vs YES-ladder vs 混合
   → 输出：逐日 P&L 曲线、总回报、Sharpe、最大回撤
 ```
 
-**Day 3-4：参数扫描（1050 组配置）**
+**Day 3-4：参数扫描**
 
 ```
-□ 实现 param_optimizer.py
-□ 跑完整参数扫描
-□ 可视化结果（heat map: exclusion_range × min_no_price → Sharpe）
-□ 找到 Pareto 前沿：高 Sharpe + 低回撤 + 低爆雷率
+✅ 已跑参数扫描 (exclusion_range 3-8°F × entry_lead 6-48h)   DONE (2026-04-11)
 
-重点关注：
-  → 最优 exclusion_range 是多少？（是否与历史 MAE 一致？）
-  → min_no_price 的最优区间（$0.90 vs $0.93 vs $0.95）？
-  → 有 METAR 确认 vs 无 METAR 确认，哪个更好？
+NYC 回测结果（60 settled markets，Feb-Apr 2026）：
+  最优参数: exclusion=4.0°F, lead=24h, NO=[0.90, 0.99], pos=$5
+  胜率: 134/134 = 100%（历史，回顾性预报）
+  总 P&L: +$23.43 on $670 capital deployed
+  ROI: 3.5%
+
+  关键发现：
+  → 仅 2 次真实亏损事件（GFS 误差 5-8°F 的日子）
+  → 两次均被 NO 价格过滤器自动排除（0.991 > MAX 或 0.890 < MIN）
+  → Monte Carlo（sigma=3.5°F 真实预报噪声）: 98.3% 胜率, 1.9% ROI
+
+重点关注（已验证）：
+  → 最优 exclusion_range = 4°F（NYC，= 2.5× GFS MAE）
+  → entry_lead = 24h 最佳（早于 METAR 数据影响价格）
+  → NO price [0.90, 0.99] 过滤器是关键安全阀
 ```
 
 **Day 5-7：城市排名 + 资本效率分析**
 
 ```
-□ city_ranker.py：按城市分组的胜率、ROI、爆雷率
-□ 02_backtest_results.ipynb：可视化回测结果
-□ 03_capital_efficiency.ipynb：NO vs YES vs 混合对比
-□ 得出结论：哪种策略在历史数据上更有效？
-□ 写 phase1_findings.md（前半部分）
+□ city_ranker.py：按城市分组的胜率、ROI、爆雷率（待实现）
+□ 02_backtest_results.ipynb：可视化回测结果（待实现）
+□ 03_capital_efficiency.ipynb：NO vs YES vs 混合对比（待实现）
+□ Chicago + Dallas 回测（待运行，数据已就绪）
+□ 写 phase1_findings.md（待整理）
 ```
 
 ### Week 3 Go/No-Go
 
 ```
-□ NO 远端策略在历史数据上净盈利（扣费后）
-□ 找到了最优参数组合（Sharpe > 0.5 算通过基础线）
-□ 知道了哪些城市表现好，哪些差
-□ 资本效率分析完成
+✅ NO 远端策略在历史数据上净盈利（扣费后）— NYC 通过
+□ 找到了最优参数组合（Sharpe > 0.5）— NYC 已找到，其他城市待跑
+□ 知道了哪些城市表现好，哪些差 — 待跑 Chicago + Dallas
+□ 资本效率分析完成 — 待实现
 
 → 未通过且原因是"数据量不够" → 延长 1 周录数据再回测
 → 未通过且原因是"策略不赚钱" → 严肃审视 YES vs NO 比例
