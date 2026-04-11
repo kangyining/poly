@@ -123,6 +123,14 @@ class Trade:
     pnl_usdc: float            # net P&L in USDC
 
 
+FORECAST_BIAS_WARNING = """
+⚠️  预报来源说明（重要）
+    当前使用：GFS 再分析数据（lead=-1），事后拉取，非真实 24h 提前预报
+    影响：胜率和 ROI 偏乐观，真实预报误差更大（再分析 MAE ~1.7°F vs 真实24h ~3.3°F）
+    建议：加 --true-forecast 参数使用真实 24h GFS 预报重跑回测
+"""
+
+
 def run_backtest(
     city: str = "NYC",
     entry_lead_h: float = 24.0,
@@ -130,13 +138,26 @@ def run_backtest(
     min_no_price: float = 0.90,
     max_no_price: float = 0.99,
     position_usdc: float = 5.0,
+    use_true_forecast: bool = False,
     verbose: bool = False,
 ) -> list[Trade]:
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
 
-    model = BEST_MODEL.get(city, "gfs")
-    model_col = f"temp_max_{model}_f"
+    # True 24h forecast (gfs_global) or retroactive reanalysis (gfs_seamless)
+    if use_true_forecast:
+        forecast_query = """
+            SELECT temp_max_gfs_f FROM forecast_records
+            WHERE city = ? AND target_date = ? AND source = 'gfs-global-24h'
+            LIMIT 1
+        """
+    else:
+        forecast_query = """
+            SELECT temp_max_gfs_f FROM forecast_records
+            WHERE city = ? AND target_date = ?
+            ORDER BY ABS(forecast_lead_hours - (-1)) ASC
+            LIMIT 1
+        """
 
     # Pull all settlements with temperature
     settlements = conn.execute("""
@@ -153,14 +174,7 @@ def run_backtest(
         actual_temp = s["settlement_temp_f"]
         winning_bin_label = s["winning_bin"]
 
-        # Get GFS forecast (use historical retroactive, lead=-1)
-        fc_row = conn.execute(f"""
-            SELECT {model_col}
-            FROM forecast_records
-            WHERE city = ? AND target_date = ?
-            ORDER BY ABS(forecast_lead_hours - (-1)) ASC
-            LIMIT 1
-        """, (city, date)).fetchone()
+        fc_row = conn.execute(forecast_query, (city, date)).fetchone()
 
         if not fc_row or fc_row[0] is None:
             if verbose:
@@ -338,15 +352,26 @@ def main():
     parser.add_argument("--position", type=float, default=5.0,
                         help="USDC per bin (default: 5.0)")
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument("--no-true-forecast", action="store_true",
+                        help="Use reanalysis data instead of true 24h GFS forecasts")
     parser.add_argument("--sweep", action="store_true",
                         help="Sweep parameter grid and find best settings")
     args = parser.parse_args()
 
+    use_true = not args.no_true_forecast
+
+    if not use_true:
+        print(FORECAST_BIAS_WARNING)
+
+    forecast_label = "gfs_global 真实24h" if use_true else "gfs_seamless 再分析"
+
     if args.sweep:
+        print(f"预报来源: {forecast_label}")
         best = sweep(args.city)
         return
 
-    print(f"\nBacktest: {args.city} | lead={args.entry_lead}h | excl={args.exclusion_range}°F "
+    print(f"预报来源: {forecast_label}")
+    print(f"Backtest: {args.city} | lead={args.entry_lead}h | excl={args.exclusion_range}°F "
           f"| NO=[{args.min_no_price}, {args.max_no_price}] | pos=${args.position}")
 
     trades = run_backtest(
@@ -356,6 +381,7 @@ def main():
         min_no_price=args.min_no_price,
         max_no_price=args.max_no_price,
         position_usdc=args.position,
+        use_true_forecast=use_true,
         verbose=args.verbose,
     )
 
