@@ -28,6 +28,7 @@ from data.forecast_recorder import record_forecasts
 from data.settlement_tracker import daily_check, backfill
 from data.historical_forecast_backfill import backfill_historical_forecasts
 from data.taf_nws_recorder import record_tafs, record_nws_forecasts
+from data.price_history_backfill import backfill_price_history
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +62,8 @@ def main():
                         help="Pull historical settled markets and exit")
     parser.add_argument("--backfill-forecasts", action="store_true",
                         help="Backfill historical ECMWF/GFS forecasts for all settled dates")
+    parser.add_argument("--backfill-prices", action="store_true",
+                        help="Backfill hourly CLOB price history for all settled markets")
     parser.add_argument("--days-back", type=int, default=60,
                         help="Days to look back for backfill (default 60)")
     args = parser.parse_args()
@@ -71,6 +74,14 @@ def main():
         log.info("Starting backfill — looking back %d days", args.days_back)
         count = backfill(db, days_back=args.days_back)
         log.info("Backfill done. Total settlements in DB: %d", count)
+        db.close()
+        return
+
+    if args.backfill_prices:
+        log.info("Starting price history backfill")
+        count = backfill_price_history(db)
+        total = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        log.info("Done. Total price_history rows in DB: %d", total)
         db.close()
         return
 
