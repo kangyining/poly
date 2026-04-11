@@ -144,16 +144,22 @@ def run_backtest(
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
 
+    # Pick the best model column for this city (ECMWF for Dallas, GFS elsewhere)
+    model_key = BEST_MODEL.get(city, "gfs")
+    col = "temp_max_ecmwf_f" if model_key == "ecmwf" else "temp_max_gfs_f"
+
     # True 24h forecast (gfs_global) or retroactive reanalysis (gfs_seamless)
+    # Note: true-forecast backfill only stores gfs_global, so Dallas uses GFS
+    # when use_true_forecast=True (no ECMWF equivalent available for that source).
     if use_true_forecast:
-        forecast_query = """
+        forecast_query = f"""
             SELECT temp_max_gfs_f FROM forecast_records
             WHERE city = ? AND target_date = ? AND source = 'gfs-global-24h'
             LIMIT 1
         """
     else:
-        forecast_query = """
-            SELECT temp_max_gfs_f FROM forecast_records
+        forecast_query = f"""
+            SELECT {col} FROM forecast_records
             WHERE city = ? AND target_date = ?
             ORDER BY ABS(forecast_lead_hours - (-1)) ASC
             LIMIT 1
@@ -178,7 +184,8 @@ def run_backtest(
 
         if not fc_row or fc_row[0] is None:
             if verbose:
-                print(f"  {date}: no {model} forecast, skipping")
+                src = "gfs-global-24h" if use_true_forecast else f"{model_key} reanalysis"
+                print(f"  {date}: no {src} forecast, skipping")
             continue
 
         forecast_f = fc_row[0]
@@ -303,7 +310,7 @@ def summarize(trades: list[Trade], label: str = "") -> dict:
 
 # ── Sweep ─────────────────────────────────────────────────────────────────────
 
-def sweep(city: str = "NYC"):
+def sweep(city: str = "NYC", use_true_forecast: bool = True):
     """Sweep exclusion range and entry lead time, find best params."""
     print(f"\n{'='*60}")
     print(f"  PARAM SWEEP — {city}")
@@ -317,7 +324,8 @@ def sweep(city: str = "NYC"):
     for excl in [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]:
         for lead in [6, 12, 24, 36, 48]:
             trades = run_backtest(city=city, entry_lead_h=lead,
-                                  exclusion_range_f=excl, verbose=False)
+                                  exclusion_range_f=excl, verbose=False,
+                                  use_true_forecast=use_true_forecast)
             if not trades:
                 continue
             s = summarize(trades)
@@ -367,7 +375,7 @@ def main():
 
     if args.sweep:
         print(f"预报来源: {forecast_label}")
-        best = sweep(args.city)
+        best = sweep(args.city, use_true_forecast=use_true)
         return
 
     print(f"预报来源: {forecast_label}")
