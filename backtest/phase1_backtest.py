@@ -17,6 +17,7 @@ Usage:
 import argparse
 import re
 import sqlite3
+import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -278,7 +279,30 @@ def summarize(trades: list[Trade], label: str = "") -> dict:
     daily_pnl: dict[str, float] = {}
     for t in trades:
         daily_pnl[t.date] = daily_pnl.get(t.date, 0) + t.pnl_usdc
-    max_dd = min(daily_pnl.values()) if daily_pnl else 0
+
+    sorted_dates = sorted(daily_pnl.keys())
+    daily_vals = [daily_pnl[d] for d in sorted_dates]
+
+    worst_day = min(daily_vals)
+
+    # True max drawdown: peak-to-trough on cumulative equity curve
+    cum = 0.0
+    peak = 0.0
+    max_drawdown = 0.0
+    for v in daily_vals:
+        cum += v
+        if cum > peak:
+            peak = cum
+        max_drawdown = max(max_drawdown, peak - cum)
+
+    # Sharpe: mean / stdev of daily P&L (not annualised)
+    if len(daily_vals) >= 2:
+        mu = statistics.mean(daily_vals)
+        sigma = statistics.stdev(daily_vals)
+        sharpe = mu / sigma if sigma > 0 else 0.0
+    else:
+        sharpe = 0.0
+
     avg_no = sum(t.no_price_entry for t in trades) / n
 
     result = {
@@ -289,7 +313,9 @@ def summarize(trades: list[Trade], label: str = "") -> dict:
         "total_pnl": total_pnl,
         "capital_deployed": capital,
         "roi": roi,
-        "worst_day_pnl": max_dd,
+        "worst_day_pnl": worst_day,
+        "max_drawdown": max_drawdown,
+        "sharpe": sharpe,
         "avg_no_price": avg_no,
     }
 
@@ -302,7 +328,9 @@ def summarize(trades: list[Trade], label: str = "") -> dict:
         print(f"  Total P&L:      ${total_pnl:+.2f}")
         print(f"  Capital used:   ${capital:.2f}")
         print(f"  ROI:            {roi:.1%}")
-        print(f"  Worst day:      ${max_dd:+.2f}")
+        print(f"  Sharpe:         {sharpe:.3f}")
+        print(f"  Max drawdown:   ${max_drawdown:.2f}")
+        print(f"  Worst day:      ${worst_day:+.2f}")
         print(f"  Avg NO price:   {avg_no:.3f}")
 
     return result
@@ -310,15 +338,18 @@ def summarize(trades: list[Trade], label: str = "") -> dict:
 
 # ── Sweep ─────────────────────────────────────────────────────────────────────
 
-def sweep(city: str = "NYC", use_true_forecast: bool = True):
-    """Sweep exclusion range and entry lead time, find best params."""
-    print(f"\n{'='*60}")
-    print(f"  PARAM SWEEP — {city}")
-    print(f"{'='*60}")
-    print(f"  {'excl':>6} {'lead':>6} {'trades':>8} {'wins':>6} {'win%':>7} {'P&L':>10} {'ROI':>8}")
-    print(f"  {'-'*6} {'-'*6} {'-'*8} {'-'*6} {'-'*7} {'-'*10} {'-'*8}")
+MIN_TRADES_FOR_SHARPE = 10
 
-    best_roi = -999
+
+def sweep(city: str = "NYC", use_true_forecast: bool = True):
+    """Sweep exclusion range and entry lead time, find best params by Sharpe."""
+    print(f"\n{'='*72}")
+    print(f"  PARAM SWEEP — {city}")
+    print(f"{'='*72}")
+    print(f"  {'excl':>6} {'lead':>6} {'trades':>8} {'win%':>7} {'P&L':>10} {'ROI':>8} {'Sharpe':>8}")
+    print(f"  {'-'*6} {'-'*6} {'-'*8} {'-'*7} {'-'*10} {'-'*8} {'-'*8}")
+
+    best_sharpe = -999
     best_params = {}
 
     for excl in [3.0, 4.0, 5.0, 6.0, 7.0, 8.0]:
@@ -329,18 +360,22 @@ def sweep(city: str = "NYC", use_true_forecast: bool = True):
             if not trades:
                 continue
             s = summarize(trades)
-            roi = s["roi"]
-            label = f"  {excl:>6.1f} {lead:>6} {s['n_trades']:>8} {s['n_wins']:>6} {s['win_rate']:>7.1%} ${s['total_pnl']:>9.2f} {roi:>7.1%}"
-            print(label)
+            sharpe = s["sharpe"]
+            sharpe_str = f"{sharpe:>8.3f}" if s["n_trades"] >= MIN_TRADES_FOR_SHARPE else "     n/a"
+            print(f"  {excl:>6.1f} {lead:>6} {s['n_trades']:>8} {s['win_rate']:>7.1%} "
+                  f"${s['total_pnl']:>9.2f} {s['roi']:>7.1%} {sharpe_str}")
 
-            if roi > best_roi:
-                best_roi = roi
+            if s["n_trades"] >= MIN_TRADES_FOR_SHARPE and sharpe > best_sharpe:
+                best_sharpe = sharpe
                 best_params = {"exclusion_range": excl, "entry_lead": lead,
-                               "roi": roi, "win_rate": s["win_rate"],
+                               "sharpe": sharpe, "roi": s["roi"],
+                               "win_rate": s["win_rate"],
                                "n_trades": s["n_trades"], "total_pnl": s["total_pnl"]}
 
-    print(f"\n  Best params: exclusion={best_params.get('exclusion_range')}°F "
+    print(f"\n  Best params (by Sharpe, n_trades≥{MIN_TRADES_FOR_SHARPE}): "
+          f"exclusion={best_params.get('exclusion_range')}°F "
           f"lead={best_params.get('entry_lead')}h "
+          f"Sharpe={best_params.get('sharpe', 0):.3f} "
           f"ROI={best_params.get('roi', 0):.1%} "
           f"win_rate={best_params.get('win_rate', 0):.1%}")
     return best_params
