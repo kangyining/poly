@@ -34,6 +34,7 @@ from data.taf_nws_recorder import record_tafs, record_nws_forecasts
 from data.price_history_backfill import backfill_price_history
 from data.asos_daily_high_backfill import backfill_missing_temps
 from data.price_history_missing_bins_backfill import backfill_missing_bins
+from data.true_forecast_backfill import backfill_true_forecasts
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +74,10 @@ def main():
                         help="Backfill missing settlement temperatures from ASOS for all cities")
     parser.add_argument("--backfill-missing-bins", action="store_true",
                         help="Retry CLOB backfill for missing price history bins (warm-side bins 7-10)")
+    parser.add_argument("--backfill-true-forecasts", action="store_true",
+                        help="Backfill true 24h GFS forecasts using gfs_global past_model_run")
+    parser.add_argument("--city", type=str, default=None,
+                        help="City to target for backfill (default: all cities)")
     parser.add_argument("--days-back", type=int, default=60,
                         help="Days to look back for backfill (default 60)")
     args = parser.parse_args()
@@ -119,6 +124,16 @@ def main():
             count = backfill_missing_bins(db, city=city)
         total = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
         log.info("Done. Total price_history rows: %d", total)
+        db.close()
+        return
+
+    if args.backfill_true_forecasts:
+        log.info("Starting true 24h GFS forecast backfill (gfs_global)")
+        count = backfill_true_forecasts(db, city=args.city)
+        total = db.conn.execute(
+            "SELECT COUNT(*) FROM forecast_records WHERE source = 'gfs-global-24h'"
+        ).fetchone()[0]
+        log.info("Done. Total gfs-global-24h records in DB: %d", total)
         db.close()
         return
 
