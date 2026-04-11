@@ -18,12 +18,13 @@
 ### 2. No historical market prices (60-day gap)
 **Why it matters**: Phase 1 backtest needs (market_price, forecast, outcome) triples. We have outcomes (178 settlements) and forecasts (178 historical ECMWF/GFS records), but **zero** historical price data for those 60 days.
 **Root cause**: Gamma API only returns current prices. There is no historical price time series endpoint.
-**Consequence**: Phase 1 cannot answer "what was the NO bin priced at 2 days before resolution?" We can only approximate using current pricing behavior as a proxy, or wait 2+ more weeks of live recording to accumulate real pairs.
-**Options**:
-  - Accept the gap and use current observed price ranges as approximation for entry price assumptions in backtest
-  - Wait 2–4 more weeks of live recording before starting Phase 1 analysis
-  - Check if any third-party archives historical Polymarket CLOB data (e.g. Polymarket data dumps, Dune Analytics)
-**Status**: ❌ STRUCTURAL GAP — decision needed
+**Solution**: Polymarket CLOB API has a `/prices-history` endpoint that returns 1-minute resolution price history per token. Built `data/price_history_backfill.py` to fetch and downsample to hourly. Added `data/price_history_missing_bins_backfill.py` to retry warm-side bins (7-10) that initially failed.
+**Result**:
+  - NYC: 60 dates, 25,800 hourly rows, bins 0-10 (bins 7-10 had zero trading — permanently unfillable, structural gap)
+  - Chicago: 59 dates, 25,496 rows, 11 bins
+  - Dallas: 59 dates, 25,526 rows, 11 bins
+  - Full 48h price history per date (max_lead=48h, min_lead=1h, hourly resolution)
+**Status**: ✅ SOLVED (2026-04-11)
 
 ---
 
@@ -88,12 +89,14 @@ FORECAST_MAE_F = {
 
 ---
 
-### 6. Iowa Mesonet ASOS daily max backfill (P4 deferred)
-**Why it matters**: We have 178 settlements verified by bin match, but not the exact daily max temperature per date (e.g., was it 82°F or 83°F within the "82-83°F" bin?). Needed for `actual_max_temp` feature in ML (Phase 1 Week 4).
-**Current state**: Verified that ASOS daily max falls inside the winning bin 123/123 times. The exact number is obtainable via Iowa Mesonet ASOS historical API — same API we already use for real-time METARs, no key needed.
-**Fix**: Add `data/asos_daily_max_backfill.py` and a `station_daily_highs` table. Fetch all 60 days × 3 stations.
-**When needed**: Before ML feature engineering (Phase 1 Week 4), not before basic backtest (Phase 1 Week 3).
-**Status**: ⏳ DEFERRED TO PHASE 1 WEEK 4
+### 6. Iowa Mesonet ASOS daily max backfill
+**Why it matters**: We have 178 settlements verified by bin match, but not the exact daily max temperature per date (e.g., was it 82°F or 83°F within the "82-83°F" bin?). Needed for `actual_max_temp` feature in ML (Phase 1 Week 4) and for accurate backtest P&L.
+**Solution**: Built `data/asos_daily_high_backfill.py`. Fetches daily high from Iowa Mesonet ASOS API (same underlying NOAA data as Wunderground). Key fix: API requires `sts`/`ets` params with ISO 8601+Z format (`2026-02-07T00:00:00Z`), CSV response format.
+**Result**:
+  - Chicago: 15 filled, Dallas: 20 filled, NYC: 18 filled
+  - **178/178 settlements now have real `settlement_temp_f` values**
+**Run**: `python run_recorder.py --backfill-settlement-temps`
+**Status**: ✅ DONE (2026-04-11)
 
 ---
 
@@ -150,11 +153,11 @@ FORECAST_MAE_F = {
 | # | Item | Blocks Phase 1? | Effort | Priority |
 |---|---|---|---|---|
 | 1 | Recorder 3-day stability | ✅ YES | Start process, wait | 🟡 IN PROGRESS (recording now) |
-| 2 | Historical market prices | ✅ YES (decision) | Wait 2-4 weeks live data | 🟡 DECIDED — wait |
+| 2 | Historical market prices | ✅ YES (decision) | — | ✅ SOLVED via CLOB price history API (2026-04-11) |
 | 3 | `config/params.py` | ✅ YES | 30 min | ✅ DONE |
 | 4 | Data quality script | Soft block | 2-3 hrs | 🟡 Important |
 | 5 | `phase0_findings.md` update | No | 1 hr | 🟡 Important |
-| 6 | ASOS daily max backfill | No (Phase 1 Wk4) | 2 hrs | 🟢 Deferred |
+| 6 | ASOS daily max backfill | No (Phase 1 Wk4) | — | ✅ DONE — 178/178 settlements have temps (2026-04-11) |
 | 7 | `clob_client.py` split | No (Phase 2) | 1 hr | 🟢 Deferred |
 | 8 | Notebooks | Soft block | 4-6 hrs | 🟡 Important |
 | 9 | `.env.example` | No | 15 min | 🟢 Low |

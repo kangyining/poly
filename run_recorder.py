@@ -8,9 +8,12 @@ Schedule:
   Every 24h → settlement check (yesterday's results)
 
 Usage:
-  python run_recorder.py            # run scheduler loop
-  python run_recorder.py --once     # run all jobs once and exit
-  python run_recorder.py --backfill # pull historical settled markets
+  python run_recorder.py                      # run scheduler loop
+  python run_recorder.py --once               # run all jobs once and exit
+  python run_recorder.py --backfill           # pull historical settled markets
+  python run_recorder.py --backfill-forecasts # historical ECMWF/GFS forecasts
+  python run_recorder.py --backfill-prices    # historical CLOB price history
+  python run_recorder.py --backfill-settlement-temps  # fill missing temperatures from ASOS
 """
 
 import argparse
@@ -29,6 +32,8 @@ from data.settlement_tracker import daily_check, backfill
 from data.historical_forecast_backfill import backfill_historical_forecasts
 from data.taf_nws_recorder import record_tafs, record_nws_forecasts
 from data.price_history_backfill import backfill_price_history
+from data.asos_daily_high_backfill import backfill_missing_temps
+from data.price_history_missing_bins_backfill import backfill_missing_bins
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +69,10 @@ def main():
                         help="Backfill historical ECMWF/GFS forecasts for all settled dates")
     parser.add_argument("--backfill-prices", action="store_true",
                         help="Backfill hourly CLOB price history for all settled markets")
+    parser.add_argument("--backfill-settlement-temps", action="store_true",
+                        help="Backfill missing settlement temperatures from ASOS for all cities")
+    parser.add_argument("--backfill-missing-bins", action="store_true",
+                        help="Retry CLOB backfill for missing price history bins (warm-side bins 7-10)")
     parser.add_argument("--days-back", type=int, default=60,
                         help="Days to look back for backfill (default 60)")
     args = parser.parse_args()
@@ -90,6 +99,26 @@ def main():
         count = backfill_historical_forecasts(db)
         log.info("Done. Total forecast records in DB: %d", db.conn.execute(
             "SELECT COUNT(*) FROM forecast_records").fetchone()[0])
+        db.close()
+        return
+
+    if args.backfill_settlement_temps:
+        log.info("Starting settlement temperature backfill from ASOS")
+        for city in ["Chicago", "Dallas", "NYC"]:
+            count = backfill_missing_temps(db, city=city)
+        total = db.conn.execute(
+            "SELECT COUNT(*) FROM settlement_records WHERE settlement_temp_f IS NOT NULL"
+        ).fetchone()[0]
+        log.info("Done. Settlement records with temps: %d", total)
+        db.close()
+        return
+
+    if args.backfill_missing_bins:
+        log.info("Starting missing bins price history backfill (warm-side retry)")
+        for city in ["Chicago", "Dallas", "NYC"]:
+            count = backfill_missing_bins(db, city=city)
+        total = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        log.info("Done. Total price_history rows: %d", total)
         db.close()
         return
 
