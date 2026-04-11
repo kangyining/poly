@@ -119,6 +119,28 @@ class Database:
         ).fetchone()
         return row is not None
 
+    # ── price history ────────────────────────────────────────────────────
+
+    def insert_price_history(self, city: str, target_date: str, bin_label: str,
+                              bin_index: int, token_id_yes: str, timestamp: str,
+                              yes_price: float, hours_to_close: float,
+                              source: str = 'clob-backfill'):
+        self.conn.execute("""
+            INSERT OR IGNORE INTO price_history (
+                city, target_date, bin_label, bin_index, token_id_yes,
+                timestamp, yes_price, hours_to_close, source
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+        """, (city, target_date, bin_label, bin_index, token_id_yes,
+              timestamp, yes_price, hours_to_close, source))
+        self.conn.commit()
+
+    def price_history_exists(self, city: str, target_date: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM price_history WHERE city=? AND target_date=? LIMIT 1",
+            (city, target_date)
+        ).fetchone()
+        return row is not None
+
     # ── TAF records ───────────────────────────────────────────────────────
 
     def insert_taf(self, icao: str, city: str, issue_time,

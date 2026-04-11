@@ -77,6 +77,25 @@ CREATE TABLE IF NOT EXISTS taf_records (
     raw_taf         TEXT                  -- full raw TAF string
 );
 
+CREATE TABLE IF NOT EXISTS price_history (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    city            TEXT NOT NULL,
+    target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    bin_label       TEXT NOT NULL,        -- "38-39°F"
+    bin_index       INTEGER,
+    token_id_yes    TEXT,
+    timestamp       TEXT NOT NULL,        -- ISO 8601 UTC (hourly bucket)
+    yes_price       REAL,                 -- NO price = 1 - yes_price (neg-risk)
+    hours_to_close  REAL,                 -- hours until noon UTC on target_date
+    source          TEXT DEFAULT 'clob-backfill'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_price_history_unique
+    ON price_history(city, target_date, bin_label, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_price_history_city_date
+    ON price_history(city, target_date);
+
 CREATE TABLE IF NOT EXISTS nws_forecasts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp       TEXT NOT NULL,        -- when fetched (ISO 8601 UTC)
