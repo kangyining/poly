@@ -1,29 +1,3 @@
-# Python
-venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.eggs/
-dist/
-build/
-
-# Logs
-*.log
-
-# Obsidian (local editor config)
-.obsidian/
-
-# Secrets / env
-.env
-*.env
-secrets.json
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Editor
+.claude/
+.specstory/
 .vscode/
-.idea/
-*.swp
-*.swo
