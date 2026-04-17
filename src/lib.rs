@@ -1,3 +1,4 @@
+pub mod calibration;
 pub mod config;
 pub mod execution;
 pub mod logging;

@@ -1,14 +1,20 @@
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 
-use crate::config::PriceBand;
 use crate::polymarket::{TemperatureRange, WeatherMarket};
 use crate::weather::Forecast;
 
 #[derive(Debug, Clone)]
 pub struct StrategyInput {
     pub forecast: Forecast,
-    pub price_band: PriceBand,
-    pub distance_threshold_f: f64,
+    /// Calibrated mean: forecast_high_f + beta_f
+    pub mu_f: f64,
+    /// Calibrated error std dev (clamped to [0.8, 4.0])
+    pub sigma_f: f64,
+    /// Minimum fee-adjusted EV per share to qualify a bin
+    pub min_ev_threshold: f64,
+    /// Shares to attempt to buy per bin
+    pub desired_shares: f64,
+    /// Dollar stake per bin (for execution plan sizing)
     pub order_size_usd: f64,
     pub run_id: String,
     pub event_slug: String,
@@ -21,10 +27,12 @@ pub struct TradeCandidate {
     pub question: String,
     pub slug: Option<String>,
     pub range: TemperatureRange,
-    pub distance_f: f64,
-    pub no_price: f64,
-    pub yes_price: Option<f64>,
-    pub no_token_id: Option<String>,
+    pub p_model: f64,
+    pub ev_no: f64,
+    pub effective_ask: f64,
+    pub fee_rate: f64,
+    pub no_token_id: String,
+    pub shares: f64,
     pub stake_usd: f64,
     pub decision_id: String,
 }
@@ -56,8 +64,6 @@ pub struct DecisionTrace {
     pub decision_id: String,
     pub market_id: String,
     pub market_question: String,
-    pub no_price: Option<f64>,
-    pub distance_f: Option<f64>,
     pub traces: Vec<RuleTrace>,
 }
 
@@ -67,18 +73,12 @@ impl DecisionTrace {
             decision_id,
             market_id: market.id.clone(),
             market_question: market.question.clone(),
-            no_price: market.no_price,
-            distance_f: None,
             traces: Vec::new(),
         }
     }
 
     pub fn push(&mut self, trace: RuleTrace) {
         self.traces.push(trace);
-    }
-
-    pub fn set_distance_f(&mut self, distance_f: f64) {
-        self.distance_f = Some(distance_f);
     }
 
     pub fn into_evaluated_market(self, accepted: bool) -> EvaluatedMarket {
@@ -93,14 +93,14 @@ impl DecisionTrace {
 }
 
 pub fn market_close_utc(target_date: NaiveDate) -> DateTime<Utc> {
-    let naive_close = target_date
+    let naive = target_date
         .and_hms_opt(12, 0, 0)
-        .expect("12:00:00 is a valid UTC close time");
-    DateTime::<Utc>::from_naive_utc_and_offset(naive_close, Utc)
+        .expect("12:00:00 is always valid");
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
 }
 
-pub fn within_24h_of_close(now: DateTime<Utc>, target_date: NaiveDate) -> bool {
-    let close_time = market_close_utc(target_date);
-    let earliest_entry = close_time - Duration::hours(24);
-    now >= earliest_entry && now <= close_time
+pub fn within_trading_window(now: DateTime<Utc>, target_date: NaiveDate) -> bool {
+    let close = market_close_utc(target_date);
+    let open = close - chrono::Duration::hours(36);
+    now >= open && now < close
 }
