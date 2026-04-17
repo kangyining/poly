@@ -108,6 +108,31 @@ CREATE TABLE IF NOT EXISTS nws_forecasts (
     forecast_lead_hours REAL
 );
 
+CREATE TABLE IF NOT EXISTS positions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_id        TEXT NOT NULL,
+    market_id       TEXT NOT NULL,
+    bin_label       TEXT NOT NULL,
+    event_slug      TEXT NOT NULL,
+    target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    entry_price     REAL NOT NULL,        -- effective ask paid (NO side)
+    shares          REAL NOT NULL,
+    stake_usd       REAL NOT NULL,
+    order_id        TEXT,                 -- CLOB order ID (null for paper)
+    status          TEXT NOT NULL DEFAULT 'open',  -- open | closed | cancelled
+    pnl             REAL,                 -- USDC PnL (null until settled)
+    opened_at       TEXT NOT NULL,        -- ISO 8601 UTC
+    settled_at      TEXT,                 -- ISO 8601 UTC (null until closed)
+    is_paper        INTEGER NOT NULL DEFAULT 1  -- 1=paper, 0=live
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_status
+    ON positions(status);
+CREATE INDEX IF NOT EXISTS idx_positions_target_date
+    ON positions(target_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_token_order
+    ON positions(token_id, order_id);
+
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_snapshots_city_date
     ON market_snapshots(city, target_date);

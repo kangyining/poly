@@ -1,7 +1,8 @@
 """
 Settlement tracker — two jobs:
 
-1. daily_check(): scan recent closed markets and record winning bins
+1. daily_check(): scan recent closed markets and record winning bins,
+   close any matching open positions with PnL, and export open_positions.json
 2. backfill(start, end): pull historical settled markets for Phase 0
    gate requirement (≥50 settled markets across cities)
 """
@@ -9,12 +10,16 @@ Settlement tracker — two jobs:
 import json
 import logging
 from datetime import date, timedelta, datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from config.cities import CITIES
 from data.db import Database
 from data.gamma_client import fetch_event, parse_markets, winning_bin
 from data.models import SettlementRecord
+
+# Path written for the Rust bot to read on its next run
+OPEN_POSITIONS_JSON = Path(__file__).parent.parent.parent / "poly-weather" / "open_positions.json"
 
 log = logging.getLogger(__name__)
 
@@ -90,13 +95,50 @@ def _parse_bin_midpoint(bin_label: str) -> Optional[float]:
     return None
 
 
-def daily_check(db: Database):
+def _settle_positions(db: Database, target_date: str, winning_bin_label: str,
+                      resolved_at: Optional[datetime]) -> int:
+    """
+    Close any open positions for target_date whose bin matches the winning bin.
+    NO tokens on the winning bin pay 0 (NO loses); all other bins pay 1/share.
+    Returns number of positions closed.
+    """
+    settled_ts = resolved_at.isoformat() if resolved_at else datetime.now(timezone.utc).isoformat()
+    open_positions = db.get_open_positions()
+    closed = 0
+
+    for pos in open_positions:
+        if pos["target_date"] != target_date:
+            continue
+
+        # NO token wins if the actual outcome is a DIFFERENT bin
+        if pos["bin_label"] == winning_bin_label:
+            # This bin won (YES), so NO loses — PnL = -stake
+            pnl = -pos["stake_usd"]
+        else:
+            # This bin lost (YES), so NO wins — each share pays $1
+            # Net PnL = shares × (1 - entry_price) - 0  (already paid entry_price × shares)
+            pnl = pos["shares"] * (1.0 - pos["entry_price"])
+
+        db.close_position(pos["id"], round(pnl, 4), settled_ts)
+        log.info(
+            "Position closed: bin=%s target=%s pnl=%.4f is_paper=%s",
+            pos["bin_label"], target_date, pnl, bool(pos["is_paper"]),
+        )
+        closed += 1
+
+    return closed
+
+
+def daily_check(db: Database,
+                open_positions_json: Path = OPEN_POSITIONS_JSON):
     """
     Check yesterday's markets for each city and record settlements.
+    Closes matching open positions with PnL and exports open_positions.json.
     Run once per day (e.g. at 06:00 UTC, after Wunderground data is available).
     """
     yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1))
     saved = 0
+    positions_closed = 0
 
     for city, cfg in CITIES.items():
         date_str = yesterday.isoformat()
@@ -119,7 +161,17 @@ def daily_check(db: Database):
             log.info("Settlement saved: %s %s -> %s", city, date_str, rec.winning_bin)
             saved += 1
 
-    log.info("Daily settlement check: saved %d new records", saved)
+            if rec.winning_bin:
+                n = _settle_positions(db, date_str, rec.winning_bin, rec.resolved_at)
+                positions_closed += n
+
+    # Always export current open positions so Rust bot has a fresh view
+    db.export_open_positions_json(open_positions_json)
+
+    log.info(
+        "Daily settlement check: saved=%d settlements, closed=%d positions",
+        saved, positions_closed,
+    )
 
 
 def backfill(db: Database, days_back: int = 60):
