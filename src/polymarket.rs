@@ -5,6 +5,9 @@ use reqwest::Client;
 use serde::Deserialize;
 use tracing::info;
 
+const GAMMA_URL: &str = "https://gamma-api.polymarket.com";
+const CLOB_URL: &str = "https://clob.polymarket.com";
+
 #[derive(Debug, Clone)]
 pub struct PolymarketClient {
     http: Client,
@@ -14,11 +17,11 @@ pub struct PolymarketClient {
 }
 
 impl PolymarketClient {
-    pub fn new(gamma_url: impl Into<String>, clob_url: impl Into<String>) -> Self {
+    pub fn new() -> Self {
         Self {
             http: Client::new(),
-            gamma_url: gamma_url.into(),
-            clob_url: clob_url.into(),
+            gamma_url: GAMMA_URL.to_string(),
+            clob_url: CLOB_URL.to_string(),
         }
     }
 

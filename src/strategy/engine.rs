@@ -106,6 +106,8 @@ mod tests {
         let forecast = Forecast {
             target_date: NaiveDate::from_ymd_opt(2026, 4, 13).expect("valid date"),
             forecast_high_f: 50.0,
+            fetched_at: chrono::Utc::now(),
+            source: "test".to_string(),
         };
         let input = StrategyInput {
             forecast,
