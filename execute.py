@@ -23,6 +23,24 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+
+def _setup_logging(log_dir: Path | None) -> None:
+    handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+    if log_dir:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        fh = logging.FileHandler(log_dir / "execute.log", encoding="utf-8")
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s — %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        handlers.append(fh)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        handlers=handlers,
+    )
+
 # Make sure the poly-weather package root is on sys.path when called from anywhere
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -90,16 +108,14 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", default=str(DEFAULT_PLAN_PATH))
     parser.add_argument("--positions", default=str(DEFAULT_POSITIONS_PATH))
+    parser.add_argument("--log-dir", default=None,
+                        help="Directory for execute.log (passed by Rust bot)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Log trades without submitting (overrides plan flag)")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[logging.StreamHandler(sys.stdout)],
-    )
+    log_dir = Path(args.log_dir) if args.log_dir else None
+    _setup_logging(log_dir)
 
     plan = load_plan(Path(args.plan))
     db = Database()
@@ -161,22 +177,38 @@ def main() -> None:
             trade["stake_usd"],
         )
 
+        strategy_name = trade.get("strategy_name", "default")
+        trade_rationale = json.dumps({
+            "ev_no":         trade.get("ev_no"),
+            "p_model":       trade.get("p_model"),
+            "fee_rate":      trade.get("fee_rate"),
+            "effective_ask": trade.get("effective_ask"),
+        })
+
         if dry_run:
+            log.info(
+                "ORDER PLACED [PAPER] bin=%s ev_no=%.4f threshold=%.4f ask=%.4f shares=%.1f stake=$%.2f strategy=%s",
+                trade["bin_label"], trade.get("ev_no", 0), 0.0,
+                trade["effective_ask"], trade["shares"], trade["stake_usd"],
+                strategy_name,
+            )
             pos = {
-                "token_id":    trade["no_token_id"],
-                "market_id":   trade["market_id"],
-                "bin_label":   trade["bin_label"],
-                "event_slug":  plan["event_slug"],
-                "target_date": plan["target_date"],
-                "entry_price": trade["effective_ask"],
-                "shares":      trade["shares"],
-                "stake_usd":   trade["stake_usd"],
-                "order_id":    None,
-                "status":      "open",
-                "pnl":         None,
-                "opened_at":   now_utc(),
-                "settled_at":  None,
-                "is_paper":    True,
+                "token_id":       trade["no_token_id"],
+                "market_id":      trade["market_id"],
+                "bin_label":      trade["bin_label"],
+                "event_slug":     plan["event_slug"],
+                "target_date":    plan["target_date"],
+                "entry_price":    trade["effective_ask"],
+                "shares":         trade["shares"],
+                "stake_usd":      trade["stake_usd"],
+                "order_id":       None,
+                "status":         "open",
+                "pnl":            None,
+                "opened_at":      now_utc(),
+                "settled_at":     None,
+                "is_paper":       True,
+                "strategy_name":  strategy_name,
+                "trade_rationale": trade_rationale,
             }
             db.insert_position(pos)
             continue
@@ -185,21 +217,29 @@ def main() -> None:
         response = submit_trade(client, trade)
         if response:
             order_id = response.get("orderID") or response.get("id")
+            log.info(
+                "ORDER PLACED [LIVE] bin=%s ev_no=%.4f ask=%.4f shares=%.1f stake=$%.2f order_id=%s strategy=%s",
+                trade["bin_label"], trade.get("ev_no", 0),
+                trade["effective_ask"], trade["shares"], trade["stake_usd"],
+                order_id, strategy_name,
+            )
             pos = {
-                "token_id":    trade["no_token_id"],
-                "market_id":   trade["market_id"],
-                "bin_label":   trade["bin_label"],
-                "event_slug":  plan["event_slug"],
-                "target_date": plan["target_date"],
-                "entry_price": trade["effective_ask"],
-                "shares":      trade["shares"],
-                "stake_usd":   trade["stake_usd"],
-                "order_id":    order_id,
-                "status":      "open",
-                "pnl":         None,
-                "opened_at":   now_utc(),
-                "settled_at":  None,
-                "is_paper":    False,
+                "token_id":       trade["no_token_id"],
+                "market_id":      trade["market_id"],
+                "bin_label":      trade["bin_label"],
+                "event_slug":     plan["event_slug"],
+                "target_date":    plan["target_date"],
+                "entry_price":    trade["effective_ask"],
+                "shares":         trade["shares"],
+                "stake_usd":      trade["stake_usd"],
+                "order_id":       order_id,
+                "status":         "open",
+                "pnl":            None,
+                "opened_at":      now_utc(),
+                "settled_at":     None,
+                "is_paper":       False,
+                "strategy_name":  strategy_name,
+                "trade_rationale": trade_rationale,
             }
             db.insert_position(pos)
         # Brief pause between orders to avoid rate limiting

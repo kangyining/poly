@@ -1,37 +1,8 @@
 {
-  "run_id": "nyc-20260419T050457Z",
-  "event_slug": "highest-temperature-in-nyc-on-april-19-2026",
-  "target_date": "2026-04-19",
-  "total_stake_usd": 10.0,
+  "run_id": "nyc-20260419T223303Z",
+  "event_slug": "highest-temperature-in-nyc-on-april-20-2026",
+  "target_date": "2026-04-20",
+  "total_stake_usd": -0.0,
   "dry_run": true,
-  "trades": [
-    {
-      "decision_id": "nyc-20260419T050457Z:2003712:1",
-      "market_id": "2003712",
-      "question": "Will the highest temperature in New York City be between 48-49°F on April 19?",
-      "bin_label": "48F to 49F",
-      "side": "NO",
-      "no_token_id": "11092162610186246472459159471956363159225690748858983397160835756297189255451",
-      "effective_ask": 0.999,
-      "shares": 1.0,
-      "stake_usd": 5.0,
-      "p_model": 0.00955667434121199,
-      "ev_no": -0.009503208772886795,
-      "fee_rate": 0.1
-    },
-    {
-      "decision_id": "nyc-20260419T050457Z:2003721:10",
-      "market_id": "2003721",
-      "question": "Will the highest temperature in New York City be 66°F or higher on April 19?",
-      "bin_label": "66F or above",
-      "side": "NO",
-      "no_token_id": "110565928810535684355061849337968075945485648349749133478458150052568606782274",
-      "effective_ask": 0.999,
-      "shares": 1.0,
-      "stake_usd": 5.0,
-      "p_model": 0.009423274129142012,
-      "ev_no": -0.009356721732524886,
-      "fee_rate": 0.1
-    }
-  ]
+  "trades": []
 }

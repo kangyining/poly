@@ -54,7 +54,7 @@ def main():
             target = datetime.now(timezone.utc).date() - timedelta(days=1)
             log.info("Running settlement check for yesterday (%s)...", target)
 
-        daily_check(db, open_positions_json=OPEN_POSITIONS_JSON)
+        daily_check(db, open_positions_json=OPEN_POSITIONS_JSON, target_date=target)
 
     # Print summary
     open_pos = db.get_open_positions()
