@@ -19,6 +19,8 @@ impl StrategyEngine {
             run_id = %input.run_id,
             event_slug = %input.event_slug,
             market_count = markets.len(),
+            mu_f = input.mu_f,
+            sigma_f = input.sigma_f,
             "starting strategy evaluation"
         );
 
@@ -30,7 +32,6 @@ impl StrategyEngine {
             let span = info_span!(
                 "market_decision",
                 run_id = %input.run_id,
-                event_slug = %input.event_slug,
                 decision_id = %decision_id,
                 market_id = %market.id,
                 question = %market.question
@@ -43,28 +44,30 @@ impl StrategyEngine {
             for rule in &self.rules {
                 if !rule.evaluate(input, market, &mut trace) {
                     accepted = false;
-                    debug!(rule = rule.name(), "market rejected after rule evaluation");
+                    debug!(rule = rule.name(), "market rejected");
                     break;
                 }
             }
 
             if accepted {
-                let no_price = market
-                    .no_price
-                    .expect("accepted market must have a NO price");
-                let distance_f = trace
-                    .distance_f
-                    .unwrap_or_else(|| market.range.distance_from(input.forecast.forecast_high_f));
+                // Re-compute p_model and ev_no for the candidate record
+                let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
+                let effective_ask = market.effective_ask_no.expect("accepted market has effective_ask");
+                let fee_rate = market.fee_rate.expect("accepted market has fee_rate");
+                let ev_no = (1.0 - p) * (1.0 - fee_rate * p) - effective_ask;
+                let no_token_id = market.no_token_id.clone().expect("accepted market has no_token_id");
 
                 candidates.push(TradeCandidate {
                     market_id: market.id.clone(),
                     question: market.question.clone(),
                     slug: market.slug.clone(),
                     range: market.range,
-                    distance_f,
-                    no_price,
-                    yes_price: market.yes_price,
-                    no_token_id: market.no_token_id.clone(),
+                    p_model: p,
+                    ev_no,
+                    effective_ask,
+                    fee_rate,
+                    no_token_id,
+                    shares: input.desired_shares,
                     stake_usd: input.order_size_usd,
                     decision_id,
                 });
@@ -75,8 +78,8 @@ impl StrategyEngine {
 
         info!(
             run_id = %input.run_id,
-            approved_count = candidates.len(),
-            rejected_count = evaluated_markets.len().saturating_sub(candidates.len()),
+            approved = candidates.len(),
+            rejected = evaluated_markets.len().saturating_sub(candidates.len()),
             "finished strategy evaluation"
         );
 
@@ -91,90 +94,106 @@ impl StrategyEngine {
 mod tests {
     use chrono::NaiveDate;
 
-    use crate::config::PriceBand;
     use crate::polymarket::{TemperatureRange, WeatherMarket};
     use crate::weather::Forecast;
 
     use super::super::rules::{
-        MarketTimingRule, NoPriceBandRule, TemperatureDistanceRule, TokenAvailabilityRule,
+        BucketProbabilityRule, MarketTimingRule, NoEdgeRule, TokenAvailabilityRule,
     };
     use super::super::types::StrategyInput;
     use super::StrategyEngine;
 
+    fn make_market(
+        id: &str,
+        question: &str,
+        range: TemperatureRange,
+        effective_ask: f64,
+        fee_rate: f64,
+    ) -> WeatherMarket {
+        WeatherMarket {
+            id: id.into(),
+            question: question.into(),
+            slug: None,
+            end_date: None,
+            range,
+            yes_price: None,
+            no_price: None,
+            yes_token_id: None,
+            no_token_id: Some(format!("token-{id}")),
+            effective_ask_no: Some(effective_ask),
+            fee_rate: Some(fee_rate),
+        }
+    }
+
     #[test]
-    fn keeps_only_far_and_expensive_no_bins() {
+    fn keeps_only_high_ev_no_bins() {
+        // mu=50°F, sigma=2 → bins far from 50 have low P_model → high EV_NO
         let forecast = Forecast {
-            target_date: NaiveDate::from_ymd_opt(2026, 4, 13).expect("valid date"),
+            target_date: NaiveDate::from_ymd_opt(2026, 4, 20).unwrap(),
             forecast_high_f: 50.0,
+            lead_hours: 26.0,
+            station_code: "KLGA".into(),
         };
+
         let input = StrategyInput {
             forecast,
-            price_band: PriceBand {
-                min: 0.90,
-                max: 0.99,
-            },
-            distance_threshold_f: 4.0,
+            mu_f: 50.0,
+            sigma_f: 2.0,
+            min_ev_threshold: 0.02,
+            desired_shares: 10.0,
             order_size_usd: 5.0,
-            run_id: "test-run".into(),
-            event_slug: "nyc-apr-13".into(),
-            evaluation_time_utc: Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                NaiveDate::from_ymd_opt(2026, 4, 12)
-                    .expect("valid date")
-                    .and_hms_opt(12, 30, 0)
-                    .expect("valid time"),
-                chrono::Utc,
-            )),
+            run_id: "test".into(),
+            event_slug: "test-slug".into(),
+            // Set evaluation time 20h before close so timing rule passes
+            evaluation_time_utc: Some(
+                chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
+                    NaiveDate::from_ymd_opt(2026, 4, 19)
+                        .unwrap()
+                        .and_hms_opt(16, 0, 0)
+                        .unwrap(),
+                    chrono::Utc,
+                ),
+            ),
         };
 
         let markets = vec![
-            WeatherMarket {
-                id: "far-left".into(),
-                question: "44F or below".into(),
-                slug: None,
-                end_date: None,
-                range: TemperatureRange::BelowOrEqual { upper_f: 44.0 },
-                yes_price: Some(0.08),
-                no_price: Some(0.92),
-                yes_token_id: None,
-                no_token_id: Some("1".into()),
-            },
-            WeatherMarket {
-                id: "middle".into(),
-                question: "48F to 50F".into(),
-                slug: None,
-                end_date: None,
-                range: TemperatureRange::Between {
-                    low_f: 48.0,
-                    high_f: 50.0,
-                },
-                yes_price: Some(0.60),
-                no_price: Some(0.40),
-                yes_token_id: None,
-                no_token_id: Some("2".into()),
-            },
-            WeatherMarket {
-                id: "far-right-cheap".into(),
-                question: "56F or above".into(),
-                slug: None,
-                end_date: None,
-                range: TemperatureRange::AboveOrEqual { lower_f: 56.0 },
-                yes_price: Some(0.15),
-                no_price: Some(0.85),
-                yes_token_id: None,
-                no_token_id: Some("3".into()),
-            },
+            // Far below: P_model ≈ 0 → EV_NO ≈ 1 - ask → high EV
+            make_market(
+                "far-below",
+                "38F or below",
+                TemperatureRange::BelowOrEqual { upper_f: 38.0 },
+                0.97,  // effective_ask
+                0.05,  // fee_rate
+            ),
+            // At forecast: P_model ≈ 0.5 → EV_NO ≈ 0.5 - ask → negative
+            make_market(
+                "at-forecast",
+                "49F to 51F",
+                TemperatureRange::Between { low_f: 49.0, high_f: 51.0 },
+                0.50,
+                0.05,
+            ),
+            // Far above: P_model ≈ 0 → EV_NO high
+            make_market(
+                "far-above",
+                "64F or above",
+                TemperatureRange::AboveOrEqual { lower_f: 64.0 },
+                0.97,
+                0.05,
+            ),
         ];
 
         let engine = StrategyEngine::new(vec![
             Box::<MarketTimingRule>::default(),
-            Box::<TemperatureDistanceRule>::default(),
-            Box::<NoPriceBandRule>::default(),
             Box::<TokenAvailabilityRule>::default(),
+            Box::<BucketProbabilityRule>::default(),
+            Box::<NoEdgeRule>::default(),
         ]);
-        let evaluation = engine.evaluate(&input, &markets);
 
-        assert_eq!(evaluation.candidates.len(), 1);
-        assert_eq!(evaluation.candidates[0].market_id, "far-left");
-        assert_eq!(evaluation.candidates[0].stake_usd, 5.0);
+        let result = engine.evaluate(&input, &markets);
+        let ids: Vec<&str> = result.candidates.iter().map(|c| c.market_id.as_str()).collect();
+        assert!(ids.contains(&"far-below"), "far-below should qualify");
+        assert!(ids.contains(&"far-above"), "far-above should qualify");
+        assert!(!ids.contains(&"at-forecast"), "at-forecast should be rejected");
     }
 }
