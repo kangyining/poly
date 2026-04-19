@@ -80,8 +80,8 @@ async fn main() -> Result<()> {
                 }
             }
 
-            info!("sleeping 1 hour until next evaluation");
-            tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+            info!(secs = config.poll_interval_secs, "sleeping until next evaluation");
+            tokio::time::sleep(tokio::time::Duration::from_secs(config.poll_interval_secs)).await;
         }
     } else {
         // ── Single pass ────────────────────────────────────────────────────
@@ -268,7 +268,13 @@ fn run_execute_bridge(config: &polymarket_weather_bot::config::AppConfig) {
 
     info!(script = %script.display(), "invoking execute.py");
 
-    let status = Command::new("python")
+    // Windows uses "python"; Linux/macOS use "python3"
+    #[cfg(target_os = "windows")]
+    let python_bin = "python";
+    #[cfg(not(target_os = "windows"))]
+    let python_bin = "python3";
+
+    let status = Command::new(python_bin)
         .arg(script)
         .arg("--plan")
         .arg(&plan_path)

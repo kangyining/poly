@@ -115,9 +115,13 @@ pub struct Cli {
     #[arg(long, env = "DRY_RUN", default_value_t = true)]
     pub dry_run: bool,
 
-    /// Run the scheduler loop (hourly) instead of a single pass
+    /// Run the scheduler loop instead of a single pass
     #[arg(long, env = "LOOP", default_value_t = false)]
     pub run_loop: bool,
+
+    /// Seconds to sleep between evaluation passes in loop mode (default 300 = 5 min)
+    #[arg(long, env = "POLL_INTERVAL_SECS", default_value_t = 300)]
+    pub poll_interval_secs: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -142,6 +146,7 @@ pub struct AppConfig {
     pub log_directory: PathBuf,
     pub dry_run: bool,
     pub run_loop: bool,
+    pub poll_interval_secs: u64,
 }
 
 impl TryFrom<Cli> for AppConfig {
@@ -182,6 +187,7 @@ impl TryFrom<Cli> for AppConfig {
             log_directory: c.log_directory,
             dry_run: c.dry_run,
             run_loop: c.run_loop,
+            poll_interval_secs: c.poll_interval_secs,
         })
     }
 }
