@@ -162,9 +162,9 @@ impl PolymarketClient {
             .await
             .context("failed to parse CLOB /fee-rate response")?;
 
-        // Normalize: docs return 0.05 but endpoint may return 50 (bps*1000)
+        // Endpoint returns basis points (e.g. 1000 = 10%). Convert to decimal.
         let rate = if raw.base_fee > 1.0 {
-            raw.base_fee / 1000.0
+            raw.base_fee / 10_000.0
         } else {
             raw.base_fee
         };

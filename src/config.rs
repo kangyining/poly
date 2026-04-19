@@ -153,9 +153,7 @@ impl TryFrom<Cli> for AppConfig {
     type Error = anyhow::Error;
 
     fn try_from(c: Cli) -> Result<Self> {
-        if c.min_ev_threshold < 0.0 {
-            bail!("min_ev_threshold must be non-negative");
-        }
+
         if c.desired_shares <= 0.0 {
             bail!("desired_shares must be positive");
         }
