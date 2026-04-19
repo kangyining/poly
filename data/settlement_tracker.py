@@ -130,29 +130,39 @@ def _settle_positions(db: Database, target_date: str, winning_bin_label: str,
 
 
 def daily_check(db: Database,
-                open_positions_json: Path = OPEN_POSITIONS_JSON):
+                open_positions_json: Path = OPEN_POSITIONS_JSON,
+                target_date=None):
     """
-    Check yesterday's markets for each city and record settlements.
+    Check markets for each city and record settlements.
     Closes matching open positions with PnL and exports open_positions.json.
-    Run once per day (e.g. at 06:00 UTC, after Wunderground data is available).
+
+    target_date: date object to check. Defaults to yesterday.
+    Detects resolution via winning_bin() (outcome prices reaching 1.0),
+    not the `closed` flag — Polymarket sometimes resolves without setting closed=True.
     """
-    yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1))
+    check_date = target_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     saved = 0
     positions_closed = 0
 
     for city, cfg in CITIES.items():
-        date_str = yesterday.isoformat()
+        date_str = check_date.isoformat()
         if db.settlement_exists(city, date_str):
+            log.debug("Settlement already recorded: %s %s", city, date_str)
             continue
 
         try:
-            event = fetch_event(cfg["polymarket_slug_city"], yesterday)
+            event = fetch_event(cfg["polymarket_slug_city"], check_date)
         except Exception as e:
             log.error("Settlement check failed %s %s: %s", city, date_str, e)
             continue
 
-        if not event or not event.get("closed"):
-            log.debug("Market not yet closed: %s %s", city, date_str)
+        if not event:
+            log.debug("No event found: %s %s", city, date_str)
+            continue
+
+        # Use winning_bin as the resolution signal — more reliable than closed flag
+        if not winning_bin(event):
+            log.info("Market not yet resolved (no winner): %s %s", city, date_str)
             continue
 
         rec = _extract_settlement(event, city, date_str, cfg)

@@ -123,7 +123,24 @@ CREATE TABLE IF NOT EXISTS positions (
     pnl             REAL,                 -- USDC PnL (null until settled)
     opened_at       TEXT NOT NULL,        -- ISO 8601 UTC
     settled_at      TEXT,                 -- ISO 8601 UTC (null until closed)
-    is_paper        INTEGER NOT NULL DEFAULT 1  -- 1=paper, 0=live
+    is_paper        INTEGER NOT NULL DEFAULT 1,  -- 1=paper, 0=live
+    strategy_name   TEXT NOT NULL DEFAULT 'default',
+    backtest_id     TEXT,                 -- NULL for live/paper trades
+    trade_rationale TEXT                  -- JSON: ev, p_model, fee_rate, etc.
+);
+
+CREATE TABLE IF NOT EXISTS backtests (
+    id            TEXT PRIMARY KEY,       -- UUID
+    strategy      TEXT NOT NULL,
+    params        TEXT NOT NULL,          -- JSON: all tunable params
+    date_from     TEXT NOT NULL,          -- YYYY-MM-DD
+    date_to       TEXT NOT NULL,          -- YYYY-MM-DD
+    created_at    TEXT NOT NULL,          -- ISO 8601 UTC
+    total_trades  INTEGER,
+    win_rate      REAL,
+    total_pnl     REAL,
+    sharpe        REAL,
+    status        TEXT NOT NULL DEFAULT 'running'  -- running | done | failed
 );
 
 CREATE INDEX IF NOT EXISTS idx_positions_status

@@ -189,8 +189,9 @@ class Database:
             INSERT OR IGNORE INTO positions (
                 token_id, market_id, bin_label, event_slug, target_date,
                 entry_price, shares, stake_usd, order_id,
-                status, pnl, opened_at, settled_at, is_paper
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                status, pnl, opened_at, settled_at, is_paper,
+                strategy_name, backtest_id, trade_rationale
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             pos["token_id"], pos.get("market_id", ""),
             pos["bin_label"], pos["event_slug"], pos["target_date"],
@@ -199,6 +200,9 @@ class Database:
             pos.get("status", "open"), pos.get("pnl"),
             pos["opened_at"], pos.get("settled_at"),
             1 if pos.get("is_paper", True) else 0,
+            pos.get("strategy_name", "default"),
+            pos.get("backtest_id"),
+            pos.get("trade_rationale"),
         ))
         self.conn.commit()
         return cur.lastrowid
@@ -246,7 +250,7 @@ class Database:
         ]
         from pathlib import Path
         Path(path).write_text(json.dumps(out, indent=2))
-        log.info("exported %d open positions → %s", len(out), path)
+        log.info("exported %d open positions -> %s", len(out), path)
 
     def close(self):
         self.conn.close()
