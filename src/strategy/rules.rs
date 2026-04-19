@@ -1,11 +1,8 @@
-use chrono::Utc;
 use tracing::{debug, warn};
 
 use crate::polymarket::WeatherMarket;
 
-use super::types::{
-    market_close_utc, within_24h_of_close, DecisionTrace, RuleTrace, StrategyInput,
-};
+use super::types::{DecisionTrace, RuleTrace, StrategyInput, within_trading_window};
 
 pub trait StrategyRule: Send + Sync {
     fn name(&self) -> &'static str;
@@ -16,6 +13,8 @@ pub trait StrategyRule: Send + Sync {
         trace: &mut DecisionTrace,
     ) -> bool;
 }
+
+// ── Rule 1: Market must be within the 36h trading window ─────────────────────
 
 #[derive(Debug, Default)]
 pub struct MarketTimingRule;
@@ -31,140 +30,34 @@ impl StrategyRule for MarketTimingRule {
         market: &WeatherMarket,
         trace: &mut DecisionTrace,
     ) -> bool {
-        let now = input.evaluation_time_utc.unwrap_or_else(Utc::now);
-        let within_window = within_24h_of_close(now, input.forecast.target_date);
+        let now = input.evaluation_time_utc.unwrap_or_else(chrono::Utc::now);
+        let in_window = within_trading_window(now, input.forecast.target_date);
         let reason = format!(
-            "now={} target_date={} market_close_utc={} within_24h={}",
+            "now={} target_date={} in_36h_window={}",
             now.to_rfc3339(),
             input.forecast.target_date,
-            market_close_utc(input.forecast.target_date).to_rfc3339(),
-            within_window
+            in_window
         );
 
         debug!(
-            run_id = %input.run_id,
             decision_id = %trace.decision_id,
             market_id = %market.id,
             rule = self.name(),
-            question = %market.question,
-            %reason,
-            "evaluated market timing rule"
+            in_window,
+            "evaluated MarketTimingRule"
         );
 
         trace.push(RuleTrace {
             rule_name: self.name(),
-            passed: within_window,
+            passed: in_window,
             reason,
         });
 
-        within_window
+        in_window
     }
 }
 
-#[derive(Debug, Default)]
-pub struct TemperatureDistanceRule;
-
-impl StrategyRule for TemperatureDistanceRule {
-    fn name(&self) -> &'static str {
-        "TemperatureDistanceRule"
-    }
-
-    fn evaluate(
-        &self,
-        input: &StrategyInput,
-        market: &WeatherMarket,
-        trace: &mut DecisionTrace,
-    ) -> bool {
-        let distance_f = market.range.distance_from(input.forecast.forecast_high_f);
-        trace.set_distance_f(distance_f);
-        let passed = distance_f >= input.distance_threshold_f;
-        let reason = format!(
-            "forecast_high_f={:.1} range={} distance_f={:.1} threshold_f={:.1}",
-            input.forecast.forecast_high_f,
-            market.range.label(),
-            distance_f,
-            input.distance_threshold_f
-        );
-
-        debug!(
-            run_id = %input.run_id,
-            decision_id = %trace.decision_id,
-            market_id = %market.id,
-            rule = self.name(),
-            distance_f,
-            threshold_f = input.distance_threshold_f,
-            passed,
-            "evaluated temperature distance rule"
-        );
-
-        trace.push(RuleTrace {
-            rule_name: self.name(),
-            passed,
-            reason,
-        });
-
-        passed
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct NoPriceBandRule;
-
-impl StrategyRule for NoPriceBandRule {
-    fn name(&self) -> &'static str {
-        "NoPriceBandRule"
-    }
-
-    fn evaluate(
-        &self,
-        input: &StrategyInput,
-        market: &WeatherMarket,
-        trace: &mut DecisionTrace,
-    ) -> bool {
-        let Some(no_price) = market.no_price else {
-            let reason = "market is missing a NO price".to_string();
-            warn!(
-                run_id = %input.run_id,
-                decision_id = %trace.decision_id,
-                market_id = %market.id,
-                rule = self.name(),
-                "market rejected because no NO price is available"
-            );
-            trace.push(RuleTrace {
-                rule_name: self.name(),
-                passed: false,
-                reason,
-            });
-            return false;
-        };
-
-        let passed = no_price >= input.price_band.min && no_price <= input.price_band.max;
-        let reason = format!(
-            "no_price={:.3} price_band={:.2}-{:.2}",
-            no_price, input.price_band.min, input.price_band.max
-        );
-
-        debug!(
-            run_id = %input.run_id,
-            decision_id = %trace.decision_id,
-            market_id = %market.id,
-            rule = self.name(),
-            no_price,
-            min_price = input.price_band.min,
-            max_price = input.price_band.max,
-            passed,
-            "evaluated NO price band rule"
-        );
-
-        trace.push(RuleTrace {
-            rule_name: self.name(),
-            passed,
-            reason,
-        });
-
-        passed
-    }
-}
+// ── Rule 2: Market must have a NO token ID ────────────────────────────────────
 
 #[derive(Debug, Default)]
 pub struct TokenAvailabilityRule;
@@ -176,24 +69,137 @@ impl StrategyRule for TokenAvailabilityRule {
 
     fn evaluate(
         &self,
-        input: &StrategyInput,
+        _input: &StrategyInput,
         market: &WeatherMarket,
         trace: &mut DecisionTrace,
     ) -> bool {
         let passed = market.no_token_id.is_some();
-        let reason = if let Some(token_id) = &market.no_token_id {
-            format!("no_token_id={token_id}")
-        } else {
-            "market is missing a NO token id".to_string()
+        let reason = match &market.no_token_id {
+            Some(id) => format!("no_token_id={id}"),
+            None => "missing NO token id".to_string(),
         };
 
+        if !passed {
+            warn!(
+                decision_id = %trace.decision_id,
+                market_id = %market.id,
+                "market rejected: missing NO token id"
+            );
+        }
+
+        trace.push(RuleTrace {
+            rule_name: self.name(),
+            passed,
+            reason,
+        });
+
+        passed
+    }
+}
+
+// ── Rule 3: Compute bucket probability via Gaussian CDF ───────────────────────
+
+#[derive(Debug, Default)]
+pub struct BucketProbabilityRule;
+
+impl StrategyRule for BucketProbabilityRule {
+    fn name(&self) -> &'static str {
+        "BucketProbabilityRule"
+    }
+
+    fn evaluate(
+        &self,
+        input: &StrategyInput,
+        market: &WeatherMarket,
+        trace: &mut DecisionTrace,
+    ) -> bool {
+        let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
+        let reason = format!(
+            "mu_f={:.2} sigma_f={:.2} range={} p_model={:.4}",
+            input.mu_f,
+            input.sigma_f,
+            market.range.label(),
+            p,
+        );
+
         debug!(
-            run_id = %input.run_id,
             decision_id = %trace.decision_id,
             market_id = %market.id,
-            rule = self.name(),
-            has_token = passed,
-            "evaluated token availability rule"
+            p_model = p,
+            "evaluated BucketProbabilityRule"
+        );
+
+        // This rule always passes — it annotates p_model into the trace for
+        // the NoEdgeRule which needs it. We store p in the reason string.
+        // The NoEdgeRule reads market data directly, so both rules see the market.
+        trace.push(RuleTrace {
+            rule_name: self.name(),
+            passed: true,
+            reason,
+        });
+
+        true
+    }
+}
+
+// ── Rule 4: Fee-adjusted NO EV must clear threshold ──────────────────────────
+//
+// EV_NO = (1 - P_model) × (1 - fee_rate × P_model) - effective_ask
+//
+// This requires effective_ask_no and fee_rate from the CLOB (set during market fetch).
+
+#[derive(Debug, Default)]
+pub struct NoEdgeRule;
+
+impl StrategyRule for NoEdgeRule {
+    fn name(&self) -> &'static str {
+        "NoEdgeRule"
+    }
+
+    fn evaluate(
+        &self,
+        input: &StrategyInput,
+        market: &WeatherMarket,
+        trace: &mut DecisionTrace,
+    ) -> bool {
+        let (Some(effective_ask), Some(fee_rate)) =
+            (market.effective_ask_no, market.fee_rate)
+        else {
+            let reason = "no CLOB data available (effective_ask or fee_rate missing)".to_string();
+            warn!(
+                decision_id = %trace.decision_id,
+                market_id = %market.id,
+                "market rejected: missing CLOB data"
+            );
+            trace.push(RuleTrace {
+                rule_name: self.name(),
+                passed: false,
+                reason,
+            });
+            return false;
+        };
+
+        let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
+        // Fee is collected in shares on taker buys:
+        // winning_shares = 1 - fee_rate × p_yes = 1 - fee_rate × P_model
+        // EV_NO = (1 - P_model) × winning_shares_if_no_wins - effective_ask
+        //       = (1 - P_model) × (1 - fee_rate × P_model) - effective_ask
+        let ev_no = (1.0 - p) * (1.0 - fee_rate * p) - effective_ask;
+        let passed = ev_no >= input.min_ev_threshold;
+
+        let reason = format!(
+            "p_model={:.4} effective_ask={:.4} fee_rate={:.4} ev_no={:.4} threshold={:.4}",
+            p, effective_ask, fee_rate, ev_no, input.min_ev_threshold
+        );
+
+        debug!(
+            decision_id = %trace.decision_id,
+            market_id = %market.id,
+            p_model = p,
+            ev_no,
+            effective_ask,
+            passed,
+            "evaluated NoEdgeRule"
         );
 
         trace.push(RuleTrace {

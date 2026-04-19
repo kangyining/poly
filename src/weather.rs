@@ -1,15 +1,18 @@
-use anyhow::Result;
-use chrono::NaiveDate;
+use anyhow::{Context, Result};
+use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+use reqwest::Client;
+use serde::Deserialize;
+use tracing::info;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Forecast {
     pub target_date: NaiveDate,
     pub forecast_high_f: f64,
+    pub lead_hours: f64,
+    pub station_code: String,
 }
 
-pub trait ForecastProvider {
-    fn get_forecast(&self, target_date: NaiveDate) -> Result<Forecast>;
-}
+// ── Static (manual override) ──────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy)]
 pub struct StaticForecastProvider {
@@ -20,13 +23,163 @@ impl StaticForecastProvider {
     pub fn new(forecast_high_f: f64) -> Self {
         Self { forecast_high_f }
     }
-}
 
-impl ForecastProvider for StaticForecastProvider {
-    fn get_forecast(&self, target_date: NaiveDate) -> Result<Forecast> {
+    pub fn get_forecast(&self, target_date: NaiveDate, station_code: &str) -> Result<Forecast> {
+        let now = Utc::now();
+        let close = market_close_utc(target_date);
+        let lead_hours = (close - now).num_minutes() as f64 / 60.0;
         Ok(Forecast {
             target_date,
             forecast_high_f: self.forecast_high_f,
+            lead_hours: lead_hours.max(0.0),
+            station_code: station_code.to_string(),
         })
     }
+}
+
+// ── NWS live provider ─────────────────────────────────────────────────────────
+
+pub struct NwsForecastProvider {
+    http: Client,
+    lat: f64,
+    lon: f64,
+}
+
+#[derive(Deserialize)]
+struct PointsResponse {
+    properties: PointsProperties,
+}
+
+#[derive(Deserialize)]
+struct PointsProperties {
+    #[serde(rename = "forecastHourly")]
+    forecast_hourly: String,
+}
+
+#[derive(Deserialize)]
+struct HourlyResponse {
+    properties: HourlyProperties,
+}
+
+#[derive(Deserialize)]
+struct HourlyProperties {
+    periods: Vec<HourlyPeriod>,
+}
+
+#[derive(Deserialize)]
+struct HourlyPeriod {
+    #[serde(rename = "startTime")]
+    start_time: String,
+    temperature: f64,
+    #[serde(rename = "temperatureUnit")]
+    temperature_unit: String,
+}
+
+impl NwsForecastProvider {
+    pub fn new(lat: f64, lon: f64) -> Self {
+        Self {
+            http: Client::builder()
+                .user_agent("polymarket-weather-bot/0.1 (contact: bot@example.com)")
+                .build()
+                .expect("failed to build HTTP client"),
+            lat,
+            lon,
+        }
+    }
+
+    pub async fn get_forecast(
+        &self,
+        target_date: NaiveDate,
+        station_code: &str,
+    ) -> Result<Forecast> {
+        // Step 1: resolve grid
+        let points_url = format!(
+            "https://api.weather.gov/points/{:.4},{:.4}",
+            self.lat, self.lon
+        );
+        let points: PointsResponse = self
+            .http
+            .get(&points_url)
+            .send()
+            .await
+            .context("NWS /points request failed")?
+            .error_for_status()
+            .context("NWS /points returned error status")?
+            .json()
+            .await
+            .context("failed to parse NWS /points response")?;
+
+        // Step 2: fetch hourly forecast
+        let hourly: HourlyResponse = self
+            .http
+            .get(&points.properties.forecast_hourly)
+            .send()
+            .await
+            .context("NWS forecastHourly request failed")?
+            .error_for_status()
+            .context("NWS forecastHourly returned error status")?
+            .json()
+            .await
+            .context("failed to parse NWS forecastHourly response")?;
+
+        // Step 3: filter to target_date (local time from ISO 8601 offset in startTime)
+        let mut max_temp_f: Option<f64> = None;
+        let mut first_start: Option<DateTime<FixedOffset>> = None;
+
+        for period in &hourly.properties.periods {
+            let start: DateTime<FixedOffset> = DateTime::parse_from_rfc3339(&period.start_time)
+                .with_context(|| {
+                    format!("failed to parse NWS period startTime: {}", period.start_time)
+                })?;
+
+            // Local date from the period's own UTC offset
+            let local_date = start.date_naive();
+            if local_date != target_date {
+                continue;
+            }
+
+            let temp_f = if period.temperature_unit == "C" {
+                period.temperature * 9.0 / 5.0 + 32.0
+            } else {
+                period.temperature
+            };
+
+            if first_start.is_none() {
+                first_start = Some(start);
+            }
+            max_temp_f = Some(max_temp_f.unwrap_or(f64::NEG_INFINITY).max(temp_f));
+        }
+
+        let forecast_high_f = max_temp_f
+            .ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
+
+        // Lead hours = hours from now until market close (noon UTC on target_date)
+        let now = Utc::now();
+        let close = market_close_utc(target_date);
+        let lead_hours = ((close - now).num_minutes() as f64 / 60.0).max(0.0);
+
+        info!(
+            target_date = %target_date,
+            forecast_high_f,
+            lead_hours,
+            station_code,
+            "NWS forecast fetched"
+        );
+
+        Ok(Forecast {
+            target_date,
+            forecast_high_f,
+            lead_hours,
+            station_code: station_code.to_string(),
+        })
+    }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+pub fn market_close_utc(target_date: NaiveDate) -> DateTime<Utc> {
+    let naive = target_date
+        .and_hms_opt(12, 0, 0)
+        .expect("12:00:00 is always valid");
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
 }
