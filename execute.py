@@ -23,6 +23,11 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Make sure the poly-weather package root is on sys.path when called from anywhere
+sys.path.insert(0, str(Path(__file__).parent))
+
+from data.db import Database
+
 log = logging.getLogger(__name__)
 
 DEFAULT_PLAN_PATH = Path(__file__).parent / "execution_plan.json"
@@ -41,16 +46,6 @@ def load_plan(path: Path) -> dict:
     with open(path) as f:
         return json.load(f)
 
-
-def load_positions(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    with open(path) as f:
-        return json.load(f)
-
-
-def save_positions(path: Path, positions: list[dict]) -> None:
-    path.write_text(json.dumps(positions, indent=2))
 
 
 def now_utc() -> str:
@@ -107,7 +102,7 @@ def main() -> None:
     )
 
     plan = load_plan(Path(args.plan))
-    positions = load_positions(Path(args.positions))
+    db = Database()
 
     dry_run = args.dry_run or plan.get("dry_run", True)
 
@@ -167,8 +162,7 @@ def main() -> None:
         )
 
         if dry_run:
-            # Record paper position for tracking even in dry-run
-            positions.append({
+            pos = {
                 "token_id":    trade["no_token_id"],
                 "market_id":   trade["market_id"],
                 "bin_label":   trade["bin_label"],
@@ -183,14 +177,15 @@ def main() -> None:
                 "opened_at":   now_utc(),
                 "settled_at":  None,
                 "is_paper":    True,
-            })
+            }
+            db.insert_position(pos)
             continue
 
         # Live submission
         response = submit_trade(client, trade)
         if response:
             order_id = response.get("orderID") or response.get("id")
-            positions.append({
+            pos = {
                 "token_id":    trade["no_token_id"],
                 "market_id":   trade["market_id"],
                 "bin_label":   trade["bin_label"],
@@ -205,17 +200,16 @@ def main() -> None:
                 "opened_at":   now_utc(),
                 "settled_at":  None,
                 "is_paper":    False,
-            })
+            }
+            db.insert_position(pos)
         # Brief pause between orders to avoid rate limiting
         time.sleep(0.5)
 
-    # ── Save positions ────────────────────────────────────────────────────────
-    save_positions(Path(args.positions), positions)
-    log.info(
-        "positions file updated: %d total positions (%d open)",
-        len(positions),
-        sum(1 for p in positions if p["status"] == "open"),
-    )
+    # ── Export open positions JSON for Rust bot ───────────────────────────────
+    db.export_open_positions_json(Path(args.positions))
+    open_count = len(db.get_open_positions())
+    log.info("positions db updated: %d open positions", open_count)
+    db.close()
 
 
 if __name__ == "__main__":
