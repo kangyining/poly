@@ -153,7 +153,6 @@ impl TryFrom<Cli> for AppConfig {
     type Error = anyhow::Error;
 
     fn try_from(c: Cli) -> Result<Self> {
-
         if c.desired_shares <= 0.0 {
             bail!("desired_shares must be positive");
         }
@@ -162,6 +161,9 @@ impl TryFrom<Cli> for AppConfig {
         }
         if c.max_total_stake_usd <= 0.0 {
             bail!("max_total_stake_usd must be positive");
+        }
+        if c.poll_interval_secs == 0 {
+            bail!("poll_interval_secs must be positive");
         }
 
         Ok(Self {

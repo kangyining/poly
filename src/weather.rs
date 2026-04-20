@@ -12,8 +12,6 @@ pub struct Forecast {
     pub station_code: String,
 }
 
-// ── Static (manual override) ──────────────────────────────────────────────────
-
 #[derive(Debug, Clone, Copy)]
 pub struct StaticForecastProvider {
     forecast_high_f: f64,
@@ -36,8 +34,6 @@ impl StaticForecastProvider {
         })
     }
 }
-
-// ── NWS live provider ─────────────────────────────────────────────────────────
 
 pub struct NwsForecastProvider {
     http: Client,
@@ -92,11 +88,7 @@ impl NwsForecastProvider {
         target_date: NaiveDate,
         station_code: &str,
     ) -> Result<Forecast> {
-        // Step 1: resolve grid
-        let points_url = format!(
-            "https://api.weather.gov/points/{:.4},{:.4}",
-            self.lat, self.lon
-        );
+        let points_url = format!("https://api.weather.gov/points/{:.4},{:.4}", self.lat, self.lon);
         let points: PointsResponse = self
             .http
             .get(&points_url)
@@ -109,7 +101,6 @@ impl NwsForecastProvider {
             .await
             .context("failed to parse NWS /points response")?;
 
-        // Step 2: fetch hourly forecast
         let hourly: HourlyResponse = self
             .http
             .get(&points.properties.forecast_hourly)
@@ -122,9 +113,7 @@ impl NwsForecastProvider {
             .await
             .context("failed to parse NWS forecastHourly response")?;
 
-        // Step 3: filter to target_date (local time from ISO 8601 offset in startTime)
         let mut max_temp_f: Option<f64> = None;
-        let mut first_start: Option<DateTime<FixedOffset>> = None;
 
         for period in &hourly.properties.periods {
             let start: DateTime<FixedOffset> = DateTime::parse_from_rfc3339(&period.start_time)
@@ -132,9 +121,7 @@ impl NwsForecastProvider {
                     format!("failed to parse NWS period startTime: {}", period.start_time)
                 })?;
 
-            // Local date from the period's own UTC offset
-            let local_date = start.date_naive();
-            if local_date != target_date {
+            if start.date_naive() != target_date {
                 continue;
             }
 
@@ -144,16 +131,12 @@ impl NwsForecastProvider {
                 period.temperature
             };
 
-            if first_start.is_none() {
-                first_start = Some(start);
-            }
             max_temp_f = Some(max_temp_f.unwrap_or(f64::NEG_INFINITY).max(temp_f));
         }
 
-        let forecast_high_f = max_temp_f
-            .ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
+        let forecast_high_f =
+            max_temp_f.ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
 
-        // Lead hours = hours from now until market close (noon UTC on target_date)
         let now = Utc::now();
         let close = market_close_utc(target_date);
         let lead_hours = ((close - now).num_minutes() as f64 / 60.0).max(0.0);
@@ -174,8 +157,6 @@ impl NwsForecastProvider {
         })
     }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 pub fn market_close_utc(target_date: NaiveDate) -> DateTime<Utc> {
     let naive = target_date
