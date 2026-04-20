@@ -1,153 +1,161 @@
 # Polymarket Weather Bot
 
-Rust bot for evaluating Polymarket NYC highest-temperature markets. The current implementation is a dry-run-first architecture: it fetches one weather event, evaluates each temperature bin through a traceable rule engine, logs every decision step, and builds an execution plan without submitting live orders.
+Rust decision engine for Polymarket daily temperature markets.
 
-## Strategy
+This project is the scoring side of the stack. It works with the sibling
+`../poly-weather` Python project, which owns SQLite storage, settlement,
+calibration fitting, and the execution bridge.
 
-The strategy targets daily high-temperature markets where Polymarket splits the outcome into temperature bins.
+## Current Behavior
 
-- Fetch the target event by Polymarket event slug.
-- Use a forecast high for the target date.
-- Parse each market question into a `TemperatureRange`.
-- Keep bins whose nearest edge is at least `4°F` away from the forecast.
-- Keep only NO prices between `0.90` and `0.99`.
-- Plan a `$5` NO buy for each qualifying bin.
+Each pass of the bot does the following:
 
-Example: with a `50°F` forecast, bins at `44°F or below` and `56°F or above` are far enough away to be considered. They still need to pass the price and token checks before becoming trade candidates.
+1. Resolve the target market date from `--target-date` or from the current UTC time.
+2. Refresh the forecast high from NWS on its own cadence, unless `--forecast-high-f` overrides it.
+3. Load `calibration.json` and apply station/month/lead-time adjustments.
+4. Load `open_positions.json` so the bot does not rebuy bins already held.
+5. Fetch the Gamma event for the generated city/date slug.
+6. Enrich each market with CLOB order book depth and fee-rate data.
+7. Evaluate every enabled strategy profile from `strategies.toml`.
+8. Write `execution_plan.json`.
+9. Invoke `../poly-weather/execute.py` to record paper positions or submit live orders.
+
+In loop mode, the bot reevaluates the live book every `POLL_INTERVAL_SECS` and
+refreshes the forecast every `FORECAST_REFRESH_SECS`. The defaults are `15`
+seconds for market evaluation and `1800` seconds (30 minutes) for forecast refresh.
+
+## Implemented Strategy
+
+The old distance-band heuristic has been replaced by a calibrated EV workflow.
+
+For each weather bin, the bot currently:
+
+- Parses the market question into a `TemperatureRange`
+- Estimates bucket probability from a Gaussian distribution using calibrated `mu_f` and `sigma_f`
+- Walks the NO-side ask book to compute a VWAP effective ask for the requested share size
+- Fetches the token-specific fee rate from CLOB
+- Applies a rule chain:
+  - `MarketTimingRule`
+  - `TokenAvailabilityRule`
+  - `BucketProbabilityRule`
+  - `NoEdgeRule`
+
+Enabled strategy profiles live in `strategies.toml`. Right now the shipped file has:
+
+- `base_ev`: enabled
+- `aggressive_tail`: disabled
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    CLI[CLI / Env Config] --> Main[src/main.rs]
-    Main --> Logging[Structured Logging]
-    Main --> Weather[ForecastProvider]
-    Main --> Poly[PolymarketClient]
+    CLI[CLI / Env] --> Main[src/main.rs]
+    Main --> Logging[src/logging.rs]
+    Main --> Calibration[src/calibration.rs]
+    Main --> Weather[src/weather.rs]
+    Main --> Poly[src/polymarket.rs]
 
     Weather --> Forecast[Forecast High]
-    Poly --> Event[Single Event by Slug]
-    Event --> Markets[WeatherMarket Bins]
+    Calibration --> Params[mu_f / sigma_f]
+    Poly --> Gamma[Gamma Event]
+    Poly --> CLOB[CLOB Book + Fee Rate]
 
-    Forecast --> Engine[StrategyEngine]
-    Markets --> Engine
+    Forecast --> Engine[src/strategy/engine.rs]
+    Params --> Engine
+    Gamma --> Engine
+    CLOB --> Engine
 
     Engine --> Timing[MarketTimingRule]
-    Timing --> Distance[TemperatureDistanceRule]
-    Distance --> Price[NoPriceBandRule]
-    Price --> Token[TokenAvailabilityRule]
+    Timing --> Token[TokenAvailabilityRule]
+    Token --> Prob[BucketProbabilityRule]
+    Prob --> Edge[NoEdgeRule]
 
-    Token --> Trace[DecisionTrace + decision_id]
-    Token --> Candidates[Trade Candidates]
-    Candidates --> Plan[ExecutionPlan]
-    Plan --> DryRun[DryRunExecutionClient]
-    Plan --> LiveStub[PolymarketExecutionClient Stub]
-
-    Logging --> LogFile[JSON Log Files]
-    Trace --> LogFile
+    Edge --> Plan[src/execution.rs]
+    Plan --> Bridge[../poly-weather/execute.py]
+    Bridge --> Positions[open_positions.json + SQLite]
 ```
 
 ## Module Layout
 
-- `src/main.rs`: orchestration layer. Loads config, initializes logging, fetches forecast/event data, runs the strategy engine, and calls the execution client.
-- `src/config.rs`: CLI and environment config validation.
-- `src/logging.rs`: `tracing` setup with console output and rolling JSON file logs.
-- `src/weather.rs`: forecast provider abstraction. Currently includes a static forecast provider.
-- `src/polymarket.rs`: Gamma API client and weather-market parsing. Currently fetches one event by slug.
-- `src/strategy/engine.rs`: ordered rule-engine evaluation.
-- `src/strategy/rules.rs`: individual rules such as timing, temperature distance, NO price band, and token availability.
-- `src/strategy/types.rs`: strategy input, trade candidate, decision trace, and evaluation result types.
-- `src/execution.rs`: execution plan plus dry-run and live-client abstractions.
+- `src/main.rs`: orchestration loop, target-date resolution, plan writing, Python bridge invocation
+- `src/config.rs`: CLI and environment configuration
+- `src/weather.rs`: NWS forecast provider plus static forecast override
+- `src/calibration.rs`: runtime lookup of `beta_f` and `sigma_f`
+- `src/polymarket.rs`: Gamma lookup, bucket parsing, CLOB order book fetch, fee-rate fetch, VWAP effective ask
+- `src/strategy/registry.rs`: strategy profiles loaded from `strategies.toml`
+- `src/strategy/engine.rs`: rule-engine evaluation and candidate generation
+- `src/strategy/rules.rs`: timing, token, probability, and EV rules
+- `src/strategy/types.rs`: strategy input, trade candidates, traces, and timing helpers
+- `src/execution.rs`: JSON execution plan model and serializer
+- `src/logging.rs`: console + JSON file logging
 
 ## Decision Tracing
 
-Each market/bin evaluation receives a stable `decision_id` built from the run id, market id, and market index. The strategy engine records every rule result in a `DecisionTrace` and also emits structured logs with the same `decision_id`.
+Each market evaluation gets a stable `decision_id` built from the run id, market id,
+and market index. Every rule result is recorded in the trace and emitted to the log.
 
-This makes it possible to answer questions like:
+That makes it easy to answer:
 
-- Which rule rejected this bin?
-- What forecast and threshold were used?
-- What NO price was observed?
-- Was the market rejected because of timing, price, distance, or missing token data?
+- Which rule rejected this market?
+- What forecast inputs were used?
+- What bucket probability was computed?
+- What effective ask and fee rate were used?
+- Which markets became trade candidates?
 
-The first rule that fails stops evaluation for that bin.
+## Running It
+
+Windows launcher:
+
+```powershell
+cd F:\Polymark\poly-weather-bot
+run_bot.bat
+run_bot.bat --run-loop
+run_bot.bat --run-loop --dry-run=false
+```
+
+Direct binary:
+
+```bash
+cd /mnt/f/Polymark/poly-weather-bot
+./target/release/polymarket-weather-bot.exe --dry-run
+./target/release/polymarket-weather-bot.exe --run-loop --dry-run
+```
+
+Useful flags:
+
+- `--city`
+- `--station-code`
+- `--target-date`
+- `--forecast-high-f`
+- `--poll-interval-secs`
+- `--forecast-refresh-secs`
+- `--min-ev-threshold`
+- `--desired-shares`
+- `--order-size-usd`
+- `--max-total-stake-usd`
+- `--max-open-positions`
+- `--dry-run`
+- `--run-loop`
+
+Important paths default to the sibling Python project:
+
+- `../poly-weather/calibration.json`
+- `../poly-weather/open_positions.json`
+- `../poly-weather/execution_plan.json`
+- `../poly-weather/execute.py`
 
 ## Logging
 
-The app uses `tracing` rather than `println!`.
+The bot uses `tracing` for both console and JSON log output.
 
-- Console logs are emitted for local visibility.
-- JSON logs are written to `LOG_DIRECTORY`.
-- Default log directory: `/tmp/polymarket-weather-bot`.
-- The log level can be controlled with `RUST_LOG`.
-
-Example:
-
-```bash
-RUST_LOG=debug cargo run -- \
-  --target-date 2026-04-16 \
-  --forecast-high-f 80 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
-```
-
-## Current Data Flow
-
-1. `Cli` parses runtime settings.
-2. `AppConfig` validates thresholds and paths.
-3. `StaticForecastProvider` returns the configured forecast high.
-4. `PolymarketClient` fetches the configured event by slug from Gamma.
-5. `TemperatureRange` parses labels such as `77F or below`, `78-79F`, and `96F or higher`.
-6. `StrategyEngine` evaluates each bin through ordered rules.
-7. `ExecutionPlan` converts approved candidates into planned NO orders.
-8. `DryRunExecutionClient` logs the plan without submitting orders.
-
-## Run
-
-```bash
-cargo run -- \
-  --target-date 2026-04-16 \
-  --forecast-high-f 80 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
-```
-
-Equivalent environment variables are supported by the CLI:
-
-- `FORECAST_TARGET_DATE`
-- `FORECAST_HIGH_F`
-- `POLYMARKET_EVENT_SLUG`
-- `POLYMARKET_GAMMA_URL`
-- `POLYMARKET_CLOB_URL`
-- `PRICE_MIN`
-- `PRICE_MAX`
-- `DISTANCE_THRESHOLD_F`
-- `ORDER_SIZE_USD`
-- `DRY_RUN`
-- `LOG_DIRECTORY`
-
-## Implemented vs Planned
-
-Implemented:
-
-- Single-event lookup by Polymarket event slug.
-- Temperature bin parsing, including `or higher`.
-- Rule-based strategy evaluation.
-- Per-decision tracing with canonical `decision_id`.
-- Structured logging to JSON files.
-- Dry-run execution planning.
-- Live execution client stub with auth intentionally empty.
-
-Planned:
-
-- GFS forecast provider.
-- Polymarket CLOB WebSocket orderbook sync.
-- Live NO price calculation from orderbook state instead of Gamma metadata.
-- Authenticated order submission.
-- User WebSocket fill/order tracking.
-- Persistence for runs, decisions, orders, fills, and PnL.
+- Console logs are emitted immediately.
+- Rolling JSON logs are written under `LOG_DIRECTORY`.
+- The default log directory is `logs`.
+- `RUST_LOG` controls verbosity.
 
 ## Safety Notes
 
-Live order submission is not implemented yet. If `--dry-run false` is used, the live execution client currently fails intentionally until Polymarket authentication and CLOB order placement are wired.
-
-The current forecast provider is static. It is useful for testing the strategy flow, but it is not yet a live weather integration.
+- Dry-run mode is the default.
+- Live order submission is handled by the Python bridge, not by Rust directly.
+- If `execute.py` is missing or fails, the bot still writes the execution plan and logs the failure.
+- If calibration cannot be loaded, the bot falls back to `beta=0` and `sigma=2`.
