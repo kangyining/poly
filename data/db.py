@@ -27,26 +27,51 @@ class Database:
     def _apply_schema(self):
         sql = SCHEMA_PATH.read_text()
         self.conn.executescript(sql)
+        self._apply_migrations()
         self.conn.commit()
+
+    def _apply_migrations(self):
+        self._ensure_columns(
+            "market_snapshots",
+            {
+                "hours_to_close": "REAL",
+                "no_asks_json": "TEXT",
+                "fee_rate": "REAL",
+                "no_vwap_10": "REAL",
+            },
+        )
+
+    def _ensure_columns(self, table: str, columns: dict[str, str]) -> None:
+        existing = {
+            row["name"]
+            for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        for name, ddl in columns.items():
+            if name in existing:
+                continue
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+            log.info("Applied DB migration: added %s.%s", table, name)
 
     # ── market snapshots ──────────────────────────────────────────────────
 
     def insert_snapshot(self, s: MarketSnapshot):
         self.conn.execute("""
             INSERT INTO market_snapshots (
-                timestamp, city, target_date, event_id, event_slug,
+                timestamp, city, target_date, hours_to_close, event_id, event_slug,
                 bin_label, bin_index, token_id_yes, token_id_no,
                 yes_price, no_price,
                 yes_best_bid, yes_best_ask, no_best_bid, no_best_ask,
-                book_depth_bid, book_depth_ask, volume_24h, liquidity
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                book_depth_bid, book_depth_ask, no_asks_json, fee_rate, no_vwap_10,
+                volume_24h, liquidity
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            s.timestamp.isoformat(), s.city, s.target_date,
+            s.timestamp.isoformat(), s.city, s.target_date, s.hours_to_close,
             s.event_id, s.event_slug, s.bin_label, s.bin_index,
             s.token_id_yes, s.token_id_no,
             s.yes_price, s.no_price,
             s.yes_best_bid, s.yes_best_ask, s.no_best_bid, s.no_best_ask,
-            s.book_depth_bid, s.book_depth_ask, s.volume_24h, s.liquidity,
+            s.book_depth_bid, s.book_depth_ask, s.no_asks_json, s.fee_rate, s.no_vwap_10,
+            s.volume_24h, s.liquidity,
         ))
         self.conn.commit()
 

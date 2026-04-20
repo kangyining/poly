@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     timestamp       TEXT NOT NULL,        -- ISO 8601 UTC
     city            TEXT NOT NULL,
     target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    hours_to_close  REAL,                 -- hours until noon UTC on target_date
     event_id        TEXT,
     event_slug      TEXT,
     bin_label       TEXT NOT NULL,        -- "38-39°F"
@@ -22,6 +23,9 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     no_best_ask     REAL,
     book_depth_bid  REAL,                 -- USDC on NO bid side
     book_depth_ask  REAL,                 -- USDC on NO ask side
+    no_asks_json    TEXT,                 -- raw NO ask ladder snapshot [{price,size}, ...]
+    fee_rate        REAL,                 -- token fee rate at snapshot time (decimal, e.g. 0.10)
+    no_vwap_10      REAL,                 -- convenience VWAP ask for 10 shares on NO side
     volume_24h      REAL,
     liquidity       REAL
 );
