@@ -1,56 +1,18 @@
 use anyhow::{Context, Result};
-use async_trait::async_trait;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 use tracing::info;
-
-const USE_STATIC_FORECAST: bool = false;
-const STATIC_FORECAST_HIGH_F: f64 = 80.0;
-const GFS_FORECAST_URL: &str = "https://api.open-meteo.com/v1/gfs";
-const FORECAST_LATITUDE: f64 = 40.7769;
-const FORECAST_LONGITUDE: f64 = -73.8740;
-const FORECAST_TIMEZONE: &str = "America/New_York";
 
 #[derive(Debug, Clone)]
 pub struct Forecast {
     pub target_date: NaiveDate,
     pub forecast_high_f: f64,
-    pub fetched_at: DateTime<Utc>,
-    pub source: String,
+    pub lead_hours: f64,
+    pub station_code: String,
 }
 
-#[async_trait]
-pub trait ForecastProvider {
-    async fn get_forecast(&self, target_date: NaiveDate) -> Result<Forecast>;
-}
-
-pub struct WeatherClient {
-    provider: Box<dyn ForecastProvider>,
-}
-
-impl WeatherClient {
-    pub fn new() -> Self {
-        let provider: Box<dyn ForecastProvider> = if USE_STATIC_FORECAST {
-            Box::new(StaticForecastProvider::new(STATIC_FORECAST_HIGH_F))
-        } else {
-            Box::new(GfsForecastProvider::new(
-                GFS_FORECAST_URL,
-                FORECAST_LATITUDE,
-                FORECAST_LONGITUDE,
-                FORECAST_TIMEZONE,
-            ))
-        };
-
-        Self { provider }
-    }
-
-    pub async fn fetch_forecast(&self, target_date: NaiveDate) -> Result<Forecast> {
-        self.provider.get_forecast(target_date).await
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct StaticForecastProvider {
     forecast_high_f: f64,
 }
@@ -59,103 +21,146 @@ impl StaticForecastProvider {
     pub fn new(forecast_high_f: f64) -> Self {
         Self { forecast_high_f }
     }
-}
 
-#[async_trait]
-impl ForecastProvider for StaticForecastProvider {
-    async fn get_forecast(&self, target_date: NaiveDate) -> Result<Forecast> {
+    pub fn get_forecast(&self, target_date: NaiveDate, station_code: &str) -> Result<Forecast> {
+        let now = Utc::now();
+        let close = market_close_utc(target_date);
+        let lead_hours = (close - now).num_minutes() as f64 / 60.0;
         Ok(Forecast {
             target_date,
             forecast_high_f: self.forecast_high_f,
-            fetched_at: Utc::now(),
-            source: "static".to_string(),
+            lead_hours: lead_hours.max(0.0),
+            station_code: station_code.to_string(),
         })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct GfsForecastProvider {
+pub struct NwsForecastProvider {
     http: Client,
-    base_url: String,
-    latitude: f64,
-    longitude: f64,
-    timezone: String,
+    lat: f64,
+    lon: f64,
 }
 
-impl GfsForecastProvider {
-    pub fn new(
-        base_url: impl Into<String>,
-        latitude: f64,
-        longitude: f64,
-        timezone: impl Into<String>,
-    ) -> Self {
+#[derive(Deserialize)]
+struct PointsResponse {
+    properties: PointsProperties,
+}
+
+#[derive(Deserialize)]
+struct PointsProperties {
+    #[serde(rename = "forecastHourly")]
+    forecast_hourly: String,
+}
+
+#[derive(Deserialize)]
+struct HourlyResponse {
+    properties: HourlyProperties,
+}
+
+#[derive(Deserialize)]
+struct HourlyProperties {
+    periods: Vec<HourlyPeriod>,
+}
+
+#[derive(Deserialize)]
+struct HourlyPeriod {
+    #[serde(rename = "startTime")]
+    start_time: String,
+    temperature: f64,
+    #[serde(rename = "temperatureUnit")]
+    temperature_unit: String,
+}
+
+impl NwsForecastProvider {
+    pub fn new(lat: f64, lon: f64) -> Self {
         Self {
-            http: Client::new(),
-            base_url: base_url.into(),
-            latitude,
-            longitude,
-            timezone: timezone.into(),
+            http: Client::builder()
+                .user_agent("polymarket-weather-bot/0.1 (contact: bot@example.com)")
+                .build()
+                .expect("failed to build HTTP client"),
+            lat,
+            lon,
         }
     }
-}
 
-#[async_trait]
-impl ForecastProvider for GfsForecastProvider {
-    async fn get_forecast(&self, target_date: NaiveDate) -> Result<Forecast> {
-        let response = self
+    pub async fn get_forecast(
+        &self,
+        target_date: NaiveDate,
+        station_code: &str,
+    ) -> Result<Forecast> {
+        let points_url = format!("https://api.weather.gov/points/{:.4},{:.4}", self.lat, self.lon);
+        let points: PointsResponse = self
             .http
-            .get(&self.base_url)
-            .query(&[
-                ("latitude", self.latitude.to_string()),
-                ("longitude", self.longitude.to_string()),
-                ("daily", "temperature_2m_max".to_string()),
-                ("temperature_unit", "fahrenheit".to_string()),
-                ("timezone", self.timezone.clone()),
-                ("start_date", target_date.to_string()),
-                ("end_date", target_date.to_string()),
-            ])
+            .get(&points_url)
             .send()
             .await
-            .context("failed to query GFS forecast provider")?
+            .context("NWS /points request failed")?
             .error_for_status()
-            .context("GFS forecast provider returned an error")?;
-
-        let payload: OpenMeteoDailyForecast = response
+            .context("NWS /points returned error status")?
             .json()
             .await
-            .context("failed to deserialize GFS forecast response")?;
+            .context("failed to parse NWS /points response")?;
 
-        let forecast_high_f = payload
-            .daily
-            .temperature_2m_max
-            .first()
-            .copied()
-            .context("GFS response did not include a daily max temperature")?;
+        let hourly: HourlyResponse = self
+            .http
+            .get(&points.properties.forecast_hourly)
+            .send()
+            .await
+            .context("NWS forecastHourly request failed")?
+            .error_for_status()
+            .context("NWS forecastHourly returned error status")?
+            .json()
+            .await
+            .context("failed to parse NWS forecastHourly response")?;
+
+        let mut max_temp_f: Option<f64> = None;
+
+        for period in &hourly.properties.periods {
+            let start: DateTime<FixedOffset> = DateTime::parse_from_rfc3339(&period.start_time)
+                .with_context(|| {
+                    format!("failed to parse NWS period startTime: {}", period.start_time)
+                })?;
+
+            if start.date_naive() != target_date {
+                continue;
+            }
+
+            let temp_f = if period.temperature_unit == "C" {
+                period.temperature * 9.0 / 5.0 + 32.0
+            } else {
+                period.temperature
+            };
+
+            max_temp_f = Some(max_temp_f.unwrap_or(f64::NEG_INFINITY).max(temp_f));
+        }
+
+        let forecast_high_f =
+            max_temp_f.ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
+
+        let now = Utc::now();
+        let close = market_close_utc(target_date);
+        let lead_hours = ((close - now).num_minutes() as f64 / 60.0).max(0.0);
 
         info!(
             target_date = %target_date,
             forecast_high_f,
-            latitude = self.latitude,
-            longitude = self.longitude,
-            timezone = %self.timezone,
-            "fetched GFS forecast"
+            lead_hours,
+            station_code,
+            "NWS forecast fetched"
         );
 
         Ok(Forecast {
             target_date,
             forecast_high_f,
-            fetched_at: Utc::now(),
-            source: "open-meteo-gfs".to_string(),
+            lead_hours,
+            station_code: station_code.to_string(),
         })
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct OpenMeteoDailyForecast {
-    daily: OpenMeteoDaily,
-}
-
-#[derive(Debug, Deserialize)]
-struct OpenMeteoDaily {
-    temperature_2m_max: Vec<f64>,
+pub fn market_close_utc(target_date: NaiveDate) -> DateTime<Utc> {
+    let naive = target_date
+        .and_hms_opt(12, 0, 0)
+        .expect("12:00:00 is always valid");
+    DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)
 }
