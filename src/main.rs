@@ -2,6 +2,7 @@ use anyhow::Result;
 use chrono::{Datelike, Duration, NaiveDate, Utc};
 use clap::Parser;
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::process::Command;
 use tracing::{error, info, warn};
 
@@ -14,7 +15,9 @@ use polymarket_weather_bot::strategy::{
     BucketProbabilityRule, MarketTimingRule, NoEdgeRule, StrategyEngine, StrategyInput,
     TokenAvailabilityRule,
 };
-use polymarket_weather_bot::weather::{market_close_utc, NwsForecastProvider, StaticForecastProvider};
+use polymarket_weather_bot::weather::{
+    market_close_utc, NwsForecastProvider, StaticForecastProvider,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,7 +25,6 @@ async fn main() -> Result<()> {
     let config = AppConfig::try_from(cli)?;
     let _logging_guard = init_logging(&config.log_directory)?;
 
-    // Load calibration table once at startup
     let calib = if config.calibration_path.exists() {
         match CalibrationTable::load(&config.calibration_path) {
             Ok(t) => {
@@ -45,21 +47,15 @@ async fn main() -> Result<()> {
     let polymarket_client = PolymarketClient::new(&config.gamma_url, &config.clob_url);
 
     if config.run_loop {
-        // ── Continuous scheduler loop (hourly) ─────────────────────────────
-        info!("starting continuous scheduler loop (hourly)");
+        info!("starting continuous scheduler loop");
         loop {
             let target_date = resolve_target_date(config.target_date);
             let now = Utc::now();
             let close = market_close_utc(target_date);
 
             if now >= close {
-                info!(
-                    target_date = %target_date,
-                    "market is closed, advancing to tomorrow"
-                );
-                // Sleep until next day's market opens (~24h before noon UTC)
-                let next_open = market_close_utc(target_date + Duration::days(1))
-                    - Duration::hours(36);
+                info!(target_date = %target_date, "market is closed, advancing to tomorrow");
+                let next_open = market_close_utc(target_date + Duration::days(1)) - Duration::hours(36);
                 let sleep_secs = (next_open - now).num_seconds().max(60) as u64;
                 info!(sleep_secs, "sleeping until tomorrow's market opens");
                 tokio::time::sleep(tokio::time::Duration::from_secs(sleep_secs)).await;
@@ -84,7 +80,6 @@ async fn main() -> Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_secs(config.poll_interval_secs)).await;
         }
     } else {
-        // ── Single pass ────────────────────────────────────────────────────
         let target_date = resolve_target_date(config.target_date);
         let plan = run_once(&config, &calib, &polymarket_client, target_date).await?;
         info!(
@@ -99,25 +94,18 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// One full evaluation pass: forecast → calibration → market fetch → EV score → plan.
 async fn run_once(
     config: &AppConfig,
     calib: &Option<CalibrationTable>,
     client: &PolymarketClient,
     target_date: NaiveDate,
 ) -> Result<ExecutionPlan> {
-    let run_id = format!(
-        "{}-{}",
-        config.city,
-        Utc::now().format("%Y%m%dT%H%M%SZ")
-    );
+    let run_id = format!("{}-{}", config.city, Utc::now().format("%Y%m%dT%H%M%SZ"));
     let event_slug = build_event_slug(&config.city, target_date);
 
-    // ── Step 1: Forecast ───────────────────────────────────────────────────
     let forecast = if let Some(high_f) = config.forecast_high_f {
         info!(forecast_high_f = high_f, "using static forecast override");
-        StaticForecastProvider::new(high_f)
-            .get_forecast(target_date, &config.station_code)?
+        StaticForecastProvider::new(high_f).get_forecast(target_date, &config.station_code)?
     } else {
         info!(lat = config.lat, lon = config.lon, "fetching NWS live forecast");
         NwsForecastProvider::new(config.lat, config.lon)
@@ -125,14 +113,13 @@ async fn run_once(
             .await?
     };
 
-    // ── Step 2: Calibration lookup ─────────────────────────────────────────
     let (beta_f, sigma_f) = calib
         .as_ref()
         .map(|t| t.lookup(&config.station_code, target_date, forecast.lead_hours))
         .unwrap_or((0.0, 2.0));
 
     let mu_f = forecast.forecast_high_f + beta_f;
-    let sigma_f = sigma_f.max(0.8).min(4.0);
+    let sigma_f = sigma_f.clamp(0.8, 4.0);
 
     info!(
         forecast_high_f = forecast.forecast_high_f,
@@ -144,16 +131,13 @@ async fn run_once(
         "calibration applied"
     );
 
-    // ── Step 3: Load open positions (skip already-held token IDs) ──────────
     let open_token_ids = load_open_positions(&config.open_positions_path);
     info!(open_positions = open_token_ids.len(), "open positions loaded");
 
-    // ── Step 4: Fetch markets + CLOB books ─────────────────────────────────
     let markets = client
         .fetch_event_markets(&event_slug, target_date, config.desired_shares)
         .await?;
 
-    // Filter out bins already held
     let markets: Vec<_> = markets
         .into_iter()
         .filter(|m| {
@@ -171,7 +155,6 @@ async fn run_once(
         })
         .collect();
 
-    // ── Step 5: Risk check — max open positions ────────────────────────────
     if open_token_ids.len() >= config.max_open_positions {
         warn!(
             open = open_token_ids.len(),
@@ -189,7 +172,6 @@ async fn run_once(
         return Ok(plan);
     }
 
-    // ── Step 6: Strategy evaluation ────────────────────────────────────────
     let strategy_input = StrategyInput {
         forecast: forecast.clone(),
         mu_f,
@@ -212,7 +194,6 @@ async fn run_once(
     let evaluation = engine.evaluate(&strategy_input, &markets);
     log_evaluation(&evaluation);
 
-    // ── Step 7: Risk check — max total stake per run ───────────────────────
     let mut candidates = evaluation.candidates;
     let total_stake: f64 = candidates.iter().map(|c| c.stake_usd).sum();
     if total_stake > config.max_total_stake_usd {
@@ -234,7 +215,6 @@ async fn run_once(
         info!(retained = candidates.len(), "candidates after stake cap");
     }
 
-    // ── Step 8: Build and write execution plan ────────────────────────────
     let plan = ExecutionPlan::from_candidates(
         &candidates,
         &run_id,
@@ -247,14 +227,8 @@ async fn run_once(
     Ok(plan)
 }
 
-// ── Execution bridge ──────────────────────────────────────────────────────────
-
-/// Invoke execute.py synchronously so positions are written before the next loop
-/// iteration. Skips silently if the script path is empty or does not exist.
-fn run_execute_bridge(config: &polymarket_weather_bot::config::AppConfig) {
+fn run_execute_bridge(config: &AppConfig) {
     let script = &config.execute_script;
-
-    // Empty path = disabled
     if script.as_os_str().is_empty() {
         return;
     }
@@ -268,7 +242,6 @@ fn run_execute_bridge(config: &polymarket_weather_bot::config::AppConfig) {
 
     info!(script = %script.display(), "invoking execute.py");
 
-    // Windows uses "python"; Linux/macOS use "python3"
     #[cfg(target_os = "windows")]
     let python_bin = "python";
     #[cfg(not(target_os = "windows"))]
@@ -285,13 +258,10 @@ fn run_execute_bridge(config: &polymarket_weather_bot::config::AppConfig) {
     match status {
         Ok(s) if s.success() => info!("execute.py finished successfully"),
         Ok(s) => warn!(exit_code = ?s.code(), "execute.py exited with non-zero status"),
-        Err(e) => warn!(error = %e, "failed to launch execute.py — is Python on PATH?"),
+        Err(e) => warn!(error = %e, "failed to launch execute.py"),
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/// Returns today if today's market is still open (before noon UTC), else tomorrow.
 fn resolve_target_date(override_date: Option<NaiveDate>) -> NaiveDate {
     if let Some(d) = override_date {
         return d;
@@ -305,23 +275,23 @@ fn resolve_target_date(override_date: Option<NaiveDate>) -> NaiveDate {
     }
 }
 
-/// Builds the Polymarket event slug, e.g. "highest-temperature-in-nyc-on-april-16-2026"
 fn build_event_slug(city: &str, date: NaiveDate) -> String {
     let month = match date.month() {
-        1  => "january",
-        2  => "february",
-        3  => "march",
-        4  => "april",
-        5  => "may",
-        6  => "june",
-        7  => "july",
-        8  => "august",
-        9  => "september",
+        1 => "january",
+        2 => "february",
+        3 => "march",
+        4 => "april",
+        5 => "may",
+        6 => "june",
+        7 => "july",
+        8 => "august",
+        9 => "september",
         10 => "october",
         11 => "november",
         12 => "december",
-        _  => "unknown",
+        _ => "unknown",
     };
+
     format!(
         "highest-temperature-in-{}-on-{}-{}-{}",
         city,
@@ -331,8 +301,6 @@ fn build_event_slug(city: &str, date: NaiveDate) -> String {
     )
 }
 
-/// Deserialize the open_positions.json exported by the Python bridge.
-/// Returns a set of NO token IDs that already have open positions.
 #[derive(Deserialize)]
 struct OpenPosition {
     token_id: String,
@@ -340,10 +308,11 @@ struct OpenPosition {
     status: String,
 }
 
-fn load_open_positions(path: &std::path::Path) -> std::collections::HashSet<String> {
+fn load_open_positions(path: &std::path::Path) -> HashSet<String> {
     if !path.exists() {
-        return std::collections::HashSet::new();
+        return HashSet::new();
     }
+
     match std::fs::read_to_string(path) {
         Ok(text) => match serde_json::from_str::<Vec<OpenPosition>>(&text) {
             Ok(positions) => positions
@@ -353,12 +322,12 @@ fn load_open_positions(path: &std::path::Path) -> std::collections::HashSet<Stri
                 .collect(),
             Err(e) => {
                 warn!(error = %e, "failed to parse open_positions.json, treating as empty");
-                std::collections::HashSet::new()
+                HashSet::new()
             }
         },
         Err(e) => {
             warn!(error = %e, "failed to read open_positions.json, treating as empty");
-            std::collections::HashSet::new()
+            HashSet::new()
         }
     }
 }

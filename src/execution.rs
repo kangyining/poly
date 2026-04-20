@@ -40,7 +40,7 @@ impl ExecutionPlan {
         target_date: &str,
         dry_run: bool,
     ) -> Self {
-        let trades: Vec<PlannedTrade> = candidates
+        let trades = candidates
             .iter()
             .map(|c| PlannedTrade {
                 decision_id: c.decision_id.clone(),
@@ -56,7 +56,7 @@ impl ExecutionPlan {
                 ev_no: c.ev_no,
                 fee_rate: c.fee_rate,
             })
-            .collect();
+            .collect::<Vec<_>>();
 
         let total_stake_usd = trades.iter().map(|t| t.stake_usd).sum();
 
@@ -70,9 +70,6 @@ impl ExecutionPlan {
         }
     }
 
-    /// Write the plan to `{dir}/execution_plan.json`.
-    /// If dry_run is true, write with `"dry_run": true` — the Python bridge
-    /// will read this flag and skip order submission.
     pub fn write_to_dir(&self, dir: &Path) -> Result<()> {
         std::fs::create_dir_all(dir)?;
         let path = dir.join("execution_plan.json");
