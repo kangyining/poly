@@ -1,5 +1,5 @@
 """
-Market snapshot recorder — fetches Polymarket price data every hour.
+Market snapshot recorder — fetches Polymarket price data every 5 minutes.
 
 For each city:
   1. Fetch today's and tomorrow's temperature event (slug-based)
@@ -14,11 +14,19 @@ from config.cities import CITIES
 from data.db import Database
 from data.gamma_client import (
     fetch_event, parse_markets,
-    fetch_order_book, book_depth, best_price,
+    fetch_order_book, fetch_fee_rate, effective_ask_vwap, book_depth, best_price,
 )
 from data.models import MarketSnapshot
 
 log = logging.getLogger(__name__)
+DEFAULT_VWAP_SHARES = 10.0
+
+
+def _hours_to_close(ts: datetime, target_date: str) -> float:
+    close = datetime.fromisoformat(target_date).replace(
+        hour=12, minute=0, second=0, tzinfo=timezone.utc
+    )
+    return (close - ts).total_seconds() / 3600
 
 
 def _dates_to_record() -> list[date]:
@@ -56,8 +64,12 @@ def record_market_snapshots(db: Database):
             for mkt in markets:
                 # Fetch order book on NO token for depth data
                 no_book = {}
+                fee_rate = None
+                no_vwap_10 = None
                 if mkt["token_id_no"]:
                     no_book = fetch_order_book(mkt["token_id_no"])
+                    fee_rate = fetch_fee_rate(mkt["token_id_no"])
+                    no_vwap_10 = effective_ask_vwap(no_book, DEFAULT_VWAP_SHARES)
 
                 # Fetch order book on YES token for yes-side prices
                 yes_book = {}
@@ -68,6 +80,7 @@ def record_market_snapshots(db: Database):
                     timestamp=now,
                     city=city,
                     target_date=target.isoformat(),
+                    hours_to_close=_hours_to_close(now, target.isoformat()),
                     event_id=event_id,
                     event_slug=event_slug,
                     bin_label=mkt["bin_label"],
@@ -82,6 +95,9 @@ def record_market_snapshots(db: Database):
                     no_best_ask=best_price(no_book, "asks"),
                     book_depth_bid=book_depth(no_book, "bids"),
                     book_depth_ask=book_depth(no_book, "asks"),
+                    no_asks_json=json.dumps(no_book.get("asks", [])) if no_book else None,
+                    fee_rate=fee_rate,
+                    no_vwap_10=no_vwap_10,
                     volume_24h=mkt["volume_24h"],
                     liquidity=mkt["liquidity"],
                 )

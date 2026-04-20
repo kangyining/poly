@@ -2,9 +2,10 @@
 Phase 0 data recorder — run this continuously to collect data.
 
 Schedule:
-  Every 1h  → market snapshots (all cities, today + tomorrow)
+  Every 5m  → market snapshots (all cities, today + tomorrow)
   Every 1h  → METAR observations (KORD, KDAL, KLGA)
-  Every 6h  → Open-Meteo forecasts (ECMWF + GFS)
+  Every 30m → NWS forecasts (next 7 days)
+  Every 1h  → Open-Meteo forecasts (ECMWF + GFS)
   Every 24h → settlement check (yesterday's results)
 
 Usage:
@@ -151,9 +152,9 @@ def main():
     # Then schedule
     schedule.every(1).hours.do(record_metars, db)
     schedule.every(1).hours.do(record_tafs, db)
-    schedule.every(1).hours.do(record_market_snapshots, db)
-    schedule.every(6).hours.do(record_forecasts, db)
-    schedule.every(6).hours.do(record_nws_forecasts, db)
+    schedule.every(5).minutes.do(record_market_snapshots, db)
+    schedule.every(1).hours.do(record_forecasts, db)
+    schedule.every(30).minutes.do(record_nws_forecasts, db)
     schedule.every().day.at("06:00").do(daily_check, db)
 
     try:

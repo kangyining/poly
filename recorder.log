@@ -781,3 +781,188 @@
 2026-04-06 20:20:45 INFO data.taf_nws_recorder � NWS forecast recorder: saved 21 records
 2026-04-06 20:20:46 INFO data.settlement_tracker � Daily settlement check: saved 0 new records
 2026-04-06 20:20:46 INFO __main__ � Snapshots in DB: 264 | Settlements in DB: 178
+2026-04-20 10:42:12 INFO data.db — Database ready: /mnt/f/Polymark/poly-weather/db/data.db
+2026-04-20 10:42:12 INFO __main__ — Starting price history backfill
+2026-04-20 10:42:22 INFO data.price_history_backfill — Price history: Chicago 2026-04-06 — 11 bins, 520 points saved
+2026-04-20 10:42:33 INFO data.price_history_backfill — Price history: Chicago 2026-04-07 — 11 bins, 519 points saved
+2026-04-20 10:42:44 INFO data.price_history_backfill — Price history: Chicago 2026-04-08 — 11 bins, 519 points saved
+2026-04-20 10:42:54 INFO data.price_history_backfill — Price history: Chicago 2026-04-09 — 11 bins, 495 points saved
+2026-04-20 10:43:06 INFO data.price_history_backfill — Price history: Chicago 2026-04-10 — 11 bins, 516 points saved
+2026-04-20 10:43:17 INFO data.price_history_backfill — Price history: Chicago 2026-04-11 — 11 bins, 510 points saved
+2026-04-20 10:43:27 INFO data.price_history_backfill — Price history: Chicago 2026-04-12 — 11 bins, 495 points saved
+2026-04-20 10:43:38 INFO data.price_history_backfill — Price history: Chicago 2026-04-13 — 11 bins, 516 points saved
+2026-04-20 10:43:48 INFO data.price_history_backfill — Price history: Chicago 2026-04-14 — 11 bins, 495 points saved
+2026-04-20 10:43:58 INFO data.price_history_backfill — Price history: Chicago 2026-04-15 — 11 bins, 505 points saved
+2026-04-20 10:44:07 INFO data.price_history_backfill — Price history: Chicago 2026-04-16 — 11 bins, 407 points saved
+2026-04-20 10:44:18 INFO data.price_history_backfill — Price history: Chicago 2026-04-17 — 11 bins, 528 points saved
+2026-04-20 10:44:29 INFO data.price_history_backfill — Price history: Chicago 2026-04-18 — 11 bins, 513 points saved
+2026-04-20 10:44:40 INFO data.price_history_backfill — Price history: Chicago 2026-04-19 — 11 bins, 528 points saved
+2026-04-20 10:44:51 INFO data.price_history_backfill — Price history: Dallas 2026-04-06 — 11 bins, 528 points saved
+2026-04-20 10:45:01 INFO data.price_history_backfill — Price history: Dallas 2026-04-07 — 11 bins, 528 points saved
+2026-04-20 10:45:12 INFO data.price_history_backfill — Price history: Dallas 2026-04-08 — 11 bins, 529 points saved
+2026-04-20 10:45:23 INFO data.price_history_backfill — Price history: Dallas 2026-04-09 — 11 bins, 501 points saved
+2026-04-20 10:45:32 INFO data.price_history_backfill — Price history: Dallas 2026-04-10 — 11 bins, 507 points saved
+2026-04-20 10:45:43 INFO data.price_history_backfill — Price history: Dallas 2026-04-11 — 11 bins, 507 points saved
+2026-04-20 10:45:54 INFO data.price_history_backfill — Price history: Dallas 2026-04-12 — 11 bins, 512 points saved
+2026-04-20 10:46:04 INFO data.price_history_backfill — Price history: Dallas 2026-04-13 — 11 bins, 516 points saved
+2026-04-20 10:46:16 INFO data.price_history_backfill — Price history: Dallas 2026-04-14 — 11 bins, 510 points saved
+2026-04-20 10:46:26 INFO data.price_history_backfill — Price history: Dallas 2026-04-15 — 11 bins, 510 points saved
+2026-04-20 10:46:35 INFO data.price_history_backfill — Price history: Dallas 2026-04-16 — 11 bins, 418 points saved
+2026-04-20 10:46:46 INFO data.price_history_backfill — Price history: Dallas 2026-04-17 — 11 bins, 528 points saved
+2026-04-20 10:46:57 INFO data.price_history_backfill — Price history: Dallas 2026-04-18 — 11 bins, 516 points saved
+2026-04-20 10:47:07 INFO data.price_history_backfill — Price history: Dallas 2026-04-19 — 11 bins, 528 points saved
+2026-04-20 10:47:17 INFO data.price_history_backfill — Price history: NYC 2026-04-06 — 11 bins, 525 points saved
+2026-04-20 10:47:28 INFO data.price_history_backfill — Price history: NYC 2026-04-07 — 11 bins, 512 points saved
+2026-04-20 10:47:38 INFO data.price_history_backfill — Price history: NYC 2026-04-08 — 11 bins, 528 points saved
+2026-04-20 10:47:49 INFO data.price_history_backfill — Price history: NYC 2026-04-09 — 11 bins, 528 points saved
+2026-04-20 10:48:00 INFO data.price_history_backfill — Price history: NYC 2026-04-10 — 11 bins, 528 points saved
+2026-04-20 10:48:09 INFO data.price_history_backfill — Price history: NYC 2026-04-11 — 11 bins, 528 points saved
+2026-04-20 10:48:20 INFO data.price_history_backfill — Price history: NYC 2026-04-12 — 11 bins, 525 points saved
+2026-04-20 10:48:31 INFO data.price_history_backfill — Price history: NYC 2026-04-13 — 11 bins, 528 points saved
+2026-04-20 10:48:41 INFO data.price_history_backfill — Price history: NYC 2026-04-14 — 11 bins, 524 points saved
+2026-04-20 10:48:52 INFO data.price_history_backfill — Price history: NYC 2026-04-15 — 11 bins, 528 points saved
+2026-04-20 10:49:02 INFO data.price_history_backfill — Price history: NYC 2026-04-16 — 11 bins, 410 points saved
+2026-04-20 10:49:11 INFO data.price_history_backfill — Price history: NYC 2026-04-17 — 11 bins, 528 points saved
+2026-04-20 10:49:22 INFO data.price_history_backfill — Price history: NYC 2026-04-18 — 11 bins, 524 points saved
+2026-04-20 10:49:33 INFO data.price_history_backfill — Price history: NYC 2026-04-19 — 11 bins, 524 points saved
+2026-04-20 10:49:33 INFO data.price_history_backfill — Price history backfill complete: +21444 points saved, 178 markets skipped
+2026-04-20 10:49:34 INFO __main__ — Done. Total price_history rows in DB: 98266
+2026-04-20 10:49:53 INFO data.db — Database ready: /mnt/f/Polymark/poly-weather/db/data.db
+2026-04-20 10:49:53 INFO __main__ — Starting missing bins price history backfill (warm-side retry)
+2026-04-20 10:49:53 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-05: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:53 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-06: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:54 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-07: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:54 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-08: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:55 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-09: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:55 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-10: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:56 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-11: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:56 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-12: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:56 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-13: missing bins [7, 8, 9, 10]
+2026-04-20 10:49:57 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-14: missing bins [9, 10]
+2026-04-20 10:49:57 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-15: missing bins [9, 10]
+2026-04-20 10:49:58 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-16: missing bins [9, 10]
+2026-04-20 10:49:58 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-17: missing bins [9, 10]
+2026-04-20 10:49:59 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-18: missing bins [9, 10]
+2026-04-20 10:49:59 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-19: missing bins [9, 10]
+2026-04-20 10:50:00 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-20: missing bins [9, 10]
+2026-04-20 10:50:00 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-21: missing bins [9, 10]
+2026-04-20 10:50:01 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-22: missing bins [9, 10]
+2026-04-20 10:50:01 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-23: missing bins [9, 10]
+2026-04-20 10:50:02 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-24: missing bins [9, 10]
+2026-04-20 10:50:02 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-25: missing bins [9, 10]
+2026-04-20 10:50:03 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-26: missing bins [9, 10]
+2026-04-20 10:50:03 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-27: missing bins [9, 10]
+2026-04-20 10:50:04 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-02-28: missing bins [9, 10]
+2026-04-20 10:50:04 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-01: missing bins [9, 10]
+2026-04-20 10:50:05 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-02: missing bins [9, 10]
+2026-04-20 10:50:04 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-03: missing bins [9, 10]
+2026-04-20 10:50:05 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-04: missing bins [9, 10]
+2026-04-20 10:50:05 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-05: missing bins [9, 10]
+2026-04-20 10:50:06 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-06: missing bins [9, 10]
+2026-04-20 10:50:06 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-07: missing bins [9, 10]
+2026-04-20 10:50:07 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-08: missing bins [9, 10]
+2026-04-20 10:50:07 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-09: missing bins [9, 10]
+2026-04-20 10:50:08 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-10: missing bins [9, 10]
+2026-04-20 10:50:08 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-11: missing bins [9, 10]
+2026-04-20 10:50:09 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-12: missing bins [9, 10]
+2026-04-20 10:50:09 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-13: missing bins [9, 10]
+2026-04-20 10:50:10 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-14: missing bins [9, 10]
+2026-04-20 10:50:10 INFO data.price_history_missing_bins_backfill — Retrying Chicago 2026-03-15: missing bins [9, 10]
+2026-04-20 10:50:11 INFO data.price_history_missing_bins_backfill — Missing bins backfill complete: 0 points added
+2026-04-20 10:50:11 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-05: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:11 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-06: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:12 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-07: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:12 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-08: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:13 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-09: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:13 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-10: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:14 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-11: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:14 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-12: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:15 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-13: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:15 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-14: missing bins [9, 10]
+2026-04-20 10:50:16 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-15: missing bins [9, 10]
+2026-04-20 10:50:16 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-16: missing bins [9, 10]
+2026-04-20 10:50:17 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-17: missing bins [9, 10]
+2026-04-20 10:50:17 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-18: missing bins [9, 10]
+2026-04-20 10:50:18 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-19: missing bins [9, 10]
+2026-04-20 10:50:19 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-20: missing bins [9, 10]
+2026-04-20 10:50:20 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-21: missing bins [9, 10]
+2026-04-20 10:50:21 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-22: missing bins [9, 10]
+2026-04-20 10:50:21 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-23: missing bins [9, 10]
+2026-04-20 10:50:22 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-24: missing bins [9, 10]
+2026-04-20 10:50:22 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-25: missing bins [9, 10]
+2026-04-20 10:50:23 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-26: missing bins [9, 10]
+2026-04-20 10:50:23 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-27: missing bins [9, 10]
+2026-04-20 10:50:24 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-02-28: missing bins [9, 10]
+2026-04-20 10:50:24 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-01: missing bins [9, 10]
+2026-04-20 10:50:25 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-02: missing bins [9, 10]
+2026-04-20 10:50:25 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-03: missing bins [9, 10]
+2026-04-20 10:50:26 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-04: missing bins [9, 10]
+2026-04-20 10:50:26 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-05: missing bins [9, 10]
+2026-04-20 10:50:27 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-06: missing bins [9, 10]
+2026-04-20 10:50:27 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-07: missing bins [9, 10]
+2026-04-20 10:50:28 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-08: missing bins [9, 10]
+2026-04-20 10:50:28 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-09: missing bins [9, 10]
+2026-04-20 10:50:29 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-10: missing bins [9, 10]
+2026-04-20 10:50:29 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-11: missing bins [9, 10]
+2026-04-20 10:50:30 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-12: missing bins [9, 10]
+2026-04-20 10:50:30 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-13: missing bins [9, 10]
+2026-04-20 10:50:31 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-14: missing bins [9, 10]
+2026-04-20 10:50:31 INFO data.price_history_missing_bins_backfill — Retrying Dallas 2026-03-15: missing bins [9, 10]
+2026-04-20 10:50:32 INFO data.price_history_missing_bins_backfill — Missing bins backfill complete: 0 points added
+2026-04-20 10:50:32 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-05: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:32 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-06: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:33 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-07: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:33 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-08: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:34 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-09: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:34 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-10: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:35 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-11: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:35 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-12: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:36 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-13: missing bins [7, 8, 9, 10]
+2026-04-20 10:50:35 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-14: missing bins [9, 10]
+2026-04-20 10:50:35 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-15: missing bins [9, 10]
+2026-04-20 10:50:36 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-16: missing bins [9, 10]
+2026-04-20 10:50:36 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-17: missing bins [9, 10]
+2026-04-20 10:50:37 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-18: missing bins [9, 10]
+2026-04-20 10:50:37 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-19: missing bins [9, 10]
+2026-04-20 10:50:38 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-20: missing bins [9, 10]
+2026-04-20 10:50:38 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-21: missing bins [9, 10]
+2026-04-20 10:50:39 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-22: missing bins [9, 10]
+2026-04-20 10:50:39 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-23: missing bins [9, 10]
+2026-04-20 10:50:40 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-24: missing bins [9, 10]
+2026-04-20 10:50:40 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-25: missing bins [9, 10]
+2026-04-20 10:50:41 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-26: missing bins [9, 10]
+2026-04-20 10:50:41 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-27: missing bins [9, 10]
+2026-04-20 10:50:42 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-02-28: missing bins [9, 10]
+2026-04-20 10:50:42 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-01: missing bins [9, 10]
+2026-04-20 10:50:43 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-02: missing bins [9, 10]
+2026-04-20 10:50:43 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-03: missing bins [9, 10]
+2026-04-20 10:50:44 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-04: missing bins [9, 10]
+2026-04-20 10:50:44 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-05: missing bins [9, 10]
+2026-04-20 10:50:45 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-06: missing bins [9, 10]
+2026-04-20 10:50:45 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-07: missing bins [9, 10]
+2026-04-20 10:50:46 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-08: missing bins [9, 10]
+2026-04-20 10:50:46 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-09: missing bins [9, 10]
+2026-04-20 10:50:47 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-10: missing bins [9, 10]
+2026-04-20 10:50:47 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-11: missing bins [9, 10]
+2026-04-20 10:50:48 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-12: missing bins [9, 10]
+2026-04-20 10:50:48 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-13: missing bins [9, 10]
+2026-04-20 10:50:49 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-14: missing bins [9, 10]
+2026-04-20 10:50:49 INFO data.price_history_missing_bins_backfill — Retrying NYC 2026-03-15: missing bins [9, 10]
+2026-04-20 10:50:50 INFO data.price_history_missing_bins_backfill — Missing bins backfill complete: 0 points added
+2026-04-20 10:50:50 INFO __main__ — Done. Total price_history rows: 98266
+2026-04-20 10:56:21 INFO data.db — Database ready: /mnt/f/Polymark/poly-weather/db/data.db
+2026-04-20 10:56:21 INFO __main__ — Starting historical forecast backfill
+2026-04-20 10:56:21 INFO data.historical_forecast_backfill — Chicago: fetching 14 missing dates (2026-04-06 to 2026-04-19)
+2026-04-20 10:56:22 INFO data.historical_forecast_backfill — Chicago: saved 14 historical forecast records
+2026-04-20 10:56:23 INFO data.historical_forecast_backfill — Dallas: fetching 14 missing dates (2026-04-06 to 2026-04-19)
+2026-04-20 10:56:33 INFO data.historical_forecast_backfill — Dallas: saved 14 historical forecast records
+2026-04-20 10:56:34 INFO data.historical_forecast_backfill — NYC: fetching 14 missing dates (2026-04-06 to 2026-04-19)
+2026-04-20 10:57:03 ERROR data.historical_forecast_backfill — NYC: historical fetch failed: HTTPSConnectionPool(host='historical-forecast-api.open-meteo.com', port=443): Read timed out. (read timeout=30)
+2026-04-20 10:57:03 INFO data.historical_forecast_backfill — Historical forecast backfill complete: 28 records saved
+2026-04-20 10:57:03 INFO __main__ — Done. Total forecast records in DB: 420
+2026-04-20 10:57:18 INFO data.db — Database ready: /mnt/f/Polymark/poly-weather/db/data.db
+2026-04-20 10:57:18 INFO __main__ — Starting true 24h GFS forecast backfill (gfs_global)
+2026-04-20 10:57:18 INFO data.true_forecast_backfill — NYC: fetching true 24h forecasts for 14 dates
+2026-04-20 10:57:27 INFO data.true_forecast_backfill — NYC: saved 14 true forecast records
+2026-04-20 10:57:27 INFO data.true_forecast_backfill — True forecast backfill complete: 14 records saved
+2026-04-20 10:57:27 INFO __main__ — Done. Total gfs-global-24h records in DB: 192

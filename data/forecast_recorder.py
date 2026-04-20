@@ -1,5 +1,5 @@
 """
-Forecast recorder — fetches Open-Meteo ECMWF + GFS forecasts every 6 hours.
+Forecast recorder — fetches Open-Meteo ECMWF + GFS forecasts every hour.
 
 Stores max temp forecasts in both °C and °F for the next 3 days.
 Polymarket settles in whole °F, so we track both units.
