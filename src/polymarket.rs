@@ -134,7 +134,7 @@ impl PolymarketClient {
             .await
             .context("failed to parse CLOB /book response")?;
 
-        let asks = raw
+        let mut asks: Vec<OrderLevel> = raw
             .asks
             .into_iter()
             .filter_map(|l| {
@@ -143,6 +143,8 @@ impl PolymarketClient {
                 Some(OrderLevel { price, size })
             })
             .collect();
+        // CLOB returns asks high-to-low; sort ascending so VWAP walks best prices first.
+        asks.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap_or(std::cmp::Ordering::Equal));
 
         Ok(OrderBook { asks })
     }

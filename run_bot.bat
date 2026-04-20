@@ -3,7 +3,7 @@ REM Polymarket Weather Bot launcher
 REM
 REM Usage:
 REM   run_bot.bat              -- single pass, paper mode (default)
-REM   run_bot.bat --run-loop   -- hourly loop, paper mode
+REM   run_bot.bat --run-loop   -- recurring loop, paper mode (default 15-second repricing / 30-minute weather refresh)
 REM   run_bot.bat --run-loop --dry-run=false   -- live trading loop
 REM
 REM All flags are passed through to the binary. See --help for full list.

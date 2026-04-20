@@ -1,4 +1,4 @@
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::polymarket::WeatherMarket;
 
@@ -144,8 +144,9 @@ impl StrategyRule for BucketProbabilityRule {
 
 // ── Rule 4: Fee-adjusted NO EV must clear threshold ──────────────────────────
 //
-// EV_NO = (1 - P_model) × (1 - fee_rate × P_model) - effective_ask
+// EV_NO = (1 - P_model) × (1 - fee_rate) - effective_ask
 //
+// fee_rate is the taker fee collected from the winning payout (from CLOB /fee-rate).
 // This requires effective_ask_no and fee_rate from the CLOB (set during market fetch).
 
 #[derive(Debug, Default)]
@@ -180,26 +181,27 @@ impl StrategyRule for NoEdgeRule {
         };
 
         let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
-        // Fee is collected in shares on taker buys:
-        // winning_shares = 1 - fee_rate × p_yes = 1 - fee_rate × P_model
-        // EV_NO = (1 - P_model) × winning_shares_if_no_wins - effective_ask
-        //       = (1 - P_model) × (1 - fee_rate × P_model) - effective_ask
-        let ev_no = (1.0 - p) * (1.0 - fee_rate * p) - effective_ask;
+        // Polymarket charges fee_rate on the winning payout (taker fee on profits).
+        // If NO wins: net receipt per share = 1 - fee_rate
+        // EV_NO = P(NO) × (1 - fee_rate) - effective_ask
+        let ev_no = (1.0 - p) * (1.0 - fee_rate) - effective_ask;
         let passed = ev_no >= input.min_ev_threshold;
 
         let reason = format!(
-            "p_model={:.4} effective_ask={:.4} fee_rate={:.4} ev_no={:.4} threshold={:.4}",
-            p, effective_ask, fee_rate, ev_no, input.min_ev_threshold
+            "p_model={:.4} effective_ask={:.4} fee_rate={:.4} ev_no={:.4} threshold={:.4} passed={}",
+            p, effective_ask, fee_rate, ev_no, input.min_ev_threshold, passed
         );
 
-        debug!(
-            decision_id = %trace.decision_id,
-            market_id = %market.id,
-            p_model = p,
-            ev_no,
-            effective_ask,
+        info!(
+            bin         = %market.range.label(),
+            p_model     = format_args!("{:.4}", p),
+            effective_ask = format_args!("{:.4}", effective_ask),
+            fee_rate    = format_args!("{:.4}", fee_rate),
+            ev_no       = format_args!("{:.4}", ev_no),
+            threshold   = format_args!("{:.4}", input.min_ev_threshold),
             passed,
-            "evaluated NoEdgeRule"
+            strategy    = %input.run_id.split('-').next().unwrap_or("?"),
+            "bin EV evaluated"
         );
 
         trace.push(RuleTrace {
