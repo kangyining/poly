@@ -144,9 +144,10 @@ impl StrategyRule for BucketProbabilityRule {
 
 // ── Rule 4: Fee-adjusted NO EV must clear threshold ──────────────────────────
 //
-// EV_NO = (1 - P_model) × (1 - fee_rate) - effective_ask
+// EV_NO = P(NO) - ask × (1 + fee_rate × (1 - ask))
 //
-// fee_rate is the taker fee collected from the winning payout (from CLOB /fee-rate).
+// Polymarket taker fees are paid in USDC at trade time: fee = C × fee_rate × p × (1-p).
+// Per share: fee/share = fee_rate × ask × (1 - ask), so total cost/share = ask × (1 + fee_rate × (1 - ask)).
 // This requires effective_ask_no and fee_rate from the CLOB (set during market fetch).
 
 #[derive(Debug, Default)]
@@ -181,10 +182,7 @@ impl StrategyRule for NoEdgeRule {
         };
 
         let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
-        // Polymarket charges fee_rate on the winning payout (taker fee on profits).
-        // If NO wins: net receipt per share = 1 - fee_rate
-        // EV_NO = P(NO) × (1 - fee_rate) - effective_ask
-        let ev_no = (1.0 - p) * (1.0 - fee_rate) - effective_ask;
+        let ev_no = (1.0 - p) - effective_ask * (1.0 + fee_rate * (1.0 - effective_ask));
         let passed = ev_no >= input.min_ev_threshold;
 
         let reason = format!(
