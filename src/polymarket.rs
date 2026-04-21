@@ -164,9 +164,10 @@ impl PolymarketClient {
             .await
             .context("failed to parse CLOB /fee-rate response")?;
 
-        // Endpoint returns basis points (e.g. 1000 = 10%). Convert to decimal.
+        // Endpoint returns values where 1000 = 5% (confirmed against live weather market).
+        // Correct denominator is 20_000, not 10_000.
         let rate = if raw.base_fee > 1.0 {
-            raw.base_fee / 10_000.0
+            raw.base_fee / 20_000.0
         } else {
             raw.base_fee
         };
