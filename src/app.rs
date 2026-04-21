@@ -4,19 +4,15 @@ use anyhow::Result;
 use tokio::task::JoinSet;
 use tracing::{info, warn};
 
-use crate::bus::EventBus;
-use crate::calibration::CalibrationTable;
 use crate::config::AppConfig;
-use crate::events::{Event, EventSource, StrategyEvent, SystemEvent, TradingEvent};
-use crate::listeners::evaluation_trigger_listener::EvaluationTriggerListener;
-use crate::listeners::execution::ExecutionListener;
-use crate::listeners::state::StateListener;
-use crate::listeners::strategy_listener::StrategyListener;
-use crate::polymarket::PolymarketClient;
-use crate::services::{EventService, ExecutionService, StrategyService, WeatherService};
-use crate::sources::market::MarketSource;
-use crate::sources::weather::WeatherSource;
-use crate::state::new_shared_state;
+use crate::consumers::{self, ConsumerServices};
+use crate::core::bus::EventBus;
+use crate::core::events::{Event, EventSource, StrategyEvent, SystemEvent, TradingEvent};
+use crate::core::state::new_shared_state;
+use crate::market::MarketService;
+use crate::services::{EventService, ExecutionService, StrategyService};
+use crate::strategy::CalibrationTable;
+use crate::weather::WeatherService;
 
 pub struct App {
     config: AppConfig,
@@ -34,65 +30,47 @@ impl App {
         let bus = EventBus::new(2048);
         let state = new_shared_state();
         let weather_service = Arc::new(WeatherService::new(
+            bus.clone(),
             self.config.station_code.clone(),
             self.config.lat,
             self.config.lon,
             self.config.forecast_high_f,
+            target_date,
+            self.config.poll_interval_secs,
         ));
 
-        let market_client = PolymarketClient::new(&self.config.gamma_url, &self.config.clob_url);
-        let market_source = MarketSource::new(
+        let market_service = Arc::new(MarketService::new(
             bus.clone(),
-            market_client.clone(),
+            &self.config.gamma_url,
+            &self.config.clob_url,
             event_slug,
             target_date,
             self.config.desired_shares,
-        );
+        ));
 
         let strategy_service = Arc::new(StrategyService::new(
             self.config.clone(),
             self.calibration,
-            market_client,
+            market_service.clone(),
         ));
         let execution_service = Arc::new(ExecutionService::new(self.config.clone()));
 
-        let weather_source = WeatherSource::new(
-            bus.clone(),
-            weather_service,
-            target_date,
-            self.config.poll_interval_secs,
-        );
-
         let mut tasks = JoinSet::new();
         let mut control_rx = bus.subscribe();
-        let bus_for_state = bus.clone();
-        let state_for_state = state.clone();
-        tasks.spawn(async move { StateListener::new(bus_for_state, state_for_state).run().await });
-        let bus_for_eval_trigger = bus.clone();
-        tasks.spawn(async move { EvaluationTriggerListener::new(bus_for_eval_trigger).run().await });
-        let bus_for_strategy = bus.clone();
-        let state_for_strategy = state.clone();
-        let strategy_service = strategy_service.clone();
-        tasks.spawn(async move {
-            StrategyListener::new(bus_for_strategy, state_for_strategy, strategy_service)
-                .run()
-                .await
-        });
-        let bus_for_execution = bus.clone();
-        let state_for_execution = state.clone();
-        let execution_service = execution_service.clone();
-        tasks.spawn(async move {
-            ExecutionListener::new(bus_for_execution, state_for_execution, execution_service)
-                .run()
-                .await
-        });
-        let initial_markets = market_source.bootstrap_metadata().await?;
-        let bus_for_weather = bus.clone();
-        tasks.spawn(async move {
-            let _ = bus_for_weather;
-            weather_source.run().await
-        });
-        tasks.spawn(async move { market_source.run(initial_markets).await });
+        consumers::spawn_all(
+            &mut tasks,
+            &bus,
+            &state,
+            ConsumerServices {
+                strategy: strategy_service.clone(),
+                execution: execution_service.clone(),
+            },
+        );
+        let initial_markets = market_service.publish_metadata().await?;
+        let weather_service = weather_service.clone();
+        tasks.spawn(async move { weather_service.run_poller().await });
+        let market_service = market_service.clone();
+        tasks.spawn(async move { market_service.run_poller(initial_markets).await });
 
         bus.publish(EventSource::App, Event::System(SystemEvent::Started));
         info!("event-driven bot framework started");

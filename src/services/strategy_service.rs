@@ -1,18 +1,18 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 use tracing::{info, warn};
 
-use crate::calibration::CalibrationTable;
 use crate::config::AppConfig;
-use crate::execution::ExecutionPlan;
-use crate::polymarket::PolymarketClient;
+use crate::market::MarketService;
+use crate::services::ExecutionPlan;
 use crate::strategy::{
-    BucketProbabilityRule, MarketTimingRule, NoEdgeRule, StrategyEngine, StrategyEvaluation,
-    StrategyInput, TokenAvailabilityRule,
+    BucketProbabilityRule, CalibrationTable, MarketTimingRule, NoEdgeRule, StrategyEngine,
+    StrategyEvaluation, StrategyInput, TokenAvailabilityRule,
 };
 use crate::weather::Forecast;
 
@@ -30,19 +30,19 @@ pub struct StrategyOutcome {
 pub struct StrategyService {
     config: AppConfig,
     calibration: Option<CalibrationTable>,
-    polymarket_client: PolymarketClient,
+    market_service: Arc<MarketService>,
 }
 
 impl StrategyService {
     pub fn new(
         config: AppConfig,
         calibration: Option<CalibrationTable>,
-        polymarket_client: PolymarketClient,
+        market_service: Arc<MarketService>,
     ) -> Self {
         Self {
             config,
             calibration,
-            polymarket_client,
+            market_service,
         }
     }
 
@@ -62,7 +62,7 @@ impl StrategyService {
 
         let open_token_ids = load_open_positions(&self.config.open_positions_path);
         let markets = self
-            .polymarket_client
+            .market_service
             .fetch_event_markets(&event_slug, target_date, self.config.desired_shares)
             .await?;
 

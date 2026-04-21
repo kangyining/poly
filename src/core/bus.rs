@@ -6,7 +6,7 @@ use std::sync::{
 use chrono::{DateTime, Utc};
 use tokio::sync::broadcast;
 
-use crate::events::{Event, EventSource};
+use crate::core::events::{Event, EventSource};
 
 #[derive(Debug, Clone)]
 pub struct EventEnvelope {

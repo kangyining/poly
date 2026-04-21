@@ -2,22 +2,22 @@ use anyhow::Result;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 
-use crate::bus::EventBus;
-use crate::events::{
+use crate::core::bus::EventBus;
+use crate::core::events::{
     EvaluationReason, EvaluationRequested, Event, EventSource, MarketEvent, StrategyEvent,
     SystemEvent, WeatherEvent,
 };
 
-pub struct EvaluationTriggerListener {
+pub struct EvaluationTriggerConsumer {
     bus: EventBus,
 }
 
-impl EvaluationTriggerListener {
+impl EvaluationTriggerConsumer {
     pub fn new(bus: EventBus) -> Self {
         Self { bus }
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn consume(self) -> Result<()> {
         let mut rx = self.bus.subscribe();
 
         loop {
@@ -39,10 +39,10 @@ impl EvaluationTriggerListener {
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
-                    warn!(dropped, "evaluation trigger listener lagged behind the event stream");
+                    warn!(dropped, "evaluation trigger consumer lagged behind the event stream");
                 }
                 Err(RecvError::Closed) => {
-                    debug!("evaluation trigger listener channel closed");
+                    debug!("evaluation trigger consumer channel closed");
                     break;
                 }
             }
@@ -53,7 +53,7 @@ impl EvaluationTriggerListener {
 
     fn publish(&self, reason: EvaluationReason) {
         self.bus.publish(
-            EventSource::TriggerListener,
+            EventSource::TriggerConsumer,
             Event::Strategy(StrategyEvent::EvaluationRequested(EvaluationRequested {
                 reason,
             })),

@@ -4,20 +4,20 @@ use anyhow::Result;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, info, warn};
 
-use crate::bus::EventBus;
-use crate::events::{
+use crate::core::bus::EventBus;
+use crate::core::events::{
     Event, EventSource, ExecutionPlanCreated, StrategyEvent, SystemEvent, TradingEvent,
 };
+use crate::core::state::SharedState;
 use crate::services::ExecutionService;
-use crate::state::SharedState;
 
-pub struct ExecutionListener {
+pub struct ExecutionConsumer {
     bus: EventBus,
     state: SharedState,
     execution_service: Arc<ExecutionService>,
 }
 
-impl ExecutionListener {
+impl ExecutionConsumer {
     pub fn new(bus: EventBus, state: SharedState, execution_service: Arc<ExecutionService>) -> Self {
         Self {
             bus,
@@ -26,7 +26,7 @@ impl ExecutionListener {
         }
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn consume(self) -> Result<()> {
         let mut rx = self.bus.subscribe();
 
         loop {
@@ -47,7 +47,7 @@ impl ExecutionListener {
                         if new_token_ids.is_empty() {
                             self.bus.publish(
                                 EventSource::ExecutionEngine,
-                                Event::Trading(TradingEvent::OrderSkipped(crate::events::OrderSkipped {
+                                Event::Trading(TradingEvent::OrderSkipped(crate::core::events::OrderSkipped {
                                     run_id: outcome.run_id.clone(),
                                     reason: "no new trades to submit".into(),
                                 })),
@@ -74,7 +74,7 @@ impl ExecutionListener {
                         self.execution_service.execute(&outcome)?;
                         self.bus.publish(
                             EventSource::ExecutionEngine,
-                            Event::Trading(TradingEvent::OrderSubmitted(crate::events::OrderSubmitted {
+                            Event::Trading(TradingEvent::OrderSubmitted(crate::core::events::OrderSubmitted {
                                 run_id: outcome.run_id.clone(),
                                 token_ids: new_token_ids,
                             })),
@@ -84,10 +84,10 @@ impl ExecutionListener {
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
-                    warn!(dropped, "execution listener lagged behind the event stream");
+                    warn!(dropped, "execution consumer lagged behind the event stream");
                 }
                 Err(RecvError::Closed) => {
-                    debug!("execution listener channel closed");
+                    debug!("execution consumer channel closed");
                     break;
                 }
             }

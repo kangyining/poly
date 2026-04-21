@@ -3,9 +3,9 @@ use clap::Parser;
 use tracing::warn;
 
 use polymarket_weather_bot::app::App;
-use polymarket_weather_bot::calibration::CalibrationTable;
 use polymarket_weather_bot::config::{AppConfig, Cli};
-use polymarket_weather_bot::logging::init_logging;
+use polymarket_weather_bot::core::logging::init_logging;
+use polymarket_weather_bot::strategy::CalibrationTable;
 
 #[tokio::main]
 async fn main() -> Result<()> {
