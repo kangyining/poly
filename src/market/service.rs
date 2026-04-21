@@ -1,6 +1,8 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
+use chrono::{DateTime, NaiveDate, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use tokio::time::sleep;
@@ -8,43 +10,106 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
-use crate::bus::EventBus;
-use crate::events::{
+use crate::core::bus::EventBus;
+use crate::core::events::{
     BestBidAskChanged, ConnectionStatusChanged, Event, EventSource, MarketEvent,
     MarketMetadataRefreshed,
 };
-use crate::polymarket::{PolymarketClient, WeatherMarket};
+use crate::market::client::{effective_ask_vwap, PolymarketClient, WeatherMarket};
 
 const MARKET_WS_URL: &str = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
 
-pub struct MarketSource {
+#[derive(Clone)]
+pub struct MarketService {
     bus: EventBus,
     client: PolymarketClient,
     event_slug: String,
-    target_date: chrono::NaiveDate,
+    target_date: NaiveDate,
     desired_shares: f64,
 }
 
-impl MarketSource {
+impl MarketService {
     pub fn new(
         bus: EventBus,
-        client: PolymarketClient,
+        gamma_url: &str,
+        clob_url: &str,
         event_slug: String,
-        target_date: chrono::NaiveDate,
+        target_date: NaiveDate,
         desired_shares: f64,
     ) -> Self {
         Self {
             bus,
-            client,
+            client: PolymarketClient::new(gamma_url, clob_url),
             event_slug,
             target_date,
             desired_shares,
         }
     }
 
-    pub async fn bootstrap_metadata(&self) -> Result<Vec<WeatherMarket>> {
+    pub async fn fetch_event_markets(
+        &self,
+        event_slug: &str,
+        target_date: NaiveDate,
+        desired_shares: f64,
+    ) -> Result<Vec<WeatherMarket>> {
+        let payload = self.client.get_event_by_slug(event_slug).await?;
+
+        let end_date = payload
+            .end_date
+            .as_deref()
+            .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
+            .map(|dt| dt.with_timezone(&Utc));
+
+        if let Some(end_dt) = end_date {
+            if end_dt.date_naive() != target_date {
+                anyhow::bail!(
+                    "event {} resolves on {}, expected {}",
+                    event_slug,
+                    end_dt.date_naive(),
+                    target_date
+                );
+            }
+        }
+
+        let event_title = payload.title.clone();
+        let mut markets: Vec<WeatherMarket> = payload
+            .markets
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|market| WeatherMarket::try_from_gamma(market, target_date))
+            .collect();
+
+        info!(
+            event_slug,
+            event_title,
+            market_count = markets.len(),
+            "fetched weather event markets from Gamma"
+        );
+
+        for market in &mut markets {
+            if let Some(no_token_id) = &market.no_token_id {
+                match self.fetch_clob_data(no_token_id, desired_shares).await {
+                    Ok((effective_ask, fee_rate)) => {
+                        market.effective_ask_no = Some(effective_ask);
+                        market.fee_rate = Some(fee_rate);
+                    }
+                    Err(error) => {
+                        warn!(
+                            market_id = %market.id,
+                            no_token_id = %no_token_id,
+                            error = %error,
+                            "failed to fetch CLOB data, market will be skipped by EV rule"
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(markets)
+    }
+
+    pub async fn publish_metadata(&self) -> Result<Vec<WeatherMarket>> {
         let markets = self
-            .client
             .fetch_event_markets(&self.event_slug, self.target_date, self.desired_shares)
             .await?;
 
@@ -53,27 +118,27 @@ impl MarketSource {
             Event::Market(MarketEvent::MetadataRefreshed(MarketMetadataRefreshed {
                 event_slug: self.event_slug.clone(),
                 target_date: self.target_date,
-                markets: std::sync::Arc::new(markets.clone()),
+                markets: Arc::new(markets.clone()),
             })),
         );
 
         Ok(markets)
     }
 
-    pub async fn run(self, markets: Vec<WeatherMarket>) -> Result<()> {
+    pub async fn run_poller(self: Arc<Self>, markets: Vec<WeatherMarket>) -> Result<()> {
         let asset_ids = markets
             .iter()
             .filter_map(|market| market.no_token_id.clone())
             .collect::<Vec<_>>();
 
         if asset_ids.is_empty() {
-            warn!("market source has no NO token ids to subscribe to");
+            warn!("market service has no NO token ids to subscribe to");
             return Ok(());
         }
 
         loop {
-            if let Err(error) = self.run_stream(&asset_ids).await {
-                warn!(error = %error, "market websocket source disconnected, retrying");
+            if let Err(error) = self.publish_stream(&asset_ids).await {
+                warn!(error = %error, "market websocket service disconnected, retrying");
                 self.bus.publish(
                     EventSource::MarketWs,
                     Event::Market(MarketEvent::ConnectionStatusChanged(
@@ -88,7 +153,19 @@ impl MarketSource {
         }
     }
 
-    async fn run_stream(&self, asset_ids: &[String]) -> Result<()> {
+    async fn fetch_clob_data(&self, no_token_id: &str, desired_shares: f64) -> Result<(f64, f64)> {
+        let (book, fee_rate) = tokio::try_join!(
+            self.client.get_order_book(no_token_id),
+            self.client.get_fee_rate(no_token_id),
+        )?;
+
+        let effective_ask = effective_ask_vwap(&book.asks, desired_shares)
+            .ok_or_else(|| anyhow::anyhow!("insufficient ask depth for {} shares", desired_shares))?;
+
+        Ok((effective_ask, fee_rate))
+    }
+
+    async fn publish_stream(&self, asset_ids: &[String]) -> Result<()> {
         let (mut ws_stream, _) = connect_async(MARKET_WS_URL)
             .await
             .context("failed to connect to market websocket")?;
@@ -116,29 +193,29 @@ impl MarketSource {
         while let Some(message) = ws_stream.next().await {
             let message = message.context("market websocket message failed")?;
             if let Message::Text(text) = message {
-                self.handle_message(&text)?;
+                self.consume_message(&text)?;
             }
         }
 
         Ok(())
     }
 
-    fn handle_message(&self, text: &str) -> Result<()> {
+    fn consume_message(&self, text: &str) -> Result<()> {
         let value: serde_json::Value =
             serde_json::from_str(text).context("failed to parse market websocket message")?;
 
         if let Some(items) = value.as_array() {
             for item in items {
-                self.handle_value(item);
+                self.consume_value(item);
             }
         } else {
-            self.handle_value(&value);
+            self.consume_value(&value);
         }
 
         Ok(())
     }
 
-    fn handle_value(&self, value: &serde_json::Value) {
+    fn consume_value(&self, value: &serde_json::Value) {
         let event_type = value
             .get("event_type")
             .or_else(|| value.get("type"))
@@ -182,6 +259,7 @@ impl MarketSource {
         let Some(token_id) = token_id else {
             return;
         };
+
         self.bus.publish(
             EventSource::MarketWs,
             Event::Market(MarketEvent::BestBidAskChanged(BestBidAskChanged {

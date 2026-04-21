@@ -4,7 +4,7 @@ use std::sync::Arc;
 use chrono::{DateTime, NaiveDate, Utc};
 use tokio::sync::RwLock;
 
-use crate::polymarket::WeatherMarket;
+use crate::market::WeatherMarket;
 use crate::weather::Forecast;
 
 #[derive(Debug, Clone, Copy, Default)]

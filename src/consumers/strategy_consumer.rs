@@ -4,18 +4,18 @@ use anyhow::Result;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, info, warn};
 
-use crate::bus::EventBus;
-use crate::events::{Event, EventSource, StrategyEvent, SystemEvent};
+use crate::core::bus::EventBus;
+use crate::core::events::{Event, EventSource, StrategyEvent, SystemEvent};
+use crate::core::state::SharedState;
 use crate::services::StrategyService;
-use crate::state::SharedState;
 
-pub struct StrategyListener {
+pub struct StrategyConsumer {
     bus: EventBus,
     state: SharedState,
     strategy_service: Arc<StrategyService>,
 }
 
-impl StrategyListener {
+impl StrategyConsumer {
     pub fn new(bus: EventBus, state: SharedState, strategy_service: Arc<StrategyService>) -> Self {
         Self {
             bus,
@@ -24,7 +24,7 @@ impl StrategyListener {
         }
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn consume(self) -> Result<()> {
         let mut rx = self.bus.subscribe();
 
         loop {
@@ -60,10 +60,10 @@ impl StrategyListener {
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
-                    warn!(dropped, "strategy listener lagged behind the event stream");
+                    warn!(dropped, "strategy consumer lagged behind the event stream");
                 }
                 Err(RecvError::Closed) => {
-                    debug!("strategy listener channel closed");
+                    debug!("strategy consumer channel closed");
                     break;
                 }
             }

@@ -3,8 +3,6 @@ use chrono::{DateTime, NaiveDate, Utc};
 use regex::Regex;
 use reqwest::Client;
 use serde::Deserialize;
-use tracing::{info, warn};
-
 const GAMMA_URL: &str = "https://gamma-api.polymarket.com";
 const CLOB_URL: &str = "https://clob.polymarket.com";
 
@@ -32,20 +30,13 @@ impl PolymarketClient {
         }
     }
 
-    /// Fetch all markets for an event slug from Gamma, then enrich each with
-    /// CLOB orderbook data (effective_ask_no, fee_rate).
-    pub async fn fetch_event_markets(
-        &self,
-        event_slug: &str,
-        target_date: NaiveDate,
-        desired_shares: f64,
-    ) -> Result<Vec<WeatherMarket>> {
+    pub(crate) async fn get_event_by_slug(&self, event_slug: &str) -> Result<GammaEvent> {
         let url = format!(
             "{}/events/slug/{}",
             self.gamma_url.trim_end_matches('/'),
             event_slug
         );
-        let payload: GammaEvent = self
+        self
             .http
             .get(&url)
             .send()
@@ -55,82 +46,10 @@ impl PolymarketClient {
             .context("Gamma event request returned an error")?
             .json()
             .await
-            .context("failed to deserialize Gamma event response")?;
-
-        let end_date = payload
-            .end_date
-            .as_deref()
-            .and_then(|v| DateTime::parse_from_rfc3339(v).ok())
-            .map(|dt| dt.with_timezone(&Utc));
-
-        if let Some(end_dt) = end_date {
-            if end_dt.date_naive() != target_date {
-                anyhow::bail!(
-                    "event {} resolves on {}, expected {}",
-                    event_slug,
-                    end_dt.date_naive(),
-                    target_date
-                );
-            }
-        }
-
-        let event_title = payload.title.clone();
-        let mut markets: Vec<WeatherMarket> = payload
-            .markets
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|m| WeatherMarket::try_from_gamma(m, target_date))
-            .collect();
-
-        info!(
-            event_slug,
-            event_title,
-            market_count = markets.len(),
-            "fetched weather event markets from Gamma"
-        );
-
-        // Enrich with CLOB data
-        for market in &mut markets {
-            if let Some(no_token_id) = &market.no_token_id {
-                match self.fetch_clob_data(no_token_id, desired_shares).await {
-                    Ok((effective_ask, fee_rate)) => {
-                        market.effective_ask_no = Some(effective_ask);
-                        market.fee_rate = Some(fee_rate);
-                    }
-                    Err(e) => {
-                        warn!(
-                            market_id = %market.id,
-                            no_token_id = %no_token_id,
-                            error = %e,
-                            "failed to fetch CLOB data, market will be skipped by EV rule"
-                        );
-                    }
-                }
-            }
-        }
-
-        Ok(markets)
+            .context("failed to deserialize Gamma event response")
     }
 
-    /// Fetches the CLOB orderbook and fee rate for a NO token.
-    /// Returns (effective_ask, fee_rate).
-    async fn fetch_clob_data(
-        &self,
-        no_token_id: &str,
-        desired_shares: f64,
-    ) -> Result<(f64, f64)> {
-        let (book, fee_rate) = tokio::try_join!(
-            self.fetch_order_book(no_token_id),
-            self.fetch_fee_rate(no_token_id),
-        )?;
-
-        let effective_ask = effective_ask_vwap(&book.asks, desired_shares)
-            .ok_or_else(|| anyhow::anyhow!("insufficient ask depth for {} shares", desired_shares))?;
-
-        Ok((effective_ask, fee_rate))
-    }
-
-    async fn fetch_order_book(&self, token_id: &str) -> Result<OrderBook> {
+    pub(crate) async fn get_order_book(&self, token_id: &str) -> Result<OrderBook> {
         let url = format!("{}/book", self.clob_url.trim_end_matches('/'));
         let raw: RawOrderBook = self
             .http
@@ -158,7 +77,7 @@ impl PolymarketClient {
         Ok(OrderBook { asks })
     }
 
-    async fn fetch_fee_rate(&self, token_id: &str) -> Result<f64> {
+    pub(crate) async fn get_fee_rate(&self, token_id: &str) -> Result<f64> {
         let url = format!("{}/fee-rate", self.clob_url.trim_end_matches('/'));
         let raw: FeeRateResponse = self
             .http
@@ -185,7 +104,7 @@ impl PolymarketClient {
 
 /// Walk ask levels and return the VWAP price for buying `shares`.
 /// Returns None if insufficient depth.
-pub fn effective_ask_vwap(asks: &[OrderLevel], shares: f64) -> Option<f64> {
+pub(crate) fn effective_ask_vwap(asks: &[OrderLevel], shares: f64) -> Option<f64> {
     let mut remaining = shares;
     let mut cost = 0.0;
 
@@ -220,7 +139,7 @@ pub struct WeatherMarket {
 }
 
 impl WeatherMarket {
-    fn try_from_gamma(market: GammaMarket, target_date: NaiveDate) -> Option<Self> {
+    pub(crate) fn try_from_gamma(market: GammaMarket, target_date: NaiveDate) -> Option<Self> {
         if !market.enable_order_book.unwrap_or(false) {
             return None;
         }
@@ -415,7 +334,7 @@ struct FeeRateResponse {
 }
 
 #[derive(Debug, Deserialize)]
-struct GammaMarket {
+pub(crate) struct GammaMarket {
     id: Option<String>,
     question: Option<String>,
     slug: Option<String>,
@@ -431,11 +350,11 @@ struct GammaMarket {
 }
 
 #[derive(Debug, Deserialize)]
-struct GammaEvent {
-    title: String,
+pub(crate) struct GammaEvent {
+    pub(crate) title: String,
     #[serde(rename = "endDate")]
-    end_date: Option<String>,
-    markets: Option<Vec<GammaMarket>>,
+    pub(crate) end_date: Option<String>,
+    pub(crate) markets: Option<Vec<GammaMarket>>,
 }
 
 fn parse_string_array(value: Option<&str>) -> Vec<String> {

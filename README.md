@@ -1,237 +1,478 @@
-# Polymarket Weather Bot
+# Polymarket Weather Bot Architecture
 
-Rust bot for evaluating Polymarket NYC highest-temperature markets. It fetches one weather event, gets a forecast high, overlays live orderbook prices from Polymarket's market WebSocket, evaluates each temperature bin through a traceable rule engine, persists the run to JSONL, and builds an execution plan.
+This codebase is an event-driven Rust bot for trading Polymarket weather range markets.
+It watches two external domains:
 
-The bot now supports real live order submission through Polymarket's Rust SDK when `DRY_RUN=false` and `POLYMARKET_PRIVATE_KEY` is configured. It can also run in a monitor loop and buy as soon as a qualifying condition appears.
+- weather forecasts from the National Weather Service
+- market metadata and prices from Polymarket
 
-## Strategy
+Those inputs are normalized into internal events, pushed through an in-process event bus, evaluated by a rule-based strategy engine, and converted into an execution plan that can be handed off to a Python execution bridge.
 
-The strategy targets daily high-temperature markets where Polymarket splits the outcome into temperature bins.
+## High-Level Flow
 
-- Fetch the target event by Polymarket event slug.
-- Fetch the forecast high for the target date, using GFS by default.
-- Parse each market question into a `TemperatureRange`.
-- Keep bins whose nearest edge is at least `4°F` away from the forecast.
-- Keep only NO prices between `0.90` and `0.99`.
-- Plan a `$5` NO buy for each qualifying bin.
-
-Example: with a `50°F` forecast, bins at `44°F or below` and `56°F or above` are far enough away to be considered. They still need to pass timing, price, and token checks before becoming trade candidates.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    CLI[CLI / Env Config] --> Main[src/main.rs]
-    Main --> Logging[Structured Logging]
-    Main --> Store[JSONL Persistence]
-    Main --> Weather[ForecastProvider]
-    Main --> Poly[PolymarketClient]
-    Main --> MarketWS[Market WebSocket Client]
-
-    Weather --> GFS[GFS Forecast]
-    Weather --> Static[Static Override]
-    Poly --> Event[Single Event by Slug]
-    Event --> Markets[WeatherMarket Bins]
-    MarketWS --> Books[Live Book Snapshot]
-    Books --> Markets
-
-    GFS --> Engine[StrategyEngine]
-    Static --> Engine
-    Markets --> Engine
-
-    Engine --> Timing[MarketTimingRule]
-    Timing --> Distance[TemperatureDistanceRule]
-    Distance --> Price[NoPriceBandRule]
-    Price --> Token[TokenAvailabilityRule]
-
-    Token --> Trace[DecisionTrace + decision_id]
-    Token --> Candidates[Trade Candidates]
-    Candidates --> Plan[ExecutionPlan]
-    Plan --> DryRun[DryRunExecutionClient]
-    Plan --> LiveExec[PolymarketExecutionClient]
-
-    Trace --> Store
-    Plan --> Store
-    Logging --> LogFile[JSON Log Files]
+```text
+                +----------------------+
+                |      App::run()      |
+                | wires config/services|
+                +----------+-----------+
+                           |
+                           v
+                  +------------------+
+                  |    EventBus      |
+                  | tokio broadcast  |
+                  +----+----+---+----+
+                       |    |   | 
+         publishes     |    |   |    consumes
+                       |    |   |
+     +-----------------+    |   +--------------------+
+     |                      |                        |
+     v                      v                        v
++-----------+        +-------------+          +---------------+
+|WeatherSvc  |        | MarketSvc   |          |   Consumers   |
+|REST poller |        | REST + WS   |          | state/trigger |
++-----+------+        +------+------+          | strategy/exec |
+      |                      |                 +-------+-------+
+      | ForecastUpdated      | MetadataRefreshed / BestBidAskChanged
+      +----------+-----------+-------------------------+
+                 |                                     |
+                 v                                     v
+          +----------------+                  +------------------+
+          | Shared State   |                  | StrategyService  |
+          | latest weather |                  | fetch markets +  |
+          | market + exec  |                  | run rules        |
+          +--------+-------+                  +--------+---------+
+                   |                                   |
+                   |                                   v
+                   |                         EvaluationCompleted
+                   |                                   |
+                   |                                   v
+                   |                         +------------------+
+                   |                         | ExecutionConsumer|
+                   |                         | dedupe + execute |
+                   |                         +--------+---------+
+                   |                                   |
+                   |                                   v
+                   |                         +------------------+
+                   |                         | ExecutionService |
+                   |                         | write JSON plan  |
+                   |                         | call execute.py  |
+                   |                         +------------------+
 ```
 
 ## Module Layout
 
-- `src/main.rs`: thin entrypoint that loads config, initializes logging/storage, and launches the runner.
-- `src/runner.rs`: one-shot and monitor-loop orchestration. Consistently refreshes forecast + market data, evaluates the strategy, deduplicates already-submitted tokens for the current process, and submits buys when conditions trigger.
-- `src/config.rs`: CLI and environment config validation.
-- `src/logging.rs`: `tracing` setup with console output and rolling JSON file logs.
-- `src/storage.rs`: JSONL persistence for runs, decisions, and execution plans.
-- `src/weather.rs`: forecast provider abstraction, static provider, and Open-Meteo GFS provider.
-- `src/polymarket.rs`: Gamma API client and weather-market parsing. Fetches one event by slug.
-- `src/market_data.rs`: Polymarket market WebSocket client and in-memory best bid/ask snapshots.
-- `src/strategy/engine.rs`: ordered rule-engine evaluation.
-- `src/strategy/rules.rs`: timing, temperature distance, NO price band, and token availability rules.
-- `src/strategy/types.rs`: strategy input, trade candidate, decision trace, and evaluation result types.
-- `src/execution.rs`: execution plan, dry-run client, and live execution client backed by Polymarket's Rust SDK.
-
-## Decision Tracing
-
-Each market/bin evaluation receives a stable `decision_id` built from the run id, market id, and market index. The strategy engine records every rule result in a `DecisionTrace` and also emits structured logs with the same `decision_id`.
-
-This makes it possible to answer questions like:
-
-- Which rule rejected this bin?
-- What forecast and threshold were used?
-- What NO price was observed?
-- Was the market rejected because of timing, price, distance, or missing token data?
-
-The first rule that fails stops evaluation for that bin.
-
-## Forecasting
-
-The default forecast source is GFS via Open-Meteo:
-
-- Base URL: `https://api.open-meteo.com/v1/gfs`
-- Default location: LaGuardia-style coordinates, `40.7769, -73.8740`
-- Unit: Fahrenheit
-- Value used by the strategy: `daily.temperature_2m_max`
-
-You can still force a manual forecast with:
-
-```bash
-cargo run -- \
-  --forecast-source static \
-  --forecast-high-f 80 \
-  --target-date 2026-04-16
+```text
+src/
+  app.rs                Bootstraps the runtime and starts producers/consumers
+  config.rs             CLI/env configuration
+  core/
+    bus.rs              In-process event bus
+    events.rs           Event envelope and event types
+    state.rs            Shared bot state snapshot
+    logging.rs          Tracing setup
+  weather/
+    client.rs           NWS REST client and forecast models
+    service.rs          Weather poller that publishes weather events
+  market/
+    client.rs           Polymarket REST clients and market parsing
+    service.rs          Metadata fetch + websocket price stream publisher
+  consumers/
+    state_consumer.rs               Maintains shared state
+    evaluation_trigger_consumer.rs  Converts source changes into strategy requests
+    strategy_consumer.rs            Runs strategy evaluations
+    execution_consumer.rs           Dedupes and hands plans to execution
+  strategy/
+    engine.rs           Rule pipeline executor
+    rules.rs            Individual strategy rules
+    calibration.rs      Forecast calibration lookup
+    types.rs            Strategy inputs, traces, trade candidates
+  services/
+    event_service.rs    Target date and event slug resolution
+    strategy_service.rs Orchestrates market fetch, calibration, and rule engine
+    execution_plan.rs   Serializable execution plan
+    execution_service.rs Writes plan and invokes Python bridge
 ```
 
-## Market Data
+## Runtime Lifecycle
 
-The bot always fetches event metadata from Gamma and always subscribes to the Polymarket market WebSocket for the event's NO token ids before strategy evaluation.
+`App::run()` in [src/app.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/app.rs) is the entrypoint for the live system.
 
-Example:
+At startup it:
 
-```bash
-RUST_LOG=debug cargo run -- \
-  --target-date 2026-04-16 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
+1. Resolves the target date and constructs the Polymarket event slug.
+2. Creates the `EventBus` and shared `BotState`.
+3. Builds `WeatherService`, `MarketService`, `StrategyService`, and `ExecutionService`.
+4. Spawns all consumers as long-running tasks.
+5. Performs an initial market metadata fetch and publishes it.
+6. Starts the weather poller and market websocket poller.
+7. Publishes `SystemEvent::Started`.
+
+In single-pass mode, the app exits after the first meaningful evaluation/execution cycle. In loop mode, it stays alive until `ctrl-c`, then publishes `SystemEvent::Stopping` so consumers can shut down cleanly.
+
+## Event Bus Design
+
+The bus lives in [src/core/bus.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/core/bus.rs). It is a thin wrapper around `tokio::sync::broadcast`.
+
+Each published event is wrapped in an `EventEnvelope`:
+
+- `id`: a monotonically increasing event id
+- `at`: UTC timestamp
+- `source`: where the event came from
+- `payload`: the typed domain event
+
+### Why broadcast?
+
+Broadcast makes every consumer an independent subscriber. A single `ForecastUpdated` event can:
+
+- update shared state
+- trigger a strategy evaluation
+- be logged or monitored by future consumers
+
+without producers knowing who listens.
+
+### Event categories
+
+Event types are defined in [src/core/events.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/core/events.rs):
+
+- `Market`
+  - `MetadataRefreshed`
+  - `BestBidAskChanged`
+  - `ConnectionStatusChanged`
+- `Weather`
+  - `ForecastUpdated`
+- `Strategy`
+  - `EvaluationRequested`
+  - `EvaluationCompleted`
+- `Trading`
+  - `ExecutionPlanCreated`
+  - `OrderSubmitted`
+  - `OrderSkipped`
+- `System`
+  - `Started`
+  - `Stopping`
+  - lag/health/error-style events
+
+### Backpressure and lag
+
+The bus has bounded capacity (`EventBus::new(2048)`). If a consumer falls behind, Tokio emits `RecvError::Lagged`. The state consumer reports this as a `SystemEvent::SourceLagged`; other consumers currently log the lag and continue.
+
+## Publishers and Consumers
+
+The architecture follows a clean split:
+
+- publishers gather external data and publish domain events
+- consumers react to events and advance the bot
+
+### Publishers
+
+#### Weather publisher
+
+`WeatherService` in [src/weather/service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/weather/service.rs):
+
+- polls the forecast on an interval
+- compares the newly fetched forecast with the previous one
+- publishes `WeatherEvent::ForecastUpdated` only when the target-day high changes materially
+
+Sources:
+
+- `StaticForecastProvider` for manual overrides
+- `NwsForecastProvider` for live data from `api.weather.gov`
+
+#### Market publishers
+
+`MarketService` in [src/market/service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/market/service.rs) publishes two kinds of market information:
+
+- metadata snapshots via `publish_metadata()`
+- live quote changes via `run_poller()` and websocket subscriptions
+
+It emits:
+
+- `MarketEvent::MetadataRefreshed`
+- `MarketEvent::BestBidAskChanged`
+- `MarketEvent::ConnectionStatusChanged`
+
+### Consumers
+
+#### `StateConsumer`
+
+[src/consumers/state_consumer.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/consumers/state_consumer.rs)
+
+Responsibilities:
+
+- maintains the in-memory `BotState`
+- tracks lifecycle state such as `WarmingUp`, `Ready`, `Evaluating`, and `Executing`
+- stores latest forecast, market metadata, best bids/asks, and submitted token ids
+
+This consumer is the read model for the rest of the app.
+
+#### `EvaluationTriggerConsumer`
+
+[src/consumers/evaluation_trigger_consumer.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/consumers/evaluation_trigger_consumer.rs)
+
+Responsibilities:
+
+- listens for source changes
+- converts them into `StrategyEvent::EvaluationRequested`
+
+Triggers:
+
+- app started
+- weather updated
+- market metadata refreshed
+- market best bid/ask changed
+
+This keeps producers simple. Weather and market services only publish facts; they do not decide when strategy should run.
+
+#### `StrategyConsumer`
+
+[src/consumers/strategy_consumer.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/consumers/strategy_consumer.rs)
+
+Responsibilities:
+
+- listens for `EvaluationRequested`
+- reads the latest forecast from shared state
+- skips evaluation until forecast data exists
+- calls `StrategyService::evaluate(...)`
+- publishes `EvaluationCompleted`
+
+#### `ExecutionConsumer`
+
+[src/consumers/execution_consumer.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/consumers/execution_consumer.rs)
+
+Responsibilities:
+
+- listens for `EvaluationCompleted`
+- filters out trades whose `no_token_id` was already submitted
+- publishes `ExecutionPlanCreated`
+- calls `ExecutionService`
+- publishes `OrderSubmitted` or `OrderSkipped`
+
+This is the last event-driven step before interacting with the execution bridge.
+
+## Shared State
+
+Shared state lives in [src/core/state.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/core/state.rs) and is stored behind `Arc<RwLock<BotState>>`.
+
+It holds:
+
+- lifecycle state
+- latest market metadata and best bid/ask maps
+- latest weather forecast
+- execution bookkeeping such as previously submitted token ids and the latest run id
+
+This state is intentionally lightweight. It is not the system of record for trades; it is the in-memory snapshot that lets consumers coordinate.
+
+## Rule and Strategy Execution
+
+Strategy orchestration lives in [src/services/strategy_service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/strategy_service.rs). The actual rule pipeline is in [src/strategy/engine.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/strategy/engine.rs) and [src/strategy/rules.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/strategy/rules.rs).
+
+### Evaluation inputs
+
+For each evaluation run, `StrategyService` builds a `StrategyInput` with:
+
+- target forecast
+- calibrated mean `mu_f = forecast_high_f + beta_f`
+- calibrated sigma from `CalibrationTable`, clamped to `[0.8, 4.0]`
+- EV threshold
+- desired shares and stake sizing
+- run metadata such as `run_id` and `event_slug`
+
+It also re-fetches market data from Polymarket on each evaluation pass and excludes tokens already present in `open_positions.json`.
+
+### Rule pipeline
+
+The engine evaluates each market in order using a fixed rule chain:
+
+1. `MarketTimingRule`
+2. `TokenAvailabilityRule`
+3. `BucketProbabilityRule`
+4. `NoEdgeRule`
+
+If any rule fails, the market is rejected immediately.
+
+#### 1. `MarketTimingRule`
+
+Allows trading only inside the 36-hour window before market close.
+
+#### 2. `TokenAvailabilityRule`
+
+Requires that the market has a `NO` token id that can actually be traded.
+
+#### 3. `BucketProbabilityRule`
+
+Computes the model probability that the forecasted high falls inside that market's temperature bucket using a Gaussian CDF.
+
+This rule does not reject markets by itself; it records the probability into the decision trace for observability.
+
+#### 4. `NoEdgeRule`
+
+Computes fee-adjusted expected value for buying `NO`:
+
+```text
+EV_NO = (1 - P_model) * (1 - fee_rate * P_model) - effective_ask
 ```
 
-## Logging And Persistence
+A market qualifies only if `EV_NO >= min_ev_threshold`.
 
-The app uses `tracing` rather than `println!`.
+### Decision traces
 
-- Console logs are emitted for local visibility.
-- JSON logs are written to `LOG_DIRECTORY`.
-- Default log directory: `/tmp/polymarket-weather-bot`.
-- Strategy decisions and execution plans are appended to `STORAGE_PATH`.
-- Default storage path: `/tmp/polymarket-weather-bot/runs.jsonl`.
-- The log level can be controlled with `RUST_LOG`.
+For every evaluated market, the engine records:
 
-## Live Monitoring And Buying
+- whether the market was accepted
+- which rule passed or failed
+- a human-readable reason string per rule
 
-Set `MONITOR_MODE=true` to keep the bot running and reevaluating the market on a fixed interval. On each cycle it:
+These traces are logged by `StrategyService` and are the main explainability layer for debugging why a bin qualified or was rejected.
 
-1. Pulls the latest weather forecast.
-2. Pulls the latest event metadata.
-3. Optionally overlays fresh websocket NO prices.
-4. Evaluates the rule engine.
-5. Submits buys for any newly triggered NO candidates.
+### Candidate selection and sizing
 
-The process keeps an in-memory set of already-submitted token ids so it does not repeatedly rebuy the same token every polling cycle within the same process run.
+Accepted markets become `TradeCandidate`s.
 
-## Run
+After the rule engine runs:
 
-GFS forecast, Gamma metadata prices:
+- candidates are summed by `stake_usd`
+- if total stake exceeds `max_total_stake_usd`, candidates are trimmed in evaluation order until the cap is satisfied
+- the remaining candidates are serialized into an `ExecutionPlan`
 
-```bash
-cargo run -- \
-  --target-date 2026-04-16 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
+## Execution Flow
+
+Execution has two layers:
+
+### 1. Internal execution plan
+
+[src/services/execution_plan.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/execution_plan.rs)
+
+This converts `TradeCandidate`s into a JSON-serializable plan containing:
+
+- run metadata
+- dry-run flag
+- total stake
+- one planned trade per qualified market
+
+Each planned trade includes the `NO` token id, ask price, shares, stake, modeled probability, EV, and fee rate.
+
+### 2. Python bridge
+
+[src/services/execution_service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/execution_service.rs)
+
+`ExecutionService`:
+
+- writes `execution_plan.json` to the configured directory
+- optionally invokes `python3 execute.py --plan ... --positions ...`
+
+The Rust side is therefore responsible for:
+
+- deciding what should be traded
+- recording an execution plan
+- preventing duplicate submissions within the bot runtime
+
+The Python bridge is responsible for:
+
+- talking to the actual execution layer
+- updating `open_positions.json`
+
+## REST vs Websocket
+
+This split is central to the architecture.
+
+### Weather: REST only
+
+Weather data comes from the National Weather Service via HTTP in [src/weather/client.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/weather/client.rs).
+
+Why REST is used here:
+
+- the bot only needs periodic forecast snapshots
+- NWS exposes the needed forecast endpoints over HTTP
+- forecast changes happen relatively slowly compared to market ticks
+
+Flow:
+
+1. call `/points/{lat},{lon}` to discover the hourly forecast URL
+2. call the returned `forecastHourly` endpoint
+3. compute the maximum temperature for the target date
+4. publish `ForecastUpdated` if it changed
+
+### Market: REST for discovery, websocket for live prices
+
+Market data uses both protocols in [src/market/client.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/market/client.rs) and [src/market/service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/market/service.rs).
+
+REST is used for:
+
+- fetching the event by slug from Gamma
+- fetching each NO token order book from the CLOB API
+- fetching fee rates from the CLOB API
+
+Websocket is used for:
+
+- subscribing to live market updates for all tracked NO token ids
+- receiving best bid/ask or book updates in real time
+
+Why the split exists:
+
+- REST is the right tool for snapshot-style metadata and pre-trade enrichment
+- websocket is the right tool for low-latency quote updates that should trigger re-evaluation quickly
+
+In other words:
+
+- use REST to learn what markets exist and what their current tradable economics look like
+- use websocket to stay current on price movement after initialization
+
+## Important Behavioral Notes
+
+- `StrategyService` currently re-fetches market metadata and CLOB-derived pricing during each evaluation, even though the app also maintains websocket-driven market updates in shared state.
+- websocket price updates trigger new evaluations, but the strategy engine evaluates against freshly fetched market snapshots rather than directly against the shared in-memory bid/ask maps.
+- duplicate-order protection happens in two places:
+  - open positions loaded from `open_positions.json` are filtered before evaluation
+  - already submitted token ids in shared state are filtered before execution
+
+This gives the bot a conservative bias against double-entering the same token.
+
+## Typical End-to-End Event Sequence
+
+```text
+SystemEvent::Started
+  -> EvaluationRequested(Startup)
+
+MarketEvent::MetadataRefreshed
+  -> StateConsumer stores markets
+  -> EvaluationRequested(MarketMetadataChanged)
+
+WeatherEvent::ForecastUpdated
+  -> StateConsumer stores forecast
+  -> EvaluationRequested(WeatherChanged)
+
+StrategyEvent::EvaluationRequested
+  -> StrategyConsumer calls StrategyService
+  -> StrategyService fetches markets, runs rules, builds plan
+  -> StrategyEvent::EvaluationCompleted
+
+StrategyEvent::EvaluationCompleted
+  -> ExecutionConsumer filters already-submitted tokens
+  -> TradingEvent::ExecutionPlanCreated
+  -> ExecutionService writes execution_plan.json
+  -> TradingEvent::OrderSubmitted or TradingEvent::OrderSkipped
 ```
 
-Static forecast override:
+## Configuration Surfaces That Matter Architecturally
 
-```bash
-cargo run -- \
-  --forecast-source static \
-  --forecast-high-f 80 \
-  --target-date 2026-04-16 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
-```
+The most important config knobs in [src/config.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/config.rs) are:
 
-Always-on monitor mode:
+- `target_date`, `city`, `station_code`, `lat`, `lon`
+- `forecast_high_f` to bypass live weather fetches
+- `gamma_url`, `clob_url`
+- `min_ev_threshold`, `desired_shares`, `order_size_usd`
+- `max_total_stake_usd`
+- `open_positions_path`, `execution_plan_dir`, `execute_script`
+- `dry_run`
+- `run_loop`, `poll_interval_secs`
 
-```bash
-MONITOR_MODE=true RUST_LOG=info cargo run -- \
-  --target-date 2026-04-16 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026 \
-  --dry-run
-```
+## Summary
 
-Live trading with the Polymarket SDK:
+This bot is best understood as four layers:
 
-```bash
-MONITOR_MODE=true DRY_RUN=false \
-POLYMARKET_PRIVATE_KEY=0xyourprivatekey \
-cargo run -- \
-  --target-date 2026-04-16 \
-  --event-slug highest-temperature-in-nyc-on-april-16-2026
-```
+1. data ingestion from weather and market sources
+2. internal event propagation over a broadcast bus
+3. deterministic rule-based strategy evaluation
+4. execution-plan generation plus Python handoff
 
-Equivalent environment variables are supported by the CLI:
-
-- `FORECAST_TARGET_DATE`
-- `FORECAST_SOURCE`
-- `FORECAST_HIGH_F`
-- `FORECAST_LATITUDE`
-- `FORECAST_LONGITUDE`
-- `FORECAST_TIMEZONE`
-- `GFS_FORECAST_URL`
-- `POLYMARKET_EVENT_SLUG`
-- `POLYMARKET_GAMMA_URL`
-- `POLYMARKET_CLOB_URL`
-- `POLYMARKET_MARKET_WS_URL`
-- `POLYMARKET_USER_WS_URL`
-- `ORDERBOOK_SYNC_SECONDS`
-- `MAX_BOOK_STALENESS_SECONDS`
-- `PRICE_MIN`
-- `PRICE_MAX`
-- `DISTANCE_THRESHOLD_F`
-- `ORDER_SIZE_USD`
-- `DRY_RUN`
-- `MONITOR_MODE`
-- `POLL_INTERVAL_SECONDS`
-- `LOG_DIRECTORY`
-- `STORAGE_PATH`
-- `POLYMARKET_PRIVATE_KEY`
-
-## Implemented vs Remaining
-
-Implemented:
-
-- Single-event lookup by Polymarket event slug.
-- GFS forecast provider via Open-Meteo.
-- Static forecast override for testing.
-- Temperature bin parsing, including `or higher`.
-- Polymarket market WebSocket snapshot sync on every evaluation cycle.
-- Live NO price overlay from fresh websocket best asks.
-- Rule-based strategy evaluation.
-- Per-decision tracing with canonical `decision_id`.
-- Structured logging to JSON files.
-- JSONL persistence for runs, decisions, and execution plans.
-- Dry-run execution planning.
-- Live order submission through Polymarket's Rust SDK.
-- Always-on monitor loop that buys on new qualifying signals.
-- User WebSocket client placeholder that fails explicitly until authenticated stream handling is wired.
-
-Remaining:
-
-- Authenticated user WebSocket subscription and fill/order event persistence.
-- Full order lifecycle reconciliation.
-- Position/PnL reconciliation after settlement.
-
-## Safety Notes
-
-Live order submission is real now, so `--dry-run false` can place market buy orders for qualifying NO tokens if `POLYMARKET_PRIVATE_KEY` is configured and the wallet is properly funded and approved on Polymarket.
-
-WebSocket pricing is part of the core flow now, so strategy evaluation always uses a fresh websocket snapshot rather than Gamma metadata alone.
+That separation keeps external I/O, decision logic, and execution concerns decoupled, which makes the codebase easier to evolve and easier to debug when a trading decision looks surprising.

@@ -1,6 +1,6 @@
 use tracing::{debug, warn};
 
-use crate::polymarket::WeatherMarket;
+use crate::market::WeatherMarket;
 
 use super::types::{DecisionTrace, RuleTrace, StrategyInput, within_trading_window};
 

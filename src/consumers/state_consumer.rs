@@ -3,21 +3,21 @@ use chrono::Utc;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 
-use crate::bus::EventBus;
-use crate::events::{Event, EventSource, MarketEvent, StrategyEvent, SystemEvent, TradingEvent, WeatherEvent};
-use crate::state::{LifecycleState, SharedState};
+use crate::core::bus::EventBus;
+use crate::core::events::{Event, EventSource, MarketEvent, StrategyEvent, SystemEvent, TradingEvent, WeatherEvent};
+use crate::core::state::{LifecycleState, SharedState};
 
-pub struct StateListener {
+pub struct StateConsumer {
     bus: EventBus,
     state: SharedState,
 }
 
-impl StateListener {
+impl StateConsumer {
     pub fn new(bus: EventBus, state: SharedState) -> Self {
         Self { bus, state }
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn consume(self) -> Result<()> {
         let mut rx = self.bus.subscribe();
 
         loop {
@@ -85,17 +85,17 @@ impl StateListener {
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
-                    warn!(dropped, "state listener lagged behind the event stream");
+                    warn!(dropped, "state consumer lagged behind the event stream");
                     self.bus.publish(
-                        EventSource::StateListener,
+                        EventSource::StateConsumer,
                         Event::System(SystemEvent::SourceLagged {
-                            source: EventSource::StateListener,
+                            source: EventSource::StateConsumer,
                             dropped_messages: dropped,
                         }),
                     );
                 }
                 Err(RecvError::Closed) => {
-                    debug!("state listener channel closed");
+                    debug!("state consumer channel closed");
                     break;
                 }
             }

@@ -1,43 +1,62 @@
 use std::sync::Arc;
 
 use anyhow::Result;
+use chrono::NaiveDate;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
-use crate::bus::EventBus;
-use crate::events::{Event, EventSource, ForecastUpdated, WeatherEvent};
-use crate::services::WeatherService;
-use crate::weather::Forecast;
+use crate::core::bus::EventBus;
+use crate::core::events::{Event, EventSource, ForecastUpdated, WeatherEvent};
+use crate::weather::client::{Forecast, NwsForecastProvider, StaticForecastProvider};
 
-pub struct WeatherSource {
+#[derive(Clone)]
+pub struct WeatherService {
     bus: EventBus,
-    weather_service: Arc<WeatherService>,
-    target_date: chrono::NaiveDate,
+    station_code: String,
+    lat: f64,
+    lon: f64,
+    forecast_high_f: Option<f64>,
+    target_date: NaiveDate,
     poll_interval_secs: u64,
 }
 
-impl WeatherSource {
+impl WeatherService {
     pub fn new(
         bus: EventBus,
-        weather_service: Arc<WeatherService>,
-        target_date: chrono::NaiveDate,
+        station_code: String,
+        lat: f64,
+        lon: f64,
+        forecast_high_f: Option<f64>,
+        target_date: NaiveDate,
         poll_interval_secs: u64,
     ) -> Self {
         Self {
             bus,
-            weather_service,
+            station_code,
+            lat,
+            lon,
+            forecast_high_f,
             target_date,
             poll_interval_secs,
         }
     }
-}
 
-impl WeatherSource {
-    pub async fn run(self) -> Result<()> {
+    pub async fn fetch_forecast(&self, target_date: NaiveDate) -> Result<Forecast> {
+        if let Some(high_f) = self.forecast_high_f {
+            return StaticForecastProvider::new(high_f)
+                .get_forecast(target_date, &self.station_code);
+        }
+
+        NwsForecastProvider::new(self.lat, self.lon)
+            .get_forecast(target_date, &self.station_code)
+            .await
+    }
+
+    pub async fn run_poller(self: Arc<Self>) -> Result<()> {
         let mut previous: Option<Forecast> = None;
 
         loop {
-            match self.weather_service.fetch_forecast(self.target_date).await {
+            match self.fetch_forecast(self.target_date).await {
                 Ok(current) => {
                     let changed = previous
                         .as_ref()
@@ -51,7 +70,7 @@ impl WeatherSource {
                         info!(
                             target_date = %current.target_date,
                             forecast_high_f = current.forecast_high_f,
-                            "weather source produced ForecastUpdated event"
+                            "weather service published ForecastUpdated event"
                         );
                         self.bus.publish(
                             EventSource::WeatherPoller,
@@ -65,7 +84,7 @@ impl WeatherSource {
                     previous = Some(current);
                 }
                 Err(error) => {
-                    warn!(error = %error, "weather source failed to fetch forecast");
+                    warn!(error = %error, "weather service failed to fetch forecast");
                 }
             }
 

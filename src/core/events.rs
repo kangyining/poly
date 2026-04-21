@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, NaiveDate, Utc};
 
-use crate::polymarket::WeatherMarket;
+use crate::market::WeatherMarket;
 use crate::services::StrategyOutcome;
 use crate::weather::Forecast;
 
@@ -22,8 +22,8 @@ pub enum EventSource {
     WeatherPoller,
     StrategyEngine,
     ExecutionEngine,
-    StateListener,
-    TriggerListener,
+    StateConsumer,
+    TriggerConsumer,
 }
 
 #[derive(Debug, Clone)]
@@ -117,8 +117,8 @@ pub enum SystemEvent {
         source: EventSource,
         dropped_messages: u64,
     },
-    ListenerFailed {
-        listener: &'static str,
+    ConsumerFailed {
+        consumer: &'static str,
         error: String,
     },
     Healthy {
