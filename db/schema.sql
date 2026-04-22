@@ -100,6 +100,25 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_price_history_unique
 CREATE INDEX IF NOT EXISTS idx_price_history_city_date
     ON price_history(city, target_date);
 
+CREATE TABLE IF NOT EXISTS price_history_1m (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    city            TEXT NOT NULL,
+    target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    bin_label       TEXT NOT NULL,        -- "38-39°F"
+    bin_index       INTEGER,
+    token_id_yes    TEXT,
+    timestamp       TEXT NOT NULL,        -- ISO 8601 UTC (raw minute bar)
+    yes_price       REAL,                 -- NO price = 1 - yes_price (neg-risk)
+    hours_to_close  REAL,                 -- hours until noon UTC on target_date
+    source          TEXT DEFAULT 'clob-backfill'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_price_history_1m_unique
+    ON price_history_1m(city, target_date, bin_label, timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_price_history_1m_city_date
+    ON price_history_1m(city, target_date);
+
 CREATE TABLE IF NOT EXISTS nws_forecasts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp       TEXT NOT NULL,        -- when fetched (ISO 8601 UTC)
@@ -120,6 +139,7 @@ CREATE TABLE IF NOT EXISTS positions (
     event_slug      TEXT NOT NULL,
     target_date     TEXT NOT NULL,        -- YYYY-MM-DD
     entry_price     REAL NOT NULL,        -- effective ask paid (NO side)
+    fee_rate        REAL,                 -- taker fee rate at trade time (decimal, e.g. 0.05)
     shares          REAL NOT NULL,
     stake_usd       REAL NOT NULL,
     order_id        TEXT,                 -- CLOB order ID (null for paper)

@@ -2,13 +2,13 @@
 Backfill missing bins in price_history — retry CLOB for bins 7-10 that failed initially.
 
 These are typically low-liquidity warm-side bins that may have had transient failures.
+When raw minute history is enabled, this script writes both price_history_1m and
+price_history for the retried bins.
 """
 
-import json
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 import requests
 
@@ -58,6 +58,43 @@ def _downsample_hourly(history: list[dict]) -> list[dict]:
         buckets[bucket] = point["p"]
     return [{"ts": bucket, "price": price}
             for bucket, price in sorted(buckets.items())]
+
+
+def _build_minute_rows(city: str, target_date: str, mkt: dict,
+                       history: list[dict]) -> list[tuple]:
+    rows = []
+    for point in history:
+        ts = datetime.fromtimestamp(point["t"], tz=timezone.utc)
+        rows.append((
+            city,
+            target_date,
+            mkt["bin_label"],
+            mkt["bin_index"],
+            mkt["token_id_yes"],
+            ts.isoformat(),
+            point["p"],
+            _hours_to_close(ts, target_date),
+            "clob-backfill",
+        ))
+    return rows
+
+
+def _build_hourly_rows(city: str, target_date: str, mkt: dict,
+                       history: list[dict]) -> list[tuple]:
+    rows = []
+    for point in _downsample_hourly(history):
+        rows.append((
+            city,
+            target_date,
+            mkt["bin_label"],
+            mkt["bin_index"],
+            mkt["token_id_yes"],
+            point["ts"].isoformat(),
+            point["price"],
+            _hours_to_close(point["ts"], target_date),
+            "clob-backfill",
+        ))
+    return rows
 
 
 def backfill_missing_bins(db: Database, city: str = "NYC") -> int:
@@ -113,7 +150,6 @@ def backfill_missing_bins(db: Database, city: str = "NYC") -> int:
         if not event:
             continue
 
-        from data.gamma_client import parse_markets
         markets = parse_markets(event)
         if not markets:
             continue
@@ -140,29 +176,17 @@ def backfill_missing_bins(db: Database, city: str = "NYC") -> int:
                 time.sleep(0.2)
                 continue
 
-            hourly = _downsample_hourly(history)
-            saved_this = 0
+            minute_rows = _build_minute_rows(city, target_date, mkt, history)
+            hourly_rows = _build_hourly_rows(city, target_date, mkt, history)
+            db.insert_price_history_minute_rows(minute_rows)
+            db.insert_price_history_rows(hourly_rows)
 
-            for point in hourly:
-                htc = _hours_to_close(point["ts"], target_date)
-                db.insert_price_history(
-                    city=city,
-                    target_date=target_date,
-                    bin_label=mkt["bin_label"],
-                    bin_index=mkt["bin_index"],
-                    token_id_yes=token_yes,
-                    timestamp=point["ts"].isoformat(),
-                    yes_price=point["price"],
-                    hours_to_close=htc,
-                )
-                saved_this += 1
-
-            log.info("Retry: %s %s bin %d — %d points saved",
-                    city, target_date, mkt["bin_index"], saved_this)
-            total_saved += saved_this
+            log.info("Retry: %s %s bin %d — %d raw minute / %d hourly points saved",
+                    city, target_date, mkt["bin_index"], len(minute_rows), len(hourly_rows))
+            total_saved += len(minute_rows) + len(hourly_rows)
             time.sleep(0.15)
 
         time.sleep(0.3)
 
-    log.info("Missing bins backfill complete: %d points added", total_saved)
+    log.info("Missing bins backfill complete: %d rows added", total_saved)
     return total_saved

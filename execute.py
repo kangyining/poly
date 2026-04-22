@@ -1,6 +1,6 @@
 """
 Execution bridge: reads execution_plan.json written by the Rust bot and
-submits orders to Polymarket via py-clob-client.
+submits orders to Polymarket via py-clob-client-v2.
 
 Auth (all via environment variables — never hardcode):
     POLYMARKET_PRIVATE_KEY  — your Polygon wallet private key (hex, 0x-prefixed)
@@ -77,14 +77,13 @@ def submit_trade(client, trade: dict) -> dict | None:
     Submit a single NO buy order. Returns the order response dict or None on failure.
     """
     try:
-        from py_clob_client.clob_types import OrderArgs, OrderType
-        from py_clob_client.order_builder.constants import BUY
+        from py_clob_client_v2 import OrderArgs, OrderType, Side
 
         order_args = OrderArgs(
             token_id=trade["no_token_id"],
             price=round(trade["effective_ask"], 2),  # CLOB prices are 2dp
             size=trade["shares"],
-            side=BUY,
+            side=Side.BUY,
         )
         signed_order = client.create_order(order_args)
         response = client.post_order(signed_order, OrderType.GTC)
@@ -148,17 +147,16 @@ def main() -> None:
             sys.exit(1)
 
         try:
-            from py_clob_client.client import ClobClient
-            client = ClobClient(
-                CLOB_HOST,
-                key=private_key,
-                chain_id=CHAIN_ID,
-                funder=funder,
-            )
+            from py_clob_client_v2 import ClobClient
+            client = ClobClient({
+                "host":  CLOB_HOST,
+                "chain": CHAIN_ID,
+                "key":   private_key,
+            })
             client.set_api_creds(client.create_or_derive_api_creds())
             log.info("Polymarket CLOB client authenticated (funder=%s)", funder[:10] + "...")
         except ImportError:
-            log.error("py-clob-client is not installed. Run: pip install py-clob-client==0.34.6")
+            log.error("py-clob-client-v2 is not installed. Run: pip install py-clob-client-v2==1.0.0")
             sys.exit(1)
         except Exception as e:
             log.error("failed to authenticate CLOB client: %s", e)
@@ -199,6 +197,7 @@ def main() -> None:
                 "event_slug":     plan["event_slug"],
                 "target_date":    plan["target_date"],
                 "entry_price":    trade["effective_ask"],
+                "fee_rate":       trade.get("fee_rate"),
                 "shares":         trade["shares"],
                 "stake_usd":      trade["stake_usd"],
                 "order_id":       None,
@@ -230,6 +229,7 @@ def main() -> None:
                 "event_slug":     plan["event_slug"],
                 "target_date":    plan["target_date"],
                 "entry_price":    trade["effective_ask"],
+                "fee_rate":       trade.get("fee_rate"),
                 "shares":         trade["shares"],
                 "stake_usd":      trade["stake_usd"],
                 "order_id":       order_id,

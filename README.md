@@ -24,7 +24,7 @@ Polymarket lists daily markets asking "Will the highest temperature in NYC be be
 
 **EV formula:**
 ```
-EV_NO = (1 − P_model) × (1 − fee_rate) − effective_ask
+EV_NO = (1 − P_model) − effective_ask × (1 + fee_rate × (1 − effective_ask))
 ```
 A bin qualifies when `EV_NO ≥ min_ev_threshold` (default 0.02).
 
