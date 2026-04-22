@@ -22,7 +22,7 @@ What it does each pass:
 1. Refreshes the cached NWS forecast for NYC when the weather interval expires
 2. Looks up calibration (`beta_f`, `sigma_f`) for the station and lead time
 3. Fetches CLOB orderbook and fee rate for all 11 bins
-4. Scores each bin with `EV_NO = (1−P_model) × (1−fee_rate) − ask`
+4. Scores each bin with `EV_NO = (1−P_model) − ask × (1 + fee_rate × (1−ask))`
 5. Writes `execution_plan.json` with qualifying bins
 6. Automatically calls `execute.py` to record paper positions (or submit live orders)
 7. Reprices every 15 seconds and refreshes weather every 30 minutes
@@ -46,8 +46,8 @@ python settle.py --backfill 30       # backfill last 30 days of settlements
 What it does:
 1. Queries Polymarket Gamma API for the winning bin of yesterday's market
 2. Closes all open positions for that date:
-   - Bin matched the winner → NO loses → `pnl = -stake_usd`
-   - Bin did not match → NO wins → `pnl = shares × (1 − entry_price)`
+   - Bin matched the winner → NO loses → `pnl = -(shares × entry_price × (1 + fee_rate × (1 − entry_price)))`
+   - Bin did not match → NO wins → `pnl = shares × (1 − entry_price × (1 + fee_rate × (1 − entry_price)))`
 3. Writes PnL to the `positions` table in SQLite
 4. Exports fresh `open_positions.json` (so the bot skips already-settled bins)
 5. Prints a summary of open/closed counts and total PnL
@@ -143,7 +143,7 @@ This is the single supported backtest entry point in the repo.
 **Location:** `poly-weather/run_recorder.py`  
 **When:** Already running as a background process (captures 5-minute market snapshots, 30-minute NWS forecasts, hourly Open-Meteo forecasts)
 
-Records market snapshots (YES/NO prices, orderbook depth, volume) to the `market_snapshots` and `price_history` tables. Used as training data for calibration and future model improvement. Not directly related to live trading.
+Records market snapshots (YES/NO prices, orderbook depth, fee-rate context, volume) to `market_snapshots`. Historical CLOB backfills now preserve raw minute prices in `price_history_1m` and maintain hourly rollups in `price_history` for the current backtest flow. Used as training and replay data, not directly for live order placement.
 
 ---
 

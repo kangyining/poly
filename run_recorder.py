@@ -95,8 +95,12 @@ def main():
     if args.backfill_prices:
         log.info("Starting price history backfill")
         count = backfill_price_history(db)
-        total = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
-        log.info("Done. Total price_history rows in DB: %d", total)
+        total_hourly = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        total_minute = db.conn.execute("SELECT COUNT(*) FROM price_history_1m").fetchone()[0]
+        log.info(
+            "Done. Total rows in DB: price_history_1m=%d, price_history=%d",
+            total_minute, total_hourly
+        )
         db.close()
         return
 
@@ -123,8 +127,12 @@ def main():
         log.info("Starting missing bins price history backfill (warm-side retry)")
         for city in ["Chicago", "Dallas", "NYC"]:
             count = backfill_missing_bins(db, city=city)
-        total = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
-        log.info("Done. Total price_history rows: %d", total)
+        total_hourly = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
+        total_minute = db.conn.execute("SELECT COUNT(*) FROM price_history_1m").fetchone()[0]
+        log.info(
+            "Done. Total rows: price_history_1m=%d, price_history=%d",
+            total_minute, total_hourly
+        )
         db.close()
         return
 
