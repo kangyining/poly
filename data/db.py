@@ -27,26 +27,51 @@ class Database:
     def _apply_schema(self):
         sql = SCHEMA_PATH.read_text()
         self.conn.executescript(sql)
+        self._apply_migrations()
         self.conn.commit()
+
+    def _apply_migrations(self):
+        self._ensure_columns(
+            "market_snapshots",
+            {
+                "hours_to_close": "REAL",
+                "no_asks_json": "TEXT",
+                "fee_rate": "REAL",
+                "no_vwap_10": "REAL",
+            },
+        )
+
+    def _ensure_columns(self, table: str, columns: dict[str, str]) -> None:
+        existing = {
+            row["name"]
+            for row in self.conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        for name, ddl in columns.items():
+            if name in existing:
+                continue
+            self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+            log.info("Applied DB migration: added %s.%s", table, name)
 
     # ── market snapshots ──────────────────────────────────────────────────
 
     def insert_snapshot(self, s: MarketSnapshot):
         self.conn.execute("""
             INSERT INTO market_snapshots (
-                timestamp, city, target_date, event_id, event_slug,
+                timestamp, city, target_date, hours_to_close, event_id, event_slug,
                 bin_label, bin_index, token_id_yes, token_id_no,
                 yes_price, no_price,
                 yes_best_bid, yes_best_ask, no_best_bid, no_best_ask,
-                book_depth_bid, book_depth_ask, volume_24h, liquidity
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                book_depth_bid, book_depth_ask, no_asks_json, fee_rate, no_vwap_10,
+                volume_24h, liquidity
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            s.timestamp.isoformat(), s.city, s.target_date,
+            s.timestamp.isoformat(), s.city, s.target_date, s.hours_to_close,
             s.event_id, s.event_slug, s.bin_label, s.bin_index,
             s.token_id_yes, s.token_id_no,
             s.yes_price, s.no_price,
             s.yes_best_bid, s.yes_best_ask, s.no_best_bid, s.no_best_ask,
-            s.book_depth_bid, s.book_depth_ask, s.volume_24h, s.liquidity,
+            s.book_depth_bid, s.book_depth_ask, s.no_asks_json, s.fee_rate, s.no_vwap_10,
+            s.volume_24h, s.liquidity,
         ))
         self.conn.commit()
 
@@ -177,6 +202,80 @@ class Database:
             1 if is_daytime else 0, temp_f, short_forecast, lead_hours,
         ))
         self.conn.commit()
+
+    # ── positions ─────────────────────────────────────────────────────────
+
+    def insert_position(self, pos: dict) -> int:
+        """
+        Insert a position from open_positions.json dict (written by execute.py).
+        Returns the new row id. Ignores duplicates (same token_id + order_id).
+        """
+        cur = self.conn.execute("""
+            INSERT OR IGNORE INTO positions (
+                token_id, market_id, bin_label, event_slug, target_date,
+                entry_price, shares, stake_usd, order_id,
+                status, pnl, opened_at, settled_at, is_paper,
+                strategy_name, backtest_id, trade_rationale
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            pos["token_id"], pos.get("market_id", ""),
+            pos["bin_label"], pos["event_slug"], pos["target_date"],
+            pos["entry_price"], pos["shares"], pos["stake_usd"],
+            pos.get("order_id"),
+            pos.get("status", "open"), pos.get("pnl"),
+            pos["opened_at"], pos.get("settled_at"),
+            1 if pos.get("is_paper", True) else 0,
+            pos.get("strategy_name", "default"),
+            pos.get("backtest_id"),
+            pos.get("trade_rationale"),
+        ))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def get_open_positions(self) -> list[dict]:
+        """Return all open positions as plain dicts."""
+        rows = self.conn.execute(
+            "SELECT * FROM positions WHERE status='open' ORDER BY opened_at"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def close_position(self, position_id: int, pnl: float, settled_at: str) -> None:
+        """Mark a position closed with its PnL."""
+        self.conn.execute(
+            "UPDATE positions SET status='closed', pnl=?, settled_at=? WHERE id=?",
+            (pnl, settled_at, position_id),
+        )
+        self.conn.commit()
+
+    def export_open_positions_json(self, path) -> None:
+        """
+        Write open_positions.json consumed by the Rust bot to skip already-held bins.
+        Only exports token_id and status so the file stays small.
+        """
+        import json
+        rows = self.get_open_positions()
+        out = [
+            {
+                "token_id":   r["token_id"],
+                "market_id":  r["market_id"],
+                "bin_label":  r["bin_label"],
+                "event_slug": r["event_slug"],
+                "target_date": r["target_date"],
+                "entry_price": r["entry_price"],
+                "shares":     r["shares"],
+                "stake_usd":  r["stake_usd"],
+                "order_id":   r["order_id"],
+                "status":     r["status"],
+                "pnl":        r["pnl"],
+                "opened_at":  r["opened_at"],
+                "settled_at": r["settled_at"],
+                "is_paper":   bool(r["is_paper"]),
+            }
+            for r in rows
+        ]
+        from pathlib import Path
+        Path(path).write_text(json.dumps(out, indent=2))
+        log.info("exported %d open positions -> %s", len(out), path)
 
     def close(self):
         self.conn.close()

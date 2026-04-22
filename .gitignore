@@ -1,3 +1,4 @@
 .claude/
 .specstory/
 .vscode/
+*.pyc

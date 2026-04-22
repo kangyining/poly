@@ -15,10 +15,11 @@ from typing import Optional
 
 @dataclass
 class MarketSnapshot:
-    """Market price snapshot — recorded every hour per bin."""
+    """Market price snapshot — recorded every 5 minutes per bin."""
     timestamp: datetime
     city: str
     target_date: str          # YYYY-MM-DD
+    hours_to_close: float     # hours until noon UTC close for target_date
     event_id: str
     event_slug: str           # highest-temperature-in-{city}-on-april-{dd}-2026
     bin_label: str            # "38-39°F", "≤27°F", "≥46°F"
@@ -35,6 +36,9 @@ class MarketSnapshot:
     book_depth_ask: float     # total USDC on ask side (NO book)
     volume_24h: float
     liquidity: float
+    no_asks_json: Optional[str] = None
+    fee_rate: Optional[float] = None
+    no_vwap_10: Optional[float] = None
     neg_risk: bool = True
 
 
@@ -53,7 +57,7 @@ class METARRecord:
 
 @dataclass
 class ForecastRecord:
-    """Weather forecast snapshot — recorded every 6 hours."""
+    """Weather forecast snapshot — recorded every hour."""
     timestamp: datetime       # when we fetched
     city: str
     target_date: str          # YYYY-MM-DD

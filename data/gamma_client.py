@@ -146,6 +146,71 @@ def fetch_order_book(token_id: str) -> dict:
         return {}
 
 
+def fetch_fee_rate(token_id: str) -> float | None:
+    """
+    Fetch live fee rate for a token.
+    Returns decimal form (e.g. 0.10) or None on error.
+    """
+    try:
+        payload = _get(f"{CLOB_BASE}/fee-rate", params={"token_id": token_id})
+    except Exception as e:
+        log.warning("Fee rate fetch failed for %s: %s", token_id[:16], e)
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    raw = (
+        payload.get("base_fee")
+        or payload.get("baseFee")
+        or payload.get("fee_rate_bps")
+        or payload.get("feeRateBps")
+    )
+    if raw is None:
+        return None
+
+    try:
+        rate = float(raw)
+    except (TypeError, ValueError):
+        return None
+
+    # Handle basis points-style responses such as 1000 => 10%
+    if rate > 1.0:
+        rate = rate / 10_000.0
+    return rate
+
+
+def effective_ask_vwap(book: dict, shares: float) -> float | None:
+    """
+    Walk ask levels and return the VWAP for buying `shares`.
+    Returns None if there is insufficient ask depth.
+    """
+    asks = book.get("asks", [])
+    if not asks or shares <= 0:
+        return None
+
+    try:
+        levels = sorted(
+            (
+                {"price": float(level.get("price", 0)), "size": float(level.get("size", 0))}
+                for level in asks
+            ),
+            key=lambda level: level["price"],
+        )
+    except (TypeError, ValueError):
+        return None
+
+    remaining = shares
+    cost = 0.0
+    for level in levels:
+        take = min(remaining, level["size"])
+        cost += take * level["price"]
+        remaining -= take
+        if remaining <= 1e-9:
+            return cost / shares
+    return None
+
+
 def book_depth(book: dict, side: str) -> float:
     """Sum total USDC size on bids or asks."""
     levels = book.get(side, [])
