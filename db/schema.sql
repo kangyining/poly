@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     timestamp       TEXT NOT NULL,        -- ISO 8601 UTC
     city            TEXT NOT NULL,
     target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    hours_to_close  REAL,                 -- hours until noon UTC on target_date
     event_id        TEXT,
     event_slug      TEXT,
     bin_label       TEXT NOT NULL,        -- "38-39°F"
@@ -22,6 +23,9 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     no_best_ask     REAL,
     book_depth_bid  REAL,                 -- USDC on NO bid side
     book_depth_ask  REAL,                 -- USDC on NO ask side
+    no_asks_json    TEXT,                 -- raw NO ask ladder snapshot [{price,size}, ...]
+    fee_rate        REAL,                 -- token fee rate at snapshot time (decimal, e.g. 0.10)
+    no_vwap_10      REAL,                 -- convenience VWAP ask for 10 shares on NO side
     volume_24h      REAL,
     liquidity       REAL
 );
@@ -107,6 +111,48 @@ CREATE TABLE IF NOT EXISTS nws_forecasts (
     short_forecast  TEXT,                 -- "Partly Cloudy", etc.
     forecast_lead_hours REAL
 );
+
+CREATE TABLE IF NOT EXISTS positions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_id        TEXT NOT NULL,
+    market_id       TEXT NOT NULL,
+    bin_label       TEXT NOT NULL,
+    event_slug      TEXT NOT NULL,
+    target_date     TEXT NOT NULL,        -- YYYY-MM-DD
+    entry_price     REAL NOT NULL,        -- effective ask paid (NO side)
+    shares          REAL NOT NULL,
+    stake_usd       REAL NOT NULL,
+    order_id        TEXT,                 -- CLOB order ID (null for paper)
+    status          TEXT NOT NULL DEFAULT 'open',  -- open | closed | cancelled
+    pnl             REAL,                 -- USDC PnL (null until settled)
+    opened_at       TEXT NOT NULL,        -- ISO 8601 UTC
+    settled_at      TEXT,                 -- ISO 8601 UTC (null until closed)
+    is_paper        INTEGER NOT NULL DEFAULT 1,  -- 1=paper, 0=live
+    strategy_name   TEXT NOT NULL DEFAULT 'default',
+    backtest_id     TEXT,                 -- NULL for live/paper trades
+    trade_rationale TEXT                  -- JSON: ev, p_model, fee_rate, etc.
+);
+
+CREATE TABLE IF NOT EXISTS backtests (
+    id            TEXT PRIMARY KEY,       -- UUID
+    strategy      TEXT NOT NULL,
+    params        TEXT NOT NULL,          -- JSON: all tunable params
+    date_from     TEXT NOT NULL,          -- YYYY-MM-DD
+    date_to       TEXT NOT NULL,          -- YYYY-MM-DD
+    created_at    TEXT NOT NULL,          -- ISO 8601 UTC
+    total_trades  INTEGER,
+    win_rate      REAL,
+    total_pnl     REAL,
+    sharpe        REAL,
+    status        TEXT NOT NULL DEFAULT 'running'  -- running | done | failed
+);
+
+CREATE INDEX IF NOT EXISTS idx_positions_status
+    ON positions(status);
+CREATE INDEX IF NOT EXISTS idx_positions_target_date
+    ON positions(target_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_token_order
+    ON positions(token_id, order_id);
 
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_snapshots_city_date
