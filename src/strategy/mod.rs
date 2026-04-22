@@ -1,8 +1,10 @@
+mod calibration;
 mod engine;
 mod registry;
 mod rules;
 mod types;
 
+pub use calibration::CalibrationTable;
 pub use engine::StrategyEngine;
 pub use registry::{StrategyConfig, StrategyRegistry};
 pub use rules::{

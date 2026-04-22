@@ -1,7 +1,8 @@
-pub mod calibration;
+pub mod app;
+pub mod consumers;
 pub mod config;
-pub mod execution;
-pub mod logging;
-pub mod polymarket;
+pub mod core;
+pub mod market;
+pub mod services;
 pub mod strategy;
 pub mod weather;
