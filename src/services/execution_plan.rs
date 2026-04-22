@@ -30,6 +30,7 @@ pub struct PlannedTrade {
     pub p_model: f64,
     pub ev_no: f64,
     pub fee_rate: f64,
+    pub strategy_name: String,
 }
 
 impl ExecutionPlan {
@@ -39,6 +40,7 @@ impl ExecutionPlan {
         event_slug: &str,
         target_date: &str,
         dry_run: bool,
+        strategy_name: &str,
     ) -> Self {
         let trades = candidates
             .iter()
@@ -55,6 +57,7 @@ impl ExecutionPlan {
                 p_model: c.p_model,
                 ev_no: c.ev_no,
                 fee_rate: c.fee_rate,
+                strategy_name: strategy_name.to_string(),
             })
             .collect::<Vec<_>>();
 

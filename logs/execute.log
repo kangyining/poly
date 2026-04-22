@@ -1,0 +1,6 @@
+2026-04-19 18:15:02 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-19 18:15:02 INFO __main__ — execution plan loaded: event=highest-temperature-in-nyc-on-april-20-2026 date=2026-04-20 trades=0 total_stake=$-0.00 dry_run=True
+2026-04-19 18:15:02 INFO __main__ — no trades in plan, exiting
+2026-04-19 18:33:05 INFO data.db — Database ready: F:\Polymark\poly-weather\db\data.db
+2026-04-19 18:33:05 INFO __main__ — execution plan loaded: event=highest-temperature-in-nyc-on-april-20-2026 date=2026-04-20 trades=0 total_stake=$-0.00 dry_run=True
+2026-04-19 18:33:05 INFO __main__ — no trades in plan, exiting
