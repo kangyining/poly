@@ -168,7 +168,6 @@ impl TryFrom<Cli> for AppConfig {
     type Error = anyhow::Error;
 
     fn try_from(c: Cli) -> Result<Self> {
-
         if c.desired_shares <= 0.0 {
             bail!("desired_shares must be positive");
         }

@@ -1,6 +1,6 @@
 use tracing::{debug, info, info_span};
 
-use crate::polymarket::WeatherMarket;
+use crate::market::WeatherMarket;
 
 use super::rules::StrategyRule;
 use super::types::{DecisionTrace, StrategyEvaluation, StrategyInput, TradeCandidate};
@@ -94,7 +94,7 @@ impl StrategyEngine {
 mod tests {
     use chrono::NaiveDate;
 
-    use crate::polymarket::{TemperatureRange, WeatherMarket};
+    use crate::market::{TemperatureRange, WeatherMarket};
     use crate::weather::Forecast;
 
     use super::super::rules::{

@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDate, Utc};
 
-use crate::polymarket::{TemperatureRange, WeatherMarket};
+use crate::market::{TemperatureRange, WeatherMarket};
 use crate::weather::Forecast;
 
 #[derive(Debug, Clone)]
