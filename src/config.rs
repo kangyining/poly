@@ -103,10 +103,19 @@ pub struct Cli {
     )]
     pub execute_script: PathBuf,
 
+    /// Path to strategies.toml. If absent, falls back to a single "default" strategy
+    /// built from the other CLI flags (min_ev_threshold, desired_shares, etc.).
+    #[arg(
+        long,
+        env = "STRATEGIES_FILE",
+        default_value = "strategies.toml"
+    )]
+    pub strategies_file: PathBuf,
+
     #[arg(
         long,
         env = "LOG_DIRECTORY",
-        default_value = "/tmp/polymarket-weather-bot"
+        default_value = "logs"
     )]
     pub log_directory: PathBuf,
 
@@ -119,9 +128,13 @@ pub struct Cli {
     #[arg(long, env = "LOOP", default_value_t = false)]
     pub run_loop: bool,
 
-    /// Seconds to sleep between evaluation passes in loop mode (default 300 = 5 min)
-    #[arg(long, env = "POLL_INTERVAL_SECS", default_value_t = 300)]
+    /// Seconds to sleep between market evaluation passes in loop mode (default 15 sec)
+    #[arg(long, env = "POLL_INTERVAL_SECS", default_value_t = 15)]
     pub poll_interval_secs: u64,
+
+    /// Seconds between live forecast refreshes while looping (default 1800 = 30 min)
+    #[arg(long, env = "FORECAST_REFRESH_SECS", default_value_t = 1800)]
+    pub forecast_refresh_secs: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -143,10 +156,12 @@ pub struct AppConfig {
     pub open_positions_path: PathBuf,
     pub execution_plan_dir: PathBuf,
     pub execute_script: PathBuf,
+    pub strategies_file: PathBuf,
     pub log_directory: PathBuf,
     pub dry_run: bool,
     pub run_loop: bool,
     pub poll_interval_secs: u64,
+    pub forecast_refresh_secs: u64,
 }
 
 impl TryFrom<Cli> for AppConfig {
@@ -164,6 +179,9 @@ impl TryFrom<Cli> for AppConfig {
         }
         if c.poll_interval_secs == 0 {
             bail!("poll_interval_secs must be positive");
+        }
+        if c.forecast_refresh_secs == 0 {
+            bail!("forecast_refresh_secs must be positive");
         }
 
         Ok(Self {
@@ -184,10 +202,12 @@ impl TryFrom<Cli> for AppConfig {
             open_positions_path: c.open_positions_path,
             execution_plan_dir: c.execution_plan_dir,
             execute_script: c.execute_script,
+            strategies_file: c.strategies_file,
             log_directory: c.log_directory,
             dry_run: c.dry_run,
             run_loop: c.run_loop,
             poll_interval_secs: c.poll_interval_secs,
+            forecast_refresh_secs: c.forecast_refresh_secs,
         })
     }
 }

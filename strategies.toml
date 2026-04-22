@@ -1,0 +1,19 @@
+# Strategy registry — each [[strategy]] block is a named, independently-configured strategy.
+# Only strategies with enabled = true are evaluated per run.
+# funding_pct: fraction of order_size_usd to allocate (1.0 = 100%)
+
+[[strategy]]
+name             = "base_ev"
+enabled          = true
+funding_pct      = 1.0
+min_ev_threshold = 0.05
+desired_shares   = 10.0
+max_stake_usd    = 50.0
+
+[[strategy]]
+name             = "aggressive_tail"
+enabled          = false
+funding_pct      = 0.5
+min_ev_threshold = 0.02
+desired_shares   = 5.0
+max_stake_usd    = 25.0
