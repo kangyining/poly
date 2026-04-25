@@ -119,6 +119,7 @@ impl StrategyService {
             &event_slug,
             &target_date.to_string(),
             self.config.dry_run,
+            "default",
         );
 
         Ok(StrategyOutcome {

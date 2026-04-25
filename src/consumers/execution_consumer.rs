@@ -71,7 +71,7 @@ impl ExecutionConsumer {
                             trade_count = outcome.plan.trades.len(),
                             "submitting execution plan"
                         );
-                        self.execution_service.execute(&outcome)?;
+                        self.execution_service.execute(&outcome).await?;
                         self.bus.publish(
                             EventSource::ExecutionEngine,
                             Event::Trading(TradingEvent::OrderSubmitted(crate::core::events::OrderSubmitted {
