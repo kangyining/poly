@@ -88,17 +88,44 @@ impl ExecutionService {
             .context("failed to build Polymarket CLOB client")?;
 
         let mut auth = base.authentication_builder(&signer);
-        if let Ok(funder_raw) = env::var("POLYMARKET_FUNDER") {
-            let funder = PolyAddress::from_str(&funder_raw)
-                .context("failed to parse POLYMARKET_FUNDER")?;
-            if funder == signer.address() {
-                auth = auth.signature_type(SignatureType::Eoa);
-            } else {
-                auth = auth.funder(funder).signature_type(SignatureType::Proxy);
+
+        // POLYMARKET_SIGNATURE_TYPE controls which auth flow to use:
+        //   0 (default) — EOA (standard wallet)
+        //   1           — Proxy contract
+        //   2           — Gnosis Safe (funder auto-derived via CREATE2)
+        let sig_type = env::var("POLYMARKET_SIGNATURE_TYPE")
+            .ok()
+            .and_then(|v| v.parse::<u8>().ok());
+
+        auth = match sig_type {
+            Some(2) => {
+                info!("using GnosisSafe signature type (funder auto-derived)");
+                auth.signature_type(SignatureType::GnosisSafe)
             }
-        } else {
-            auth = auth.signature_type(SignatureType::Eoa);
-        }
+            Some(1) => {
+                if let Ok(funder_raw) = env::var("POLYMARKET_FUNDER") {
+                    let funder = PolyAddress::from_str(&funder_raw)
+                        .context("failed to parse POLYMARKET_FUNDER")?;
+                    auth.funder(funder).signature_type(SignatureType::Proxy)
+                } else {
+                    auth.signature_type(SignatureType::Proxy)
+                }
+            }
+            _ => {
+                // Legacy: if POLYMARKET_FUNDER is set, infer proxy vs EOA from it
+                if let Ok(funder_raw) = env::var("POLYMARKET_FUNDER") {
+                    let funder = PolyAddress::from_str(&funder_raw)
+                        .context("failed to parse POLYMARKET_FUNDER")?;
+                    if funder == signer.address() {
+                        auth.signature_type(SignatureType::Eoa)
+                    } else {
+                        auth.funder(funder).signature_type(SignatureType::Proxy)
+                    }
+                } else {
+                    auth.signature_type(SignatureType::Eoa)
+                }
+            }
+        };
 
         let client = auth
             .authenticate()
