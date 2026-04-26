@@ -17,7 +17,7 @@ pub struct WeatherService {
     lon: f64,
     forecast_high_f: Option<f64>,
     target_date: NaiveDate,
-    poll_interval_secs: u64,
+    refresh_interval_secs: u64,
 }
 
 impl WeatherService {
@@ -28,7 +28,7 @@ impl WeatherService {
         lon: f64,
         forecast_high_f: Option<f64>,
         target_date: NaiveDate,
-        poll_interval_secs: u64,
+        refresh_interval_secs: u64,
     ) -> Self {
         Self {
             bus,
@@ -37,7 +37,7 @@ impl WeatherService {
             lon,
             forecast_high_f,
             target_date,
-            poll_interval_secs,
+            refresh_interval_secs,
         }
     }
 
@@ -88,7 +88,7 @@ impl WeatherService {
                 }
             }
 
-            sleep(Duration::from_secs(self.poll_interval_secs)).await;
+            sleep(Duration::from_secs(self.refresh_interval_secs)).await;
         }
     }
 }

@@ -36,7 +36,7 @@ impl App {
             self.config.lon,
             self.config.forecast_high_f,
             target_date,
-            self.config.poll_interval_secs,
+            self.config.forecast_refresh_secs,
         ));
 
         let market_service = Arc::new(MarketService::new(
