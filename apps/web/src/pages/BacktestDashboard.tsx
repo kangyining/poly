@@ -5,7 +5,15 @@ import {
 } from 'recharts'
 
 const API = '/api/backtest'
-const CITY_OPTIONS = ['NYC', 'CHI', 'DAL'] as const
+const CITY_OPTIONS = [
+  { value: 'NYC', label: 'NYC' },
+  { value: 'Chicago', label: 'Chicago' },
+  { value: 'Dallas', label: 'Dallas' },
+] as const
+const REPLAY_MODE_OPTIONS = [
+  { value: 'single', label: 'Single Entry' },
+  { value: 'interval', label: 'Interval Replay' },
+] as const
 
 function parseCity(params: unknown) {
   if (typeof params !== 'string' || params.length === 0) return 'All'
@@ -14,6 +22,16 @@ function parseCity(params: unknown) {
     return typeof parsed.city === 'string' && parsed.city.length > 0 ? parsed.city : 'All'
   } catch {
     return 'All'
+  }
+}
+
+function parseReplayMode(params: unknown) {
+  if (typeof params !== 'string' || params.length === 0) return 'single'
+  try {
+    const parsed = JSON.parse(params) as { replay_mode?: unknown }
+    return parsed.replay_mode === 'interval' ? 'interval' : 'single'
+  } catch {
+    return 'single'
   }
 }
 
@@ -78,7 +96,9 @@ export default function BacktestDashboard() {
   )
 
   const [strategy, setStrategy] = useState('base_ev')
-  const [city, setCity] = useState<(typeof CITY_OPTIONS)[number]>('NYC')
+  const [city, setCity] = useState<(typeof CITY_OPTIONS)[number]['value']>('NYC')
+  const [replayMode, setReplayMode] = useState<(typeof REPLAY_MODE_OPTIONS)[number]['value']>('single')
+  const [intervalMinutes, setIntervalMinutes] = useState(5)
   const [days, setDays] = useState(60)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
@@ -86,7 +106,7 @@ export default function BacktestDashboard() {
 
   const triggerRun = useMutation({
     mutationFn: () =>
-      fetch(`${API}/run?strategy=${encodeURIComponent(strategy)}&days=${days}&city=${encodeURIComponent(city)}`, {
+      fetch(`${API}/run?strategy=${encodeURIComponent(strategy)}&days=${days}&city=${encodeURIComponent(city)}&replay_mode=${encodeURIComponent(replayMode)}${replayMode === 'interval' ? `&interval_minutes=${intervalMinutes}` : ''}`, {
         method: 'POST',
       }).then(r => {
         if (!r.ok) return r.json().then(e => Promise.reject(e))
@@ -140,14 +160,39 @@ export default function BacktestDashboard() {
             <label className="block text-xs text-gray-400 mb-1">City</label>
             <select
               value={city}
-              onChange={e => setCity(e.target.value as (typeof CITY_OPTIONS)[number])}
+              onChange={e => setCity(e.target.value as (typeof CITY_OPTIONS)[number]['value'])}
               className="bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 focus:outline-none"
             >
               {CITY_OPTIONS.map(option => (
-                <option key={option} value={option}>{option}</option>
+                <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Replay Mode</label>
+            <select
+              value={replayMode}
+              onChange={e => setReplayMode(e.target.value as (typeof REPLAY_MODE_OPTIONS)[number]['value'])}
+              className="bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 focus:outline-none"
+            >
+              {REPLAY_MODE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          {replayMode === 'interval' && (
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Interval (min)</label>
+              <input
+                type="number"
+                value={intervalMinutes}
+                min={1}
+                max={60}
+                onChange={e => setIntervalMinutes(Number(e.target.value))}
+                className="bg-gray-700 text-white rounded px-3 py-2 text-sm border border-gray-600 w-24 focus:outline-none"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-xs text-gray-400 mb-1">Days</label>
             <input
@@ -172,7 +217,7 @@ export default function BacktestDashboard() {
           )}
           {triggerRun.isSuccess && (
             <span className="text-green-400 text-sm">
-              Done! {triggerRun.data?.city ?? city} · Sharpe: {triggerRun.data?.sharpe ?? '—'} · PnL: {fmt(triggerRun.data?.total_pnl)}
+              Done! {triggerRun.data?.city ?? city} · {replayMode === 'interval' ? `${intervalMinutes}m interval` : 'single entry'} · Sharpe: {triggerRun.data?.sharpe ?? '—'} · PnL: {fmt(triggerRun.data?.total_pnl)}
             </span>
           )}
         </div>
@@ -190,7 +235,7 @@ export default function BacktestDashboard() {
           <table className="w-full text-sm text-left">
             <thead className="text-gray-400 border-b border-gray-700">
               <tr>
-                {['Strategy', 'City', 'Date Range', 'Trades', 'Win%', 'Total PnL', 'Sharpe', 'Status', ''].map(h => (
+                {['Strategy', 'City', 'Mode', 'Date Range', 'Trades', 'Win%', 'Total PnL', 'Sharpe', 'Status', ''].map(h => (
                   <th key={h} className="px-4 py-2 font-medium">{h}</th>
                 ))}
               </tr>
@@ -204,6 +249,7 @@ export default function BacktestDashboard() {
                 >
                   <td className="px-4 py-2 font-medium text-purple-300">{r.strategy as string}</td>
                   <td className="px-4 py-2 text-xs text-gray-300">{parseCity(r.params)}</td>
+                  <td className="px-4 py-2 text-xs text-gray-300">{parseReplayMode(r.params)}</td>
                   <td className="px-4 py-2 text-xs text-gray-400">{r.date_from as string} → {r.date_to as string}</td>
                   <td className="px-4 py-2">{r.total_trades as number ?? '—'}</td>
                   <td className="px-4 py-2">{r.win_rate != null ? `${((r.win_rate as number) * 100).toFixed(1)}%` : '—'}</td>
@@ -249,6 +295,7 @@ export default function BacktestDashboard() {
               {/* Metrics */}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <MetricBadge label="City" value={parseCity(selectedRun?.params)} />
+                <MetricBadge label="Replay" value={parseReplayMode(selectedRun?.params)} />
                 <MetricBadge label="Trades" value={String(selectedRun?.total_trades ?? '—')} />
                 <MetricBadge label="Win Rate" value={selectedRun?.win_rate != null ? `${(selectedRun.win_rate * 100).toFixed(1)}%` : '—'} />
                 <MetricBadge label="Total PnL" value={fmt(selectedRun?.total_pnl) + ' USDC'} highlight={(selectedRun?.total_pnl ?? 0) >= 0} />

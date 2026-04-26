@@ -94,6 +94,8 @@ def trigger_backtest(
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     city: str | None = Query(None),
+    replay_mode: str = Query("single"),
+    interval_minutes: int = Query(5, ge=1, le=60),
 ):
     """
     Trigger a backtest run synchronously. Returns the summary JSON when done.
@@ -106,13 +108,22 @@ def trigger_backtest(
     if date_to:
         cmd += ["--date-to", date_to]
     if city:
-        city = city.strip().upper()
+        city = city.strip()
+        if city.upper() == "NYC":
+            city = "NYC"
+        elif city.title() in CITIES:
+            city = city.title()
         if city not in CITIES:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unsupported city '{city}'. Expected one of: {', '.join(sorted(CITIES))}",
             )
         cmd += ["--city", city]
+    if replay_mode not in {"single", "interval"}:
+        raise HTTPException(status_code=400, detail="replay_mode must be 'single' or 'interval'")
+    cmd += ["--replay-mode", replay_mode]
+    if replay_mode == "interval":
+        cmd += ["--interval-minutes", str(interval_minutes)]
 
     try:
         result = subprocess.run(
