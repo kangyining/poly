@@ -112,12 +112,15 @@ def _settle_positions(db: Database, target_date: str, winning_bin_label: str,
 
         # NO token wins if the actual outcome is a DIFFERENT bin
         if pos["bin_label"] == winning_bin_label:
-            # This bin won (YES), so NO loses — PnL = -stake
-            pnl = -pos["stake_usd"]
+            # This bin won (YES), so NO loses — full cost basis including USDC fee
+            fee_rate = pos.get("fee_rate") or 0.0
+            pnl = -(pos["shares"] * pos["entry_price"] * (1.0 + fee_rate * (1.0 - pos["entry_price"])))
         else:
-            # This bin lost (YES), so NO wins — each share pays $1
-            # Net PnL = shares × (1 - entry_price) - 0  (already paid entry_price × shares)
-            pnl = pos["shares"] * (1.0 - pos["entry_price"])
+            # This bin lost (YES), so NO wins — each share pays $1.
+            # Fee was paid in USDC at trade time: fee/share = fee_rate × entry_price × (1 - entry_price)
+            # Total cost/share = entry_price × (1 + fee_rate × (1 - entry_price))
+            fee_rate = pos.get("fee_rate") or 0.0
+            pnl = pos["shares"] * (1.0 - pos["entry_price"] * (1.0 + fee_rate * (1.0 - pos["entry_price"])))
 
         db.close_position(pos["id"], round(pnl, 4), settled_ts)
         log.info(

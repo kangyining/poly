@@ -174,9 +174,10 @@ def fetch_fee_rate(token_id: str) -> float | None:
     except (TypeError, ValueError):
         return None
 
-    # Handle basis points-style responses such as 1000 => 10%
+    # base_fee=1000 corresponds to 5% (confirmed against live weather market data).
+    # Correct denominator is 20_000, not 10_000.
     if rate > 1.0:
-        rate = rate / 10_000.0
+        rate = rate / 20_000.0
     return rate
 
 

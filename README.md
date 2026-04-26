@@ -24,9 +24,9 @@ Polymarket lists daily markets asking "Will the highest temperature in NYC be be
 
 **EV formula:**
 ```
-EV_NO = (1 − P_model) × (1 − fee_rate) − effective_ask
+EV_NO = (1 − P_model) − effective_ask × (1 + fee_rate × (1 − effective_ask))
 ```
-A bin qualifies when `EV_NO ≥ min_ev_threshold` (default 0.02).
+A bin qualifies when `EV_NO ≥ min_ev_threshold` (live default 0.10).
 
 **Calibration:** Raw NWS forecasts have a warm bias (+1.35°F at KLGA historically). The calibration table corrects for this per station, month, and forecast lead time.
 
@@ -163,6 +163,48 @@ python backtest.py --strategy aggressive_tail --date-from 2026-02-01 --date-to 2
 
 The dashboard backtesting screen calls this same command path through the API.
 
+### Parameter Sweeps
+
+Use `backtest_param_finetune/param_sweep.py` to test combinations of the
+current NO-EV strategy parameters. It reuses `analysis/phase1_backtest.py`, so
+each combination is persisted as a normal backtest run in SQLite, and it also
+writes ranked CSV/Markdown summaries under `backtest_param_finetune/results/`.
+
+```powershell
+cd F:\Polymark\poly-weather
+
+python backtest_param_finetune\param_sweep.py `
+  --nyc-all-available `
+  --sweep-name nyc_all_available_full_v1 `
+  --replay-mode single `
+  --rank-by roi `
+  --min-trades 10
+```
+
+That shortcut uses NYC, discovers all currently backtest-ready NYC dates in
+`db/data.db`, tests the full built-in parameter grid, and writes a report. For a
+custom range/grid:
+
+```powershell
+python backtest_param_finetune\param_sweep.py `
+  --sweep-name nyc_april_single_v1 `
+  --city NYC `
+  --date-from 2026-04-01 `
+  --date-to 2026-04-19 `
+  --replay-mode single `
+  --min-ev-thresholds 0.02,0.03,0.04,0.05,0.06 `
+  --desired-shares 2.5,5,10 `
+  --funding-pcts 0.5,1.0 `
+  --max-stake-usd 25,50,100 `
+  --rank-by roi `
+  --min-trades 5
+```
+
+The swept parameters are `min_ev_threshold`, `desired_shares`, `funding_pct`,
+and `max_stake_usd`. Use a train/validation split when choosing final values;
+for example tune on February-March and validate on April rather than ranking
+and reporting on the same period.
+
 ---
 
 ## Configuration
@@ -175,10 +217,10 @@ All flags can be set via CLI argument or environment variable.
 | `--dry-run` | `DRY_RUN` | **true** | Paper mode — no real orders |
 | `--poll-interval-secs` | `POLL_INTERVAL_SECS` | 15 | Seconds between market evaluation passes |
 | `--forecast-refresh-secs` | `FORECAST_REFRESH_SECS` | 1800 | Seconds between forecast refreshes |
-| `--min-ev-threshold` | `MIN_EV_THRESHOLD` | 0.02 | Minimum EV to qualify a bin |
-| `--desired-shares` | `DESIRED_SHARES` | 10.0 | Shares to buy per bin |
+| `--min-ev-threshold` | `MIN_EV_THRESHOLD` | 0.10 | Minimum EV to qualify a bin |
+| `--desired-shares` | `DESIRED_SHARES` | 5.0 | Shares to buy per bin |
 | `--order-size-usd` | `ORDER_SIZE_USD` | 5.0 | Dollar stake per bin |
-| `--max-total-stake-usd` | `MAX_TOTAL_STAKE_USD` | 50.0 | Max stake per run |
+| `--max-total-stake-usd` | `MAX_TOTAL_STAKE_USD` | 5.0 | Max stake per run |
 | `--max-open-positions` | `MAX_OPEN_POSITIONS` | 8 | Max concurrent open positions |
 | `--city` | `CITY` | nyc | City slug for event lookup |
 | `--station-code` | `STATION_CODE` | KLGA | Station for calibration lookup |
@@ -203,6 +245,7 @@ run_bot.bat --run-loop --dry-run=false
 | `poly-weather/open_positions.json` | Current open positions; read by bot to skip held bins |
 | `poly-weather/backtest.py` | Supported CLI entry point for historical backtests |
 | `poly-weather/analysis/phase1_backtest.py` | Current backtest engine used by the CLI and dashboard |
+| `poly-weather/backtest_param_finetune/param_sweep.py` | Parameter grid-search runner for backtests |
 | `poly-weather-bot/target/release/polymarket-weather-bot.exe` | Compiled bot binary |
 
 ---
@@ -221,6 +264,9 @@ Polymark/
 │   ├── status.py         ← position and PnL viewer
 │   ├── calibrate.py      ← calibration re-fitter
 │   ├── backtest.py       ← supported backtest entry point
+│   ├── backtest_param_finetune/
+│   │   ├── param_sweep.py
+│   │   └── README.md
 │   ├── run_recorder.py   ← market snapshot recorder
 │   ├── analysis/
 │   │   ├── calibration.py
