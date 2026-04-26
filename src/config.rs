@@ -48,12 +48,12 @@ pub struct Cli {
     pub clob_url: String,
 
     // ── Strategy ──────────────────────────────────────────────────────────────
-    /// Minimum fee-adjusted EV per share required to qualify a bin (default 0.02)
-    #[arg(long, env = "MIN_EV_THRESHOLD", default_value_t = 0.02)]
+    /// Minimum fee-adjusted EV per share required to qualify a bin (default 0.10)
+    #[arg(long, env = "MIN_EV_THRESHOLD", default_value_t = 0.10)]
     pub min_ev_threshold: f64,
 
     /// Shares to buy per qualifying bin
-    #[arg(long, env = "DESIRED_SHARES", default_value_t = 10.0)]
+    #[arg(long, env = "DESIRED_SHARES", default_value_t = 5.0)]
     pub desired_shares: f64,
 
     /// Dollar stake per qualifying bin (used for execution plan sizing)
@@ -62,7 +62,7 @@ pub struct Cli {
 
     // ── Risk limits ───────────────────────────────────────────────────────────
     /// Maximum total stake per run in USD
-    #[arg(long, env = "MAX_TOTAL_STAKE_USD", default_value_t = 50.0)]
+    #[arg(long, env = "MAX_TOTAL_STAKE_USD", default_value_t = 5.0)]
     pub max_total_stake_usd: f64,
 
     /// Maximum number of open positions before skipping new trades
@@ -128,7 +128,7 @@ pub struct Cli {
     #[arg(long, env = "LOOP", default_value_t = false)]
     pub run_loop: bool,
 
-    /// Seconds to sleep between market evaluation passes in loop mode (default 15 sec)
+    /// Legacy market polling interval; the current live loop is websocket/event-driven.
     #[arg(long, env = "POLL_INTERVAL_SECS", default_value_t = 15)]
     pub poll_interval_secs: u64,
 

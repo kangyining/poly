@@ -6,9 +6,9 @@
 name             = "base_ev"
 enabled          = true
 funding_pct      = 1.0
-min_ev_threshold = 0.05
-desired_shares   = 10.0
-max_stake_usd    = 50.0
+min_ev_threshold = 0.10
+desired_shares   = 5.0
+max_stake_usd    = 5.0
 
 [[strategy]]
 name             = "aggressive_tail"
