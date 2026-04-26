@@ -40,6 +40,12 @@ class Database:
                 "no_vwap_10": "REAL",
             },
         )
+        self._ensure_columns(
+            "positions",
+            {
+                "fee_rate": "REAL",
+            },
+        )
 
     def _ensure_columns(self, table: str, columns: dict[str, str]) -> None:
         existing = {
@@ -166,6 +172,48 @@ class Database:
         ).fetchone()
         return row is not None
 
+    def insert_price_history_rows(self, rows: list[tuple]) -> None:
+        if not rows:
+            return
+        self.conn.executemany("""
+            INSERT OR IGNORE INTO price_history (
+                city, target_date, bin_label, bin_index, token_id_yes,
+                timestamp, yes_price, hours_to_close, source
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+        """, rows)
+        self.conn.commit()
+
+    def insert_price_history_minute(self, city: str, target_date: str, bin_label: str,
+                                    bin_index: int, token_id_yes: str, timestamp: str,
+                                    yes_price: float, hours_to_close: float,
+                                    source: str = 'clob-backfill'):
+        self.conn.execute("""
+            INSERT OR IGNORE INTO price_history_1m (
+                city, target_date, bin_label, bin_index, token_id_yes,
+                timestamp, yes_price, hours_to_close, source
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+        """, (city, target_date, bin_label, bin_index, token_id_yes,
+              timestamp, yes_price, hours_to_close, source))
+        self.conn.commit()
+
+    def insert_price_history_minute_rows(self, rows: list[tuple]) -> None:
+        if not rows:
+            return
+        self.conn.executemany("""
+            INSERT OR IGNORE INTO price_history_1m (
+                city, target_date, bin_label, bin_index, token_id_yes,
+                timestamp, yes_price, hours_to_close, source
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+        """, rows)
+        self.conn.commit()
+
+    def price_history_minute_exists(self, city: str, target_date: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM price_history_1m WHERE city=? AND target_date=? LIMIT 1",
+            (city, target_date)
+        ).fetchone()
+        return row is not None
+
     # ── TAF records ───────────────────────────────────────────────────────
 
     def insert_taf(self, icao: str, city: str, issue_time,
@@ -213,14 +261,15 @@ class Database:
         cur = self.conn.execute("""
             INSERT OR IGNORE INTO positions (
                 token_id, market_id, bin_label, event_slug, target_date,
-                entry_price, shares, stake_usd, order_id,
+                entry_price, fee_rate, shares, stake_usd, order_id,
                 status, pnl, opened_at, settled_at, is_paper,
                 strategy_name, backtest_id, trade_rationale
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             pos["token_id"], pos.get("market_id", ""),
             pos["bin_label"], pos["event_slug"], pos["target_date"],
-            pos["entry_price"], pos["shares"], pos["stake_usd"],
+            pos["entry_price"], pos.get("fee_rate"),
+            pos["shares"], pos["stake_usd"],
             pos.get("order_id"),
             pos.get("status", "open"), pos.get("pnl"),
             pos["opened_at"], pos.get("settled_at"),

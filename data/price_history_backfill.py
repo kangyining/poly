@@ -8,21 +8,21 @@ Flow:
   1. Load all settlement records from DB
   2. For each city+date, fetch the Gamma event to get token IDs per bin
   3. For each bin's YES token, call CLOB /prices-history (1-min resolution)
-  4. Downsample to hourly buckets (last price per hour)
-  5. Store in price_history table with hours_to_close computed
+  4. Store raw 1-minute points in price_history_1m
+  5. Downsample to hourly buckets (last price per hour) for price_history
 
-Result: ~36 hourly price points per bin per market
-Total:  178 markets × 11 bins × ~36 points ≈ 70K rows
+Result:
+  - raw minute history for future interval-replay backtests
+  - hourly rollups for the current backtest flow
 Runtime: ~12 minutes (rate-limited to be polite)
 
-Idempotent: skips city+date pairs already in price_history.
+Idempotent: skips city+date pairs already present in both price_history_1m and
+price_history.
 """
 
-import json
 import logging
 import time
 from datetime import datetime, timezone, timedelta
-from collections import defaultdict
 
 import requests
 
@@ -79,9 +79,46 @@ def _downsample_hourly(history: list[dict]) -> list[dict]:
             for bucket, price in sorted(buckets.items())]
 
 
+def _build_minute_rows(city: str, target_date: str, mkt: dict,
+                       history: list[dict]) -> list[tuple]:
+    rows = []
+    for point in history:
+        ts = datetime.fromtimestamp(point["t"], tz=timezone.utc)
+        rows.append((
+            city,
+            target_date,
+            mkt["bin_label"],
+            mkt["bin_index"],
+            mkt["token_id_yes"],
+            ts.isoformat(),
+            point["p"],
+            _hours_to_close(ts, target_date),
+            "clob-backfill",
+        ))
+    return rows
+
+
+def _build_hourly_rows(city: str, target_date: str, mkt: dict,
+                       history: list[dict]) -> list[tuple]:
+    rows = []
+    for point in _downsample_hourly(history):
+        rows.append((
+            city,
+            target_date,
+            mkt["bin_label"],
+            mkt["bin_index"],
+            mkt["token_id_yes"],
+            point["ts"].isoformat(),
+            point["price"],
+            _hours_to_close(point["ts"], target_date),
+            "clob-backfill",
+        ))
+    return rows
+
+
 def backfill_price_history(db: Database):
     """
-    Backfill hourly price history for all settled markets not yet in DB.
+    Backfill raw minute and hourly price history for all settled markets not yet in DB.
     """
     # Load all settlements
     rows = db.conn.execute(
@@ -94,7 +131,9 @@ def backfill_price_history(db: Database):
     skipped = 0
 
     for city, target_date, event_slug in rows:
-        if db.price_history_exists(city, target_date):
+        has_hourly = db.price_history_exists(city, target_date)
+        has_minute = db.price_history_minute_exists(city, target_date)
+        if has_hourly and has_minute:
             skipped += 1
             continue
 
@@ -128,7 +167,8 @@ def backfill_price_history(db: Database):
         start_ts = int((close_dt - timedelta(hours=48)).timestamp())
         end_ts   = int(close_dt.timestamp())
 
-        saved_this = 0
+        saved_hourly = 0
+        saved_minute = 0
         for mkt in markets:
             token_yes = mkt["token_id_yes"]
             if not token_yes:
@@ -140,29 +180,25 @@ def backfill_price_history(db: Database):
                 time.sleep(0.2)
                 continue
 
-            hourly = _downsample_hourly(history)
+            if not has_minute:
+                minute_rows = _build_minute_rows(city, target_date, mkt, history)
+                db.insert_price_history_minute_rows(minute_rows)
+                saved_minute += len(minute_rows)
 
-            for point in hourly:
-                htc = _hours_to_close(point["ts"], target_date)
-                db.insert_price_history(
-                    city=city,
-                    target_date=target_date,
-                    bin_label=mkt["bin_label"],
-                    bin_index=mkt["bin_index"],
-                    token_id_yes=token_yes,
-                    timestamp=point["ts"].isoformat(),
-                    yes_price=point["price"],
-                    hours_to_close=htc,
-                )
-                saved_this += 1
+            if not has_hourly:
+                hourly_rows = _build_hourly_rows(city, target_date, mkt, history)
+                db.insert_price_history_rows(hourly_rows)
+                saved_hourly += len(hourly_rows)
 
             time.sleep(0.15)   # gentle rate limiting per token
 
-        total_saved += saved_this
-        log.info("Price history: %s %s — %d bins, %d points saved",
-                 city, target_date, len(markets), saved_this)
+        total_saved += saved_hourly + saved_minute
+        log.info(
+            "Price history: %s %s — %d bins, %d raw minute / %d hourly points saved",
+            city, target_date, len(markets), saved_minute, saved_hourly
+        )
         time.sleep(0.3)   # extra pause between markets
 
-    log.info("Price history backfill complete: +%d points saved, %d markets skipped",
+    log.info("Price history backfill complete: +%d rows saved, %d markets skipped",
              total_saved, skipped)
     return total_saved
