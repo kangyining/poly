@@ -18,7 +18,11 @@ pub struct ExecutionConsumer {
 }
 
 impl ExecutionConsumer {
-    pub fn new(bus: EventBus, state: SharedState, execution_service: Arc<ExecutionService>) -> Self {
+    pub fn new(
+        bus: EventBus,
+        state: SharedState,
+        execution_service: Arc<ExecutionService>,
+    ) -> Self {
         Self {
             bus,
             state,
@@ -40,17 +44,21 @@ impl ExecutionConsumer {
                                 .trades
                                 .iter()
                                 .map(|trade| trade.no_token_id.clone())
-                                .filter(|token_id| !state.execution.submitted_tokens.contains(token_id))
+                                .filter(|token_id| {
+                                    !state.execution.submitted_tokens.contains(token_id)
+                                })
                                 .collect::<Vec<_>>()
                         };
 
                         if new_token_ids.is_empty() {
                             self.bus.publish(
                                 EventSource::ExecutionEngine,
-                                Event::Trading(TradingEvent::OrderSkipped(crate::core::events::OrderSkipped {
-                                    run_id: outcome.run_id.clone(),
-                                    reason: "no new trades to submit".into(),
-                                })),
+                                Event::Trading(TradingEvent::OrderSkipped(
+                                    crate::core::events::OrderSkipped {
+                                        run_id: outcome.run_id.clone(),
+                                        reason: "no new trades to submit".into(),
+                                    },
+                                )),
                             );
                             continue;
                         }
@@ -74,10 +82,12 @@ impl ExecutionConsumer {
                         self.execution_service.execute(&outcome).await?;
                         self.bus.publish(
                             EventSource::ExecutionEngine,
-                            Event::Trading(TradingEvent::OrderSubmitted(crate::core::events::OrderSubmitted {
-                                run_id: outcome.run_id.clone(),
-                                token_ids: new_token_ids,
-                            })),
+                            Event::Trading(TradingEvent::OrderSubmitted(
+                                crate::core::events::OrderSubmitted {
+                                    run_id: outcome.run_id.clone(),
+                                    token_ids: new_token_ids,
+                                },
+                            )),
                         );
                     }
                     Event::System(SystemEvent::Stopping) => break,

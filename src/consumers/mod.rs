@@ -8,8 +8,8 @@ use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use crate::core::bus::EventBus;
-use crate::services::{ExecutionService, StrategyService};
 use crate::core::state::SharedState;
+use crate::services::{ExecutionService, StrategyService};
 
 use self::evaluation_trigger_consumer::EvaluationTriggerConsumer;
 use self::execution_consumer::ExecutionConsumer;

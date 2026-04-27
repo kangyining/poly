@@ -88,7 +88,10 @@ impl NwsForecastProvider {
         target_date: NaiveDate,
         station_code: &str,
     ) -> Result<Forecast> {
-        let points_url = format!("https://api.weather.gov/points/{:.4},{:.4}", self.lat, self.lon);
+        let points_url = format!(
+            "https://api.weather.gov/points/{:.4},{:.4}",
+            self.lat, self.lon
+        );
         let points: PointsResponse = self
             .http
             .get(&points_url)
@@ -118,7 +121,10 @@ impl NwsForecastProvider {
         for period in &hourly.properties.periods {
             let start: DateTime<FixedOffset> = DateTime::parse_from_rfc3339(&period.start_time)
                 .with_context(|| {
-                    format!("failed to parse NWS period startTime: {}", period.start_time)
+                    format!(
+                        "failed to parse NWS period startTime: {}",
+                        period.start_time
+                    )
                 })?;
 
             if start.date_naive() != target_date {
@@ -134,8 +140,8 @@ impl NwsForecastProvider {
             max_temp_f = Some(max_temp_f.unwrap_or(f64::NEG_INFINITY).max(temp_f));
         }
 
-        let forecast_high_f =
-            max_temp_f.ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
+        let forecast_high_f = max_temp_f
+            .ok_or_else(|| anyhow::anyhow!("no NWS periods found for {}", target_date))?;
 
         let now = Utc::now();
         let close = market_close_utc(target_date);

@@ -49,7 +49,11 @@ impl StrategyService {
     pub async fn evaluate(&self, forecast: Forecast) -> Result<StrategyOutcome> {
         let target_date = forecast.target_date;
         let event_slug = EventService::build_event_slug(&self.config.city, target_date);
-        let run_id = format!("{}-{}", self.config.city, Utc::now().format("%Y%m%dT%H%M%SZ"));
+        let run_id = format!(
+            "{}-{}",
+            self.config.city,
+            Utc::now().format("%Y%m%dT%H%M%SZ")
+        );
 
         let (beta_f, sigma_f) = self
             .calibration

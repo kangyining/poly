@@ -2,7 +2,7 @@ use tracing::{debug, info, warn};
 
 use crate::market::WeatherMarket;
 
-use super::types::{DecisionTrace, RuleTrace, StrategyInput, within_trading_window};
+use super::types::{within_trading_window, DecisionTrace, RuleTrace, StrategyInput};
 
 pub trait StrategyRule: Send + Sync {
     fn name(&self) -> &'static str;
@@ -164,8 +164,7 @@ impl StrategyRule for NoEdgeRule {
         market: &WeatherMarket,
         trace: &mut DecisionTrace,
     ) -> bool {
-        let (Some(effective_ask), Some(fee_rate)) =
-            (market.effective_ask_no, market.fee_rate)
+        let (Some(effective_ask), Some(fee_rate)) = (market.effective_ask_no, market.fee_rate)
         else {
             let reason = "no CLOB data available (effective_ask or fee_rate missing)".to_string();
             warn!(

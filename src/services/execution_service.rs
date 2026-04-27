@@ -2,16 +2,16 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use alloy::signers::Signer as _;
 use alloy::signers::local::LocalSigner;
+use alloy::signers::Signer as _;
 use anyhow::{Context, Result};
 use chrono::Utc;
 use polymarket_client_sdk::auth::Normal;
-use polymarket_client_sdk::POLYGON;
 use polymarket_client_sdk::clob::types::{OrderType, Side, SignatureType};
 use polymarket_client_sdk::clob::{Client as ClobClient, Config as ClobConfig};
 use polymarket_client_sdk::types::{Address as PolyAddress, Decimal};
-use rusqlite::{Connection, params};
+use polymarket_client_sdk::POLYGON;
+use rusqlite::{params, Connection};
 use serde::Serialize;
 use tracing::info;
 

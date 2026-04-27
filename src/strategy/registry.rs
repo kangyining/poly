@@ -14,8 +14,12 @@ pub struct StrategyConfig {
     pub max_stake_usd: f64,
 }
 
-fn bool_true() -> bool { true }
-fn one() -> f64 { 1.0 }
+fn bool_true() -> bool {
+    true
+}
+fn one() -> f64 {
+    1.0
+}
 
 #[derive(Deserialize)]
 struct StrategiesFile {
@@ -30,7 +34,9 @@ impl StrategyRegistry {
     pub fn load(path: &Path) -> Result<Self> {
         let text = std::fs::read_to_string(path)?;
         let file: StrategiesFile = toml::from_str(&text)?;
-        Ok(Self { strategies: file.strategy })
+        Ok(Self {
+            strategies: file.strategy,
+        })
     }
 
     pub fn active(&self) -> impl Iterator<Item = &StrategyConfig> {

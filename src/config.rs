@@ -87,11 +87,7 @@ pub struct Cli {
     pub open_positions_path: PathBuf,
 
     /// Directory where execution_plan.json is written for the Python bridge
-    #[arg(
-        long,
-        env = "EXECUTION_PLAN_DIR",
-        default_value = "../poly-weather"
-    )]
+    #[arg(long, env = "EXECUTION_PLAN_DIR", default_value = "../poly-weather")]
     pub execution_plan_dir: PathBuf,
 
     /// Path to execute.py — called automatically after each evaluation pass.
@@ -105,18 +101,10 @@ pub struct Cli {
 
     /// Path to strategies.toml. If absent, falls back to a single "default" strategy
     /// built from the other CLI flags (min_ev_threshold, desired_shares, etc.).
-    #[arg(
-        long,
-        env = "STRATEGIES_FILE",
-        default_value = "strategies.toml"
-    )]
+    #[arg(long, env = "STRATEGIES_FILE", default_value = "strategies.toml")]
     pub strategies_file: PathBuf,
 
-    #[arg(
-        long,
-        env = "LOG_DIRECTORY",
-        default_value = "logs"
-    )]
+    #[arg(long, env = "LOG_DIRECTORY", default_value = "logs")]
     pub log_directory: PathBuf,
 
     // ── Mode ──────────────────────────────────────────────────────────────────
