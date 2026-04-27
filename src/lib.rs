@@ -1,6 +1,6 @@
 pub mod app;
-pub mod consumers;
 pub mod config;
+pub mod consumers;
 pub mod core;
 pub mod market;
 pub mod services;

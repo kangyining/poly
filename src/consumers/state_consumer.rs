@@ -4,7 +4,9 @@ use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{Event, EventSource, MarketEvent, StrategyEvent, SystemEvent, TradingEvent, WeatherEvent};
+use crate::core::events::{
+    Event, EventSource, MarketEvent, StrategyEvent, SystemEvent, TradingEvent, WeatherEvent,
+};
 use crate::core::state::{LifecycleState, SharedState};
 
 pub struct StateConsumer {
@@ -48,7 +50,10 @@ impl StateConsumer {
                     Event::Market(MarketEvent::BestBidAskChanged(update)) => {
                         let mut state = self.state.write().await;
                         if let Some(best_bid) = update.best_bid {
-                            state.market.best_bids.insert(update.token_id.clone(), best_bid);
+                            state
+                                .market
+                                .best_bids
+                                .insert(update.token_id.clone(), best_bid);
                         }
                         if let Some(best_ask) = update.best_ask {
                             state.market.best_asks.insert(update.token_id, best_ask);

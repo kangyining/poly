@@ -52,10 +52,15 @@ impl StrategyEngine {
             if accepted {
                 // Re-compute p_model and ev_no for the candidate record
                 let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
-                let effective_ask = market.effective_ask_no.expect("accepted market has effective_ask");
+                let effective_ask = market
+                    .effective_ask_no
+                    .expect("accepted market has effective_ask");
                 let fee_rate = market.fee_rate.expect("accepted market has fee_rate");
                 let ev_no = (1.0 - p) - effective_ask * (1.0 + fee_rate * (1.0 - effective_ask));
-                let no_token_id = market.no_token_id.clone().expect("accepted market has no_token_id");
+                let no_token_id = market
+                    .no_token_id
+                    .clone()
+                    .expect("accepted market has no_token_id");
 
                 candidates.push(TradeCandidate {
                     market_id: market.id.clone(),
@@ -68,7 +73,9 @@ impl StrategyEngine {
                     fee_rate,
                     no_token_id,
                     shares: input.desired_shares,
-                    stake_usd: input.desired_shares * effective_ask * (1.0 + fee_rate * (1.0 - effective_ask)),
+                    stake_usd: input.desired_shares
+                        * effective_ask
+                        * (1.0 + fee_rate * (1.0 - effective_ask)),
                     decision_id,
                 });
             }
@@ -145,15 +152,13 @@ mod tests {
             run_id: "test".into(),
             event_slug: "test-slug".into(),
             // Set evaluation time 20h before close so timing rule passes
-            evaluation_time_utc: Some(
-                chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-                    NaiveDate::from_ymd_opt(2026, 4, 19)
-                        .unwrap()
-                        .and_hms_opt(16, 0, 0)
-                        .unwrap(),
-                    chrono::Utc,
-                ),
-            ),
+            evaluation_time_utc: Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
+                NaiveDate::from_ymd_opt(2026, 4, 19)
+                    .unwrap()
+                    .and_hms_opt(16, 0, 0)
+                    .unwrap(),
+                chrono::Utc,
+            )),
         };
 
         let markets = vec![
@@ -162,14 +167,17 @@ mod tests {
                 "far-below",
                 "38F or below",
                 TemperatureRange::BelowOrEqual { upper_f: 38.0 },
-                0.97,  // effective_ask
-                0.05,  // fee_rate
+                0.97, // effective_ask
+                0.05, // fee_rate
             ),
             // At forecast: P_model ≈ 0.5 → EV_NO ≈ 0.5 - ask → negative
             make_market(
                 "at-forecast",
                 "49F to 51F",
-                TemperatureRange::Between { low_f: 49.0, high_f: 51.0 },
+                TemperatureRange::Between {
+                    low_f: 49.0,
+                    high_f: 51.0,
+                },
                 0.50,
                 0.05,
             ),
@@ -191,9 +199,16 @@ mod tests {
         ]);
 
         let result = engine.evaluate(&input, &markets);
-        let ids: Vec<&str> = result.candidates.iter().map(|c| c.market_id.as_str()).collect();
+        let ids: Vec<&str> = result
+            .candidates
+            .iter()
+            .map(|c| c.market_id.as_str())
+            .collect();
         assert!(ids.contains(&"far-below"), "far-below should qualify");
         assert!(ids.contains(&"far-above"), "far-above should qualify");
-        assert!(!ids.contains(&"at-forecast"), "at-forecast should be rejected");
+        assert!(
+            !ids.contains(&"at-forecast"),
+            "at-forecast should be rejected"
+        );
     }
 }

@@ -36,8 +36,7 @@ impl PolymarketClient {
             self.gamma_url.trim_end_matches('/'),
             event_slug
         );
-        self
-            .http
+        self.http
             .get(&url)
             .send()
             .await
@@ -74,7 +73,11 @@ impl PolymarketClient {
             })
             .collect();
         // CLOB returns asks high-to-low; sort ascending so VWAP walks best prices first.
-        asks.sort_by(|a, b| a.price.partial_cmp(&b.price).unwrap_or(std::cmp::Ordering::Equal));
+        asks.sort_by(|a, b| {
+            a.price
+                .partial_cmp(&b.price)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         Ok(OrderBook { asks })
     }
@@ -211,17 +214,13 @@ impl TemperatureRange {
     /// Uses ±0.5°F half-integer correction for whole-degree bucket boundaries.
     pub fn bucket_probability(&self, mu_f: f64, sigma_f: f64) -> f64 {
         match self {
-            Self::BelowOrEqual { upper_f } => {
-                norm_cdf((*upper_f + 0.5 - mu_f) / sigma_f)
-            }
+            Self::BelowOrEqual { upper_f } => norm_cdf((*upper_f + 0.5 - mu_f) / sigma_f),
             Self::Between { low_f, high_f } => {
                 let hi = norm_cdf((*high_f + 0.5 - mu_f) / sigma_f);
                 let lo = norm_cdf((*low_f - 0.5 - mu_f) / sigma_f);
                 (hi - lo).max(0.0)
             }
-            Self::AboveOrEqual { lower_f } => {
-                1.0 - norm_cdf((*lower_f - 0.5 - mu_f) / sigma_f)
-            }
+            Self::AboveOrEqual { lower_f } => 1.0 - norm_cdf((*lower_f - 0.5 - mu_f) / sigma_f),
         }
     }
 
@@ -297,9 +296,7 @@ fn erf(x: f64) -> f64 {
     let x = x.abs();
     let t = 1.0 / (1.0 + 0.3275911 * x);
     let y = 1.0
-        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t
-            - 0.284_496_736)
-            * t
+        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
             + 0.254_829_592)
             * t
             * (-x * x).exp();
@@ -383,7 +380,7 @@ fn parse_f64_array(value: Option<&str>) -> Vec<f64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{TemperatureRange, effective_ask_vwap, OrderLevel};
+    use super::{effective_ask_vwap, OrderLevel, TemperatureRange};
 
     #[test]
     fn parses_below_ranges() {
@@ -415,9 +412,15 @@ mod tests {
         // With mu=50, sigma=3, probabilities across a full span should sum ~1
         let mu = 50.0_f64;
         let sigma = 3.0_f64;
-        let p_below = TemperatureRange::BelowOrEqual { upper_f: 44.0 }.bucket_probability(mu, sigma);
-        let p_mid = TemperatureRange::Between { low_f: 45.0, high_f: 55.0 }.bucket_probability(mu, sigma);
-        let p_above = TemperatureRange::AboveOrEqual { lower_f: 56.0 }.bucket_probability(mu, sigma);
+        let p_below =
+            TemperatureRange::BelowOrEqual { upper_f: 44.0 }.bucket_probability(mu, sigma);
+        let p_mid = TemperatureRange::Between {
+            low_f: 45.0,
+            high_f: 55.0,
+        }
+        .bucket_probability(mu, sigma);
+        let p_above =
+            TemperatureRange::AboveOrEqual { lower_f: 56.0 }.bucket_probability(mu, sigma);
         let total = p_below + p_mid + p_above;
         // Not exactly 1 because gaps exist between bins, but should be < 1 and sum reasonably
         assert!(total > 0.95 && total <= 1.001, "total={total}");
@@ -426,8 +429,14 @@ mod tests {
     #[test]
     fn effective_ask_walks_book() {
         let asks = vec![
-            OrderLevel { price: 0.96, size: 5.0 },
-            OrderLevel { price: 0.97, size: 10.0 },
+            OrderLevel {
+                price: 0.96,
+                size: 5.0,
+            },
+            OrderLevel {
+                price: 0.97,
+                size: 10.0,
+            },
         ];
         // Want 8 shares: 5 @ 0.96 + 3 @ 0.97
         let ea = effective_ask_vwap(&asks, 8.0).unwrap();
@@ -437,7 +446,10 @@ mod tests {
 
     #[test]
     fn effective_ask_returns_none_when_depth_insufficient() {
-        let asks = vec![OrderLevel { price: 0.96, size: 3.0 }];
+        let asks = vec![OrderLevel {
+            price: 0.96,
+            size: 3.0,
+        }];
         assert!(effective_ask_vwap(&asks, 10.0).is_none());
     }
 }

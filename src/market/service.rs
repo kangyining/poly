@@ -159,8 +159,9 @@ impl MarketService {
             self.client.get_fee_rate(no_token_id),
         )?;
 
-        let effective_ask = effective_ask_vwap(&book.asks, desired_shares)
-            .ok_or_else(|| anyhow::anyhow!("insufficient ask depth for {} shares", desired_shares))?;
+        let effective_ask = effective_ask_vwap(&book.asks, desired_shares).ok_or_else(|| {
+            anyhow::anyhow!("insufficient ask depth for {} shares", desired_shares)
+        })?;
 
         Ok((effective_ask, fee_rate))
     }

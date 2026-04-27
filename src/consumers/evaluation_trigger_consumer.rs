@@ -39,7 +39,10 @@ impl EvaluationTriggerConsumer {
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
-                    warn!(dropped, "evaluation trigger consumer lagged behind the event stream");
+                    warn!(
+                        dropped,
+                        "evaluation trigger consumer lagged behind the event stream"
+                    );
                 }
                 Err(RecvError::Closed) => {
                     debug!("evaluation trigger consumer channel closed");

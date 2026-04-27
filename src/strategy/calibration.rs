@@ -37,7 +37,11 @@ impl CalibrationTable {
     /// Returns (beta_f, sigma_f) with fallback chain:
     ///   cell (station, month, lead_bin) → station default → global default
     pub fn lookup(&self, station: &str, date: NaiveDate, lead_hours: f64) -> (f64, f64) {
-        let month = date.format("%m").to_string().trim_start_matches('0').to_string();
+        let month = date
+            .format("%m")
+            .to_string()
+            .trim_start_matches('0')
+            .to_string();
         let lb = lead_bin(lead_hours);
 
         // Try cell lookup

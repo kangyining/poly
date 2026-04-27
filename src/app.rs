@@ -21,7 +21,10 @@ pub struct App {
 
 impl App {
     pub fn new(config: AppConfig, calibration: Option<CalibrationTable>) -> Self {
-        Self { config, calibration }
+        Self {
+            config,
+            calibration,
+        }
     }
 
     pub async fn run(self) -> Result<()> {

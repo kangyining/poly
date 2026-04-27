@@ -1,5 +1,5 @@
-mod execution_plan;
 pub mod event_service;
+mod execution_plan;
 pub mod execution_service;
 pub mod strategy_service;
 
