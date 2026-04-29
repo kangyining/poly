@@ -5,9 +5,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, info, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{
-    Event, EventSource, ExecutionPlanCreated, StrategyEvent, SystemEvent, TradingEvent,
-};
+use crate::core::events::{Event, EventSource, ExecutionPlanCreated, OrderSkipped, OrderSubmitted};
 use crate::core::state::SharedState;
 use crate::services::ExecutionService;
 
@@ -36,7 +34,7 @@ impl ExecutionConsumer {
         loop {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
-                    Event::Strategy(StrategyEvent::EvaluationCompleted(outcome)) => {
+                    Event::EvaluationCompleted(outcome) => {
                         let new_token_ids = {
                             let state = self.state.read().await;
                             outcome
@@ -53,25 +51,21 @@ impl ExecutionConsumer {
                         if new_token_ids.is_empty() {
                             self.bus.publish(
                                 EventSource::ExecutionEngine,
-                                Event::Trading(TradingEvent::OrderSkipped(
-                                    crate::core::events::OrderSkipped {
-                                        run_id: outcome.run_id.clone(),
-                                        reason: "no new trades to submit".into(),
-                                    },
-                                )),
+                                Event::OrderSkipped(OrderSkipped {
+                                    run_id: outcome.run_id.clone(),
+                                    reason: "no new trades to submit".into(),
+                                }),
                             );
                             continue;
                         }
 
                         self.bus.publish(
                             EventSource::ExecutionEngine,
-                            Event::Trading(TradingEvent::ExecutionPlanCreated(
-                                ExecutionPlanCreated {
-                                    run_id: outcome.run_id.clone(),
-                                    trade_count: outcome.plan.trades.len(),
-                                    total_stake_usd: outcome.plan.total_stake_usd,
-                                },
-                            )),
+                            Event::ExecutionPlanCreated(ExecutionPlanCreated {
+                                run_id: outcome.run_id.clone(),
+                                trade_count: outcome.plan.trades.len(),
+                                total_stake_usd: outcome.plan.total_stake_usd,
+                            }),
                         );
 
                         info!(
@@ -79,18 +73,20 @@ impl ExecutionConsumer {
                             trade_count = outcome.plan.trades.len(),
                             "submitting execution plan"
                         );
-                        self.execution_service.execute(&outcome).await?;
+                        let report = self.execution_service.execute(&outcome).await?;
                         self.bus.publish(
                             EventSource::ExecutionEngine,
-                            Event::Trading(TradingEvent::OrderSubmitted(
-                                crate::core::events::OrderSubmitted {
-                                    run_id: outcome.run_id.clone(),
-                                    token_ids: new_token_ids,
-                                },
-                            )),
+                            Event::PlanExecuted(Arc::new(report)),
+                        );
+                        self.bus.publish(
+                            EventSource::ExecutionEngine,
+                            Event::OrderSubmitted(OrderSubmitted {
+                                run_id: outcome.run_id.clone(),
+                                token_ids: new_token_ids,
+                            }),
                         );
                     }
-                    Event::System(SystemEvent::Stopping) => break,
+                    Event::Stopping => break,
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {

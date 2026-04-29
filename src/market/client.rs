@@ -338,6 +338,8 @@ pub(crate) struct GammaMarket {
     id: Option<String>,
     question: Option<String>,
     slug: Option<String>,
+    #[serde(rename = "groupItemTitle")]
+    group_item_title: Option<String>,
     #[serde(rename = "endDate")]
     end_date: Option<String>,
     #[serde(rename = "enableOrderBook")]
@@ -355,6 +357,19 @@ pub(crate) struct GammaEvent {
     #[serde(rename = "endDate")]
     pub(crate) end_date: Option<String>,
     pub(crate) markets: Option<Vec<GammaMarket>>,
+}
+
+impl GammaEvent {
+    pub(crate) fn winning_bin_label(&self) -> Option<String> {
+        self.markets.as_ref()?.iter().find_map(|market| {
+            let prices = parse_f64_array(market.outcome_prices.as_deref());
+            if prices.first().copied().unwrap_or_default() >= 0.99 {
+                market.group_item_title.clone()
+            } else {
+                None
+            }
+        })
+    }
 }
 
 fn parse_string_array(value: Option<&str>) -> Vec<String> {

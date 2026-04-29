@@ -6,7 +6,7 @@ use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{Event, EventSource, ForecastUpdated, WeatherEvent};
+use crate::core::events::{Event, EventSource, ForecastUpdated};
 use crate::weather::client::{Forecast, NwsForecastProvider, StaticForecastProvider};
 
 #[derive(Clone)]
@@ -74,10 +74,10 @@ impl WeatherService {
                         );
                         self.bus.publish(
                             EventSource::WeatherPoller,
-                            Event::Weather(WeatherEvent::ForecastUpdated(ForecastUpdated {
+                            Event::ForecastUpdated(ForecastUpdated {
                                 previous: previous.clone(),
                                 current: current.clone(),
-                            })),
+                            }),
                         );
                     }
 

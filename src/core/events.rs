@@ -3,16 +3,35 @@ use std::sync::Arc;
 use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::market::WeatherMarket;
-use crate::services::StrategyOutcome;
+use crate::services::{ExecutionReport, StrategyOutcome};
 use crate::weather::Forecast;
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Market(MarketEvent),
-    Weather(WeatherEvent),
-    Strategy(StrategyEvent),
-    Trading(TradingEvent),
-    System(SystemEvent),
+    MetadataRefreshed(MarketMetadataRefreshed),
+    BestBidAskChanged(BestBidAskChanged),
+    ConnectionStatusChanged(ConnectionStatusChanged),
+    ForecastUpdated(ForecastUpdated),
+    EvaluationRequested(EvaluationRequested),
+    EvaluationCompleted(Arc<StrategyOutcome>),
+    ExecutionPlanCreated(ExecutionPlanCreated),
+    PlanExecuted(Arc<ExecutionReport>),
+    OrderSubmitted(OrderSubmitted),
+    OrderSkipped(OrderSkipped),
+    Started,
+    Stopping,
+    SourceLagged {
+        source: EventSource,
+        dropped_messages: u64,
+    },
+    ConsumerFailed {
+        consumer: &'static str,
+        error: String,
+    },
+    Healthy {
+        source: EventSource,
+        at: DateTime<Utc>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -24,13 +43,6 @@ pub enum EventSource {
     ExecutionEngine,
     StateConsumer,
     TriggerConsumer,
-}
-
-#[derive(Debug, Clone)]
-pub enum MarketEvent {
-    MetadataRefreshed(MarketMetadataRefreshed),
-    BestBidAskChanged(BestBidAskChanged),
-    ConnectionStatusChanged(ConnectionStatusChanged),
 }
 
 #[derive(Debug, Clone)]
@@ -54,20 +66,9 @@ pub struct ConnectionStatusChanged {
 }
 
 #[derive(Debug, Clone)]
-pub enum WeatherEvent {
-    ForecastUpdated(ForecastUpdated),
-}
-
-#[derive(Debug, Clone)]
 pub struct ForecastUpdated {
     pub previous: Option<Forecast>,
     pub current: Forecast,
-}
-
-#[derive(Debug, Clone)]
-pub enum StrategyEvent {
-    EvaluationRequested(EvaluationRequested),
-    EvaluationCompleted(Arc<StrategyOutcome>),
 }
 
 #[derive(Debug, Clone)]
@@ -81,13 +82,6 @@ pub enum EvaluationReason {
     WeatherChanged,
     MarketMetadataChanged,
     MarketPriceChanged { token_id: String },
-}
-
-#[derive(Debug, Clone)]
-pub enum TradingEvent {
-    ExecutionPlanCreated(ExecutionPlanCreated),
-    OrderSubmitted(OrderSubmitted),
-    OrderSkipped(OrderSkipped),
 }
 
 #[derive(Debug, Clone)]
@@ -107,22 +101,4 @@ pub struct OrderSubmitted {
 pub struct OrderSkipped {
     pub run_id: String,
     pub reason: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum SystemEvent {
-    Started,
-    Stopping,
-    SourceLagged {
-        source: EventSource,
-        dropped_messages: u64,
-    },
-    ConsumerFailed {
-        consumer: &'static str,
-        error: String,
-    },
-    Healthy {
-        source: EventSource,
-        at: DateTime<Utc>,
-    },
 }

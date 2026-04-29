@@ -90,6 +90,22 @@ pub struct Cli {
     #[arg(long, env = "EXECUTION_PLAN_DIR", default_value = "../poly-weather")]
     pub execution_plan_dir: PathBuf,
 
+    /// Path to the paper portfolio state file used for paper balance tracking
+    #[arg(
+        long,
+        env = "PAPER_PORTFOLIO_PATH",
+        default_value = "../poly-weather/paper_portfolio.json"
+    )]
+    pub paper_portfolio_path: PathBuf,
+
+    /// CSV file that records one row per paper-trading action
+    #[arg(
+        long,
+        env = "PERFORMANCE_CSV_PATH",
+        default_value = "../poly-weather/performance_log.csv"
+    )]
+    pub performance_csv_path: PathBuf,
+
     /// Path to execute.py — called automatically after each evaluation pass.
     /// Set to empty string to disable.
     #[arg(
@@ -111,6 +127,10 @@ pub struct Cli {
     /// Dry run: write execution plan but do not signal Python bridge to submit
     #[arg(long, env = "DRY_RUN", default_value_t = true)]
     pub dry_run: bool,
+
+    /// Starting paper account balance used when DRY_RUN=true
+    #[arg(long, env = "PAPER_STARTING_BALANCE_USD", default_value_t = 1000.0)]
+    pub paper_starting_balance_usd: f64,
 
     /// Run the scheduler loop instead of a single pass
     #[arg(long, env = "LOOP", default_value_t = false)]
@@ -143,10 +163,13 @@ pub struct AppConfig {
     pub calibration_path: PathBuf,
     pub open_positions_path: PathBuf,
     pub execution_plan_dir: PathBuf,
+    pub paper_portfolio_path: PathBuf,
+    pub performance_csv_path: PathBuf,
     pub execute_script: PathBuf,
     pub strategies_file: PathBuf,
     pub log_directory: PathBuf,
     pub dry_run: bool,
+    pub paper_starting_balance_usd: f64,
     pub run_loop: bool,
     pub poll_interval_secs: u64,
     pub forecast_refresh_secs: u64,
@@ -164,6 +187,9 @@ impl TryFrom<Cli> for AppConfig {
         }
         if c.max_total_stake_usd <= 0.0 {
             bail!("max_total_stake_usd must be positive");
+        }
+        if c.paper_starting_balance_usd <= 0.0 {
+            bail!("paper_starting_balance_usd must be positive");
         }
         if c.poll_interval_secs == 0 {
             bail!("poll_interval_secs must be positive");
@@ -189,10 +215,13 @@ impl TryFrom<Cli> for AppConfig {
             calibration_path: c.calibration_path,
             open_positions_path: c.open_positions_path,
             execution_plan_dir: c.execution_plan_dir,
+            paper_portfolio_path: c.paper_portfolio_path,
+            performance_csv_path: c.performance_csv_path,
             execute_script: c.execute_script,
             strategies_file: c.strategies_file,
             log_directory: c.log_directory,
             dry_run: c.dry_run,
+            paper_starting_balance_usd: c.paper_starting_balance_usd,
             run_loop: c.run_loop,
             poll_interval_secs: c.poll_interval_secs,
             forecast_refresh_secs: c.forecast_refresh_secs,

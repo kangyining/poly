@@ -3,10 +3,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{
-    EvaluationReason, EvaluationRequested, Event, EventSource, MarketEvent, StrategyEvent,
-    SystemEvent, WeatherEvent,
-};
+use crate::core::events::{EvaluationReason, EvaluationRequested, Event, EventSource};
 
 pub struct EvaluationTriggerConsumer {
     bus: EventBus,
@@ -23,19 +20,19 @@ impl EvaluationTriggerConsumer {
         loop {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
-                    Event::System(SystemEvent::Started) => self.publish(EvaluationReason::Startup),
-                    Event::Weather(WeatherEvent::ForecastUpdated(_)) => {
+                    Event::Started => self.publish(EvaluationReason::Startup),
+                    Event::ForecastUpdated(_) => {
                         self.publish(EvaluationReason::WeatherChanged)
                     }
-                    Event::Market(MarketEvent::MetadataRefreshed(_)) => {
+                    Event::MetadataRefreshed(_) => {
                         self.publish(EvaluationReason::MarketMetadataChanged)
                     }
-                    Event::Market(MarketEvent::BestBidAskChanged(update)) => {
+                    Event::BestBidAskChanged(update) => {
                         self.publish(EvaluationReason::MarketPriceChanged {
                             token_id: update.token_id,
                         })
                     }
-                    Event::System(SystemEvent::Stopping) => break,
+                    Event::Stopping => break,
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
@@ -57,9 +54,7 @@ impl EvaluationTriggerConsumer {
     fn publish(&self, reason: EvaluationReason) {
         self.bus.publish(
             EventSource::TriggerConsumer,
-            Event::Strategy(StrategyEvent::EvaluationRequested(EvaluationRequested {
-                reason,
-            })),
+            Event::EvaluationRequested(EvaluationRequested { reason }),
         );
     }
 }

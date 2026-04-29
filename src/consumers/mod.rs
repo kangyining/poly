@@ -1,5 +1,6 @@
 pub mod evaluation_trigger_consumer;
 pub mod execution_consumer;
+pub mod portfolio_consumer;
 pub mod state_consumer;
 pub mod strategy_consumer;
 
@@ -9,16 +10,18 @@ use tokio::task::JoinSet;
 
 use crate::core::bus::EventBus;
 use crate::core::state::SharedState;
-use crate::services::{ExecutionService, StrategyService};
+use crate::services::{ExecutionService, PortfolioService, StrategyService};
 
 use self::evaluation_trigger_consumer::EvaluationTriggerConsumer;
 use self::execution_consumer::ExecutionConsumer;
+use self::portfolio_consumer::PortfolioConsumer;
 use self::state_consumer::StateConsumer;
 use self::strategy_consumer::StrategyConsumer;
 
 pub struct ConsumerServices {
     pub strategy: Arc<StrategyService>,
     pub execution: Arc<ExecutionService>,
+    pub portfolio: Arc<PortfolioService>,
 }
 
 pub fn spawn_all(
@@ -56,6 +59,14 @@ pub fn spawn_all(
     let execution_service = services.execution.clone();
     tasks.spawn(async move {
         ExecutionConsumer::new(bus_for_execution, state_for_execution, execution_service)
+            .consume()
+            .await
+    });
+
+    let bus_for_portfolio = bus.clone();
+    let portfolio_service = services.portfolio.clone();
+    tasks.spawn(async move {
+        PortfolioConsumer::new(bus_for_portfolio, portfolio_service)
             .consume()
             .await
     });

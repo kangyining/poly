@@ -4,9 +4,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{
-    Event, EventSource, MarketEvent, StrategyEvent, SystemEvent, TradingEvent, WeatherEvent,
-};
+use crate::core::events::{Event, EventSource};
 use crate::core::state::{LifecycleState, SharedState};
 
 pub struct StateConsumer {
@@ -25,11 +23,11 @@ impl StateConsumer {
         loop {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
-                    Event::System(SystemEvent::Started) => {
+                    Event::Started => {
                         let mut state = self.state.write().await;
                         state.lifecycle = LifecycleState::WarmingUp;
                     }
-                    Event::Weather(WeatherEvent::ForecastUpdated(update)) => {
+                    Event::ForecastUpdated(update) => {
                         let mut state = self.state.write().await;
                         state.weather.forecast = Some(update.current);
                         state.weather.last_update_at = Some(Utc::now());
@@ -37,7 +35,7 @@ impl StateConsumer {
                             state.lifecycle = LifecycleState::Ready;
                         }
                     }
-                    Event::Market(MarketEvent::MetadataRefreshed(update)) => {
+                    Event::MetadataRefreshed(update) => {
                         let mut state = self.state.write().await;
                         state.market.event_slug = Some(update.event_slug);
                         state.market.target_date = Some(update.target_date);
@@ -47,7 +45,7 @@ impl StateConsumer {
                             state.lifecycle = LifecycleState::Ready;
                         }
                     }
-                    Event::Market(MarketEvent::BestBidAskChanged(update)) => {
+                    Event::BestBidAskChanged(update) => {
                         let mut state = self.state.write().await;
                         if let Some(best_bid) = update.best_bid {
                             state
@@ -60,17 +58,17 @@ impl StateConsumer {
                         }
                         state.market.last_price_event_at = Some(Utc::now());
                     }
-                    Event::Strategy(StrategyEvent::EvaluationRequested(_)) => {
+                    Event::EvaluationRequested(_) => {
                         let mut state = self.state.write().await;
                         state.lifecycle = LifecycleState::Evaluating;
                     }
-                    Event::Strategy(StrategyEvent::EvaluationCompleted(outcome)) => {
+                    Event::EvaluationCompleted(outcome) => {
                         let mut state = self.state.write().await;
                         state.execution.last_run_id = Some(outcome.run_id.clone());
                         state.execution.last_evaluation_at = Some(Utc::now());
                         state.lifecycle = LifecycleState::Ready;
                     }
-                    Event::Trading(TradingEvent::OrderSubmitted(update)) => {
+                    Event::OrderSubmitted(update) => {
                         let mut state = self.state.write().await;
                         for token_id in update.token_ids {
                             state.execution.submitted_tokens.insert(token_id);
@@ -78,25 +76,29 @@ impl StateConsumer {
                         state.execution.last_run_id = Some(update.run_id);
                         state.lifecycle = LifecycleState::Ready;
                     }
-                    Event::Trading(TradingEvent::OrderSkipped(_)) => {
+                    Event::OrderSkipped(_) => {
                         let mut state = self.state.write().await;
                         state.lifecycle = LifecycleState::Ready;
                     }
-                    Event::Trading(TradingEvent::ExecutionPlanCreated(_)) => {
+                    Event::PlanExecuted(_) => {
+                        let mut state = self.state.write().await;
+                        state.lifecycle = LifecycleState::Ready;
+                    }
+                    Event::ExecutionPlanCreated(_) => {
                         let mut state = self.state.write().await;
                         state.lifecycle = LifecycleState::Executing;
                     }
-                    Event::System(SystemEvent::Stopping) => break,
+                    Event::Stopping => break,
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {
                     warn!(dropped, "state consumer lagged behind the event stream");
                     self.bus.publish(
                         EventSource::StateConsumer,
-                        Event::System(SystemEvent::SourceLagged {
+                        Event::SourceLagged {
                             source: EventSource::StateConsumer,
                             dropped_messages: dropped,
-                        }),
+                        },
                     );
                 }
                 Err(RecvError::Closed) => {

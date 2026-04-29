@@ -12,8 +12,7 @@ use tracing::{debug, info, warn};
 
 use crate::core::bus::EventBus;
 use crate::core::events::{
-    BestBidAskChanged, ConnectionStatusChanged, Event, EventSource, MarketEvent,
-    MarketMetadataRefreshed,
+    BestBidAskChanged, ConnectionStatusChanged, Event, EventSource, MarketMetadataRefreshed,
 };
 use crate::market::client::{effective_ask_vwap, PolymarketClient, WeatherMarket};
 
@@ -115,11 +114,11 @@ impl MarketService {
 
         self.bus.publish(
             EventSource::App,
-            Event::Market(MarketEvent::MetadataRefreshed(MarketMetadataRefreshed {
+            Event::MetadataRefreshed(MarketMetadataRefreshed {
                 event_slug: self.event_slug.clone(),
                 target_date: self.target_date,
                 markets: Arc::new(markets.clone()),
-            })),
+            }),
         );
 
         Ok(markets)
@@ -141,12 +140,10 @@ impl MarketService {
                 warn!(error = %error, "market websocket service disconnected, retrying");
                 self.bus.publish(
                     EventSource::MarketWs,
-                    Event::Market(MarketEvent::ConnectionStatusChanged(
-                        ConnectionStatusChanged {
-                            connected: false,
-                            message: error.to_string(),
-                        },
-                    )),
+                    Event::ConnectionStatusChanged(ConnectionStatusChanged {
+                        connected: false,
+                        message: error.to_string(),
+                    }),
                 );
                 sleep(Duration::from_secs(5)).await;
             }
@@ -183,12 +180,10 @@ impl MarketService {
         info!(asset_count = asset_ids.len(), "market websocket connected");
         self.bus.publish(
             EventSource::MarketWs,
-            Event::Market(MarketEvent::ConnectionStatusChanged(
-                ConnectionStatusChanged {
-                    connected: true,
-                    message: "connected".into(),
-                },
-            )),
+            Event::ConnectionStatusChanged(ConnectionStatusChanged {
+                connected: true,
+                message: "connected".into(),
+            }),
         );
 
         while let Some(message) = ws_stream.next().await {
@@ -263,11 +258,11 @@ impl MarketService {
 
         self.bus.publish(
             EventSource::MarketWs,
-            Event::Market(MarketEvent::BestBidAskChanged(BestBidAskChanged {
+            Event::BestBidAskChanged(BestBidAskChanged {
                 token_id: token_id.to_string(),
                 best_bid,
                 best_ask,
-            })),
+            }),
         );
     }
 }
