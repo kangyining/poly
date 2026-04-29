@@ -128,14 +128,13 @@ python backtest.py --strategy aggressive_tail --date-from 2026-02-01 --date-to 2
 ```
 
 What it does:
-1. Loads the named strategy profile from `../poly-weather-bot/strategies.toml`
-2. Replays `price_history` against `settlement_records`
+1. Loads the named strategy profile from `analysis/strategies/strategies.json`
+2. Replays `price_history_1m` against `settlement_records`
 3. Filters the run by `--city` when provided
-4. Stores run metadata in the `backtests` table
-5. Stores simulated trades in `positions` with a `backtest_id`
-6. Prints a JSON summary that the dashboard API also consumes
+4. Writes summary CSV, trade CSV, and Markdown report artifacts
+5. Prints a JSON summary with artifact paths
 
-This is the single supported backtest entry point in the repo.
+This is the supported backtest entry point in the repo.
 
 ---
 
@@ -149,7 +148,6 @@ cd F:\Polymark\poly-weather
 python backtest_param_finetune\param_sweep.py `
   --nyc-all-available `
   --sweep-name nyc_all_available_full_v1 `
-  --replay-mode single `
   --rank-by roi `
   --min-trades 10
 ```
@@ -158,11 +156,10 @@ For a custom range/grid:
 
 ```powershell
 python backtest_param_finetune\param_sweep.py `
-  --sweep-name nyc_april_single_v1 `
+  --sweep-name nyc_april_interval_1m_v1 `
   --city NYC `
   --date-from 2026-04-01 `
   --date-to 2026-04-19 `
-  --replay-mode single `
   --min-ev-thresholds 0.02,0.03,0.04,0.05 `
   --desired-shares 5,10 `
   --funding-pcts 0.5,1.0 `
@@ -172,9 +169,9 @@ python backtest_param_finetune\param_sweep.py `
 ```
 
 What it does:
-1. Builds a grid over `min_ev_threshold`, `desired_shares`, `funding_pct`, and `max_stake_usd`
+1. Builds a grid over `min_ev_threshold`, `desired_shares`, and strategy-specific parameters
 2. Calls the existing `run_backtest(...)` engine for each combination
-3. Persists each combination as a normal backtest row with a generated `backtest_id`
+3. Keeps simulated results out of SQLite
 4. With `--nyc-all-available`, discovers all currently backtest-ready NYC dates in `db/data.db`
 5. Writes ranked CSV and Markdown reports to `backtest_param_finetune/results/`
 6. Prints the top rows as JSON for quick terminal inspection
@@ -221,7 +218,7 @@ Backfills observed daily highs from ASOS (airport surface observations). Used fo
 | `ORDER_SIZE_USD` | Dollar stake per bin (default `5.0`) |
 | `MAX_TOTAL_STAKE_USD` | Max stake per pass (default `5.0`) |
 | `MAX_OPEN_POSITIONS` | Stop opening new trades above this count (default `8`) |
-| `POLL_INTERVAL_SECS` | Seconds between market evaluation passes (default `15`) |
+| `POLL_INTERVAL_SECS` | Legacy market polling knob; current live loop is websocket/event-driven (default `15`) |
 | `FORECAST_REFRESH_SECS` | Seconds between weather refreshes (default `1800`) |
 | `STATION_CODE` | Calibration lookup key (default `KLGA`) |
 | `CITY` | Polymarket city slug (default `nyc`) |

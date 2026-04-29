@@ -86,6 +86,23 @@ def record_forecasts(db: Database):
                 raw_json=json.dumps(raw),
             )
             db.insert_forecast(rec)
+            for model_name, temp_f in (
+                ("ecmwf_ifs025", rec.temp_max_ecmwf_f),
+                ("gfs_seamless", rec.temp_max_gfs_f),
+            ):
+                if temp_f is None:
+                    continue
+                db.insert_forecast_model_run({
+                    "timestamp": now.isoformat(),
+                    "city": city,
+                    "target_date": date_str,
+                    "source": "open-meteo",
+                    "model_name": model_name,
+                    "model_run_time": None,
+                    "forecast_lead_hours": rec.forecast_lead_hours,
+                    "temp_max_f": temp_f,
+                    "raw_json": json.dumps({"source": "open-meteo", "model": model_name, "target_date": date_str, "temp_max_f": temp_f}),
+                })
             log.debug(
                 "Forecast %s %s: ECMWF=%.1f°F GFS=%.1f°F spread=%.1f°C",
                 city, date_str,

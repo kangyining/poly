@@ -167,6 +167,57 @@ CREATE TABLE IF NOT EXISTS backtests (
     status        TEXT NOT NULL DEFAULT 'running'  -- running | done | failed
 );
 
+CREATE TABLE IF NOT EXISTS research_sources (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    url             TEXT NOT NULL UNIQUE,
+    source_type     TEXT NOT NULL,
+    date_checked    TEXT NOT NULL,
+    claim_summary   TEXT NOT NULL,
+    strategy_tags   TEXT NOT NULL             -- JSON array
+);
+
+CREATE TABLE IF NOT EXISTS forecast_model_runs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp           TEXT NOT NULL,
+    city                TEXT NOT NULL,
+    target_date         TEXT NOT NULL,
+    source              TEXT NOT NULL,
+    model_name          TEXT NOT NULL,
+    model_run_time      TEXT,
+    forecast_lead_hours REAL,
+    temp_max_f          REAL,
+    raw_json            TEXT
+);
+
+CREATE TABLE IF NOT EXISTS market_relationships (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    city            TEXT NOT NULL,
+    target_date     TEXT NOT NULL,
+    event_slug      TEXT,
+    market_type     TEXT NOT NULL,
+    bin_label       TEXT,
+    lower_bound_f   REAL,
+    upper_bound_f   REAL,
+    threshold_f     REAL,
+    source_station  TEXT,
+    confidence      REAL,
+    raw_json        TEXT
+);
+
+CREATE TABLE IF NOT EXISTS wallet_signal_snapshots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       TEXT NOT NULL,
+    wallet          TEXT NOT NULL,
+    strategy_tag    TEXT,
+    market_id       TEXT,
+    event_slug      TEXT,
+    token_id        TEXT,
+    side            TEXT,
+    price           REAL,
+    size            REAL,
+    raw_json        TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_positions_status
     ON positions(status);
 CREATE INDEX IF NOT EXISTS idx_positions_target_date
@@ -185,3 +236,9 @@ CREATE INDEX IF NOT EXISTS idx_forecast_city_date
     ON forecast_records(city, target_date);
 CREATE INDEX IF NOT EXISTS idx_settlement_city_date
     ON settlement_records(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_forecast_model_runs_city_date
+    ON forecast_model_runs(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_market_relationships_city_date
+    ON market_relationships(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_wallet_signal_snapshots_wallet_time
+    ON wallet_signal_snapshots(wallet, timestamp);
