@@ -15,6 +15,7 @@ Usage:
   python run_recorder.py --backfill-forecasts # historical ECMWF/GFS forecasts
   python run_recorder.py --backfill-prices    # historical CLOB price history
   python run_recorder.py --backfill-settlement-temps  # fill missing temperatures from ASOS
+  python run_recorder.py --backfill-metars    # historical hourly ASOS observations
 """
 
 import argparse
@@ -23,7 +24,10 @@ import sys
 import time
 from datetime import datetime, timezone
 
-import schedule
+try:
+    import schedule
+except ImportError:
+    schedule = None
 
 from data.db import Database
 from data.market_recorder import record_market_snapshots
@@ -34,6 +38,7 @@ from data.historical_forecast_backfill import backfill_historical_forecasts
 from data.taf_nws_recorder import record_tafs, record_nws_forecasts
 from data.price_history_backfill import backfill_price_history
 from data.asos_daily_high_backfill import backfill_missing_temps
+from data.asos_metar_backfill import backfill_asos_metars
 from data.price_history_missing_bins_backfill import backfill_missing_bins
 from data.true_forecast_backfill import backfill_true_forecasts
 
@@ -73,6 +78,8 @@ def main():
                         help="Backfill hourly CLOB price history for all settled markets")
     parser.add_argument("--backfill-settlement-temps", action="store_true",
                         help="Backfill missing settlement temperatures from ASOS for all cities")
+    parser.add_argument("--backfill-metars", action="store_true",
+                        help="Backfill historical hourly ASOS observations for nowcast backtests")
     parser.add_argument("--backfill-missing-bins", action="store_true",
                         help="Retry CLOB backfill for missing price history bins (warm-side bins 7-10)")
     parser.add_argument("--backfill-true-forecasts", action="store_true",
@@ -123,6 +130,14 @@ def main():
         db.close()
         return
 
+    if args.backfill_metars:
+        log.info("Starting historical ASOS METAR backfill")
+        count = backfill_asos_metars(db, city=args.city)
+        total = db.conn.execute("SELECT COUNT(*) FROM metar_records").fetchone()[0]
+        log.info("Done. New observations: %d; total metar_records: %d", count, total)
+        db.close()
+        return
+
     if args.backfill_missing_bins:
         log.info("Starting missing bins price history backfill (warm-side retry)")
         for city in ["Chicago", "Dallas", "NYC"]:
@@ -147,11 +162,16 @@ def main():
         return
 
     if args.once:
+        if schedule is None:
+            log.warning("Python package 'schedule' is not installed; --once can still run jobs directly")
         run_all(db)
         db.close()
         return
 
     # ── Continuous scheduler ──────────────────────────────────────────────
+    if schedule is None:
+        raise SystemExit("Missing dependency 'schedule'. Run: pip install -r requirements.txt")
+
     log.info("Starting continuous recorder (Ctrl+C to stop)")
 
     # Run immediately on start

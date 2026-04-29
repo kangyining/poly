@@ -140,6 +140,23 @@ def backfill_historical_forecasts(db: Database):
                 raw_json=json.dumps({"date": d_str, "ecmwf_f": ec_f, "gfs_f": gf_f}),
             )
             db.insert_forecast(rec)
+            for model_name, temp_f in (
+                ("ecmwf_ifs025", ec_f),
+                ("gfs_seamless", gf_f),
+            ):
+                if temp_f is None:
+                    continue
+                db.insert_forecast_model_run({
+                    "timestamp": now.isoformat(),
+                    "city": city,
+                    "target_date": d_str,
+                    "source": "open-meteo-historical",
+                    "model_name": model_name,
+                    "model_run_time": None,
+                    "forecast_lead_hours": -1.0,
+                    "temp_max_f": temp_f,
+                    "raw_json": json.dumps({"date": d_str, "model": model_name, "temp_max_f": temp_f}),
+                })
             saved += 1
 
         total_saved += saved

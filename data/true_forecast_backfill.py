@@ -160,6 +160,22 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
                 }),
             )
             db.insert_forecast(rec)
+            db.insert_forecast_model_run({
+                "timestamp": now.isoformat(),
+                "city": city_name,
+                "target_date": target_date,
+                "source": SOURCE,
+                "model_name": "gfs_global",
+                "model_run_time": model_run,
+                "forecast_lead_hours": lead_hours,
+                "temp_max_f": gfs_f,
+                "raw_json": json.dumps({
+                    "model": "gfs_global",
+                    "past_model_run": model_run,
+                    "target_date": target_date,
+                    "gfs_f": gfs_f,
+                }),
+            })
             saved += 1
 
             log.debug("%s %s: GFS 24h = %.1f°F (run %s)",

@@ -17,12 +17,19 @@ DEFAULT_DB   = Path(__file__).parent.parent / "db" / "data.db"
 
 
 class Database:
-    def __init__(self, db_path: Path = DEFAULT_DB):
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(db_path), check_same_thread=False)
+    def __init__(self, db_path: Path = DEFAULT_DB, read_only: bool = False):
+        db_path = Path(db_path)
+        if read_only:
+            if not db_path.exists():
+                raise FileNotFoundError(f"SQLite DB does not exist for read-only open: {db_path}")
+            self.conn = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro", uri=True, check_same_thread=False)
+        else:
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            self.conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
-        self._apply_schema()
-        log.info("Database ready: %s", db_path)
+        if not read_only:
+            self._apply_schema()
+        log.info("Database ready: %s%s", db_path, " (read-only)" if read_only else "")
 
     def _apply_schema(self):
         sql = SCHEMA_PATH.read_text()
@@ -46,6 +53,7 @@ class Database:
                 "fee_rate": "REAL",
             },
         )
+        self._ensure_auxiliary_tables()
 
     def _ensure_columns(self, table: str, columns: dict[str, str]) -> None:
         existing = {
@@ -57,6 +65,64 @@ class Database:
                 continue
             self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
             log.info("Applied DB migration: added %s.%s", table, name)
+
+    def _ensure_auxiliary_tables(self) -> None:
+        """Create research/strategy-lab tables when older DB files predate schema.sql."""
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS research_sources (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                url             TEXT NOT NULL UNIQUE,
+                source_type     TEXT NOT NULL,
+                date_checked    TEXT NOT NULL,
+                claim_summary   TEXT NOT NULL,
+                strategy_tags   TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS forecast_model_runs (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp           TEXT NOT NULL,
+                city                TEXT NOT NULL,
+                target_date         TEXT NOT NULL,
+                source              TEXT NOT NULL,
+                model_name          TEXT NOT NULL,
+                model_run_time      TEXT,
+                forecast_lead_hours REAL,
+                temp_max_f          REAL,
+                raw_json            TEXT
+            );
+            CREATE TABLE IF NOT EXISTS market_relationships (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                city            TEXT NOT NULL,
+                target_date     TEXT NOT NULL,
+                event_slug      TEXT,
+                market_type     TEXT NOT NULL,
+                bin_label       TEXT,
+                lower_bound_f   REAL,
+                upper_bound_f   REAL,
+                threshold_f     REAL,
+                source_station  TEXT,
+                confidence      REAL,
+                raw_json        TEXT
+            );
+            CREATE TABLE IF NOT EXISTS wallet_signal_snapshots (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp       TEXT NOT NULL,
+                wallet          TEXT NOT NULL,
+                strategy_tag    TEXT,
+                market_id       TEXT,
+                event_slug      TEXT,
+                token_id        TEXT,
+                side            TEXT,
+                price           REAL,
+                size            REAL,
+                raw_json        TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_forecast_model_runs_city_date
+                ON forecast_model_runs(city, target_date);
+            CREATE INDEX IF NOT EXISTS idx_market_relationships_city_date
+                ON market_relationships(city, target_date);
+            CREATE INDEX IF NOT EXISTS idx_wallet_signal_snapshots_wallet_time
+                ON wallet_signal_snapshots(wallet, timestamp);
+        """)
 
     # ── market snapshots ──────────────────────────────────────────────────
 
@@ -119,6 +185,39 @@ class Database:
             f.model_spread_c, f.forecast_lead_hours, f.raw_json,
         ))
         self.conn.commit()
+
+    def insert_forecast_model_run(self, row: dict) -> int:
+        cur = self.conn.execute("""
+            INSERT INTO forecast_model_runs (
+                timestamp, city, target_date, source, model_name, model_run_time,
+                forecast_lead_hours, temp_max_f, raw_json
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+        """, (
+            row["timestamp"], row["city"], row["target_date"], row["source"],
+            row["model_name"], row.get("model_run_time"),
+            row.get("forecast_lead_hours"), row.get("temp_max_f"),
+            row.get("raw_json"),
+        ))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def seed_research_sources(self, sources: list[dict]) -> int:
+        saved = 0
+        for source in sources:
+            cur = self.conn.execute("""
+                INSERT OR IGNORE INTO research_sources (
+                    url, source_type, date_checked, claim_summary, strategy_tags
+                ) VALUES (?,?,?,?,?)
+            """, (
+                source["url"],
+                source["source_type"],
+                source["date_checked"],
+                source["claim_summary"],
+                json.dumps(source.get("strategy_tags", [])),
+            ))
+            saved += cur.rowcount
+        self.conn.commit()
+        return saved
 
     # ── settlement records ────────────────────────────────────────────────
 

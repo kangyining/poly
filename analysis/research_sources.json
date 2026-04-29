@@ -1,0 +1,65 @@
+[
+  {
+    "url": "https://polyforecast.io/",
+    "source_type": "competitor_site",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Five-model weather ensemble compares professional forecasts against Polymarket prices and publishes real trade signals.",
+    "strategy_tags": ["ensemble_bucket_ev", "base_yes_no_ev"]
+  },
+  {
+    "url": "https://demfi.io/en",
+    "source_type": "competitor_site",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Temperature forecast service uses many NWP models across global cities to produce probability forecasts.",
+    "strategy_tags": ["ensemble_bucket_ev", "dynamic_sigma_ev"]
+  },
+  {
+    "url": "https://www.weatherbot.finance/",
+    "source_type": "competitor_site",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Bot thesis combines four forecast models, Bayesian historical base rates, dynamic sigma, Kelly sizing, live websocket repricing, and exit rules.",
+    "strategy_tags": ["dynamic_sigma_ev", "bayesian_climatology_ev", "nowcast_metar", "exit_overlay"]
+  },
+  {
+    "url": "https://docs.polymarket.com/trading/fees",
+    "source_type": "official_docs",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Weather markets can have taker fees; makers are not charged, so passive execution can materially change edge.",
+    "strategy_tags": ["maker_quote_sim"]
+  },
+  {
+    "url": "https://docs.polymarket.com/trading/orderbook",
+    "source_type": "official_docs",
+    "date_checked": "2026-04-26",
+    "claim_summary": "CLOB orderbooks, websocket price changes, best bid/ask, new market, and resolved events support executable-price and queue-aware strategies.",
+    "strategy_tags": ["maker_quote_sim", "basket_arb", "resolution_lag_anomaly"]
+  },
+  {
+    "url": "https://open-meteo.com/en/docs/ensemble-api",
+    "source_type": "official_docs",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Open-Meteo exposes multi-model ensemble forecasts suitable for probabilistic weather outcomes.",
+    "strategy_tags": ["ensemble_bucket_ev", "dynamic_sigma_ev"]
+  },
+  {
+    "url": "https://x.com/slash1sol/status/2043809203895374195",
+    "source_type": "public_x_search",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Public X thread claims weather tail traders buy cheap 1c-5c outcomes and/or NO tight ranges; treat as a testable but risky tail thesis.",
+    "strategy_tags": ["base_yes_no_ev", "dynamic_sigma_ev"]
+  },
+  {
+    "url": "https://x.com/LunarResearcher/status/2041152575299367162",
+    "source_type": "public_x_search",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Public X thread emphasizes wallet analytics, weather tooling, Open-Meteo, and security caution around trading bots.",
+    "strategy_tags": ["sharp_wallet_copy", "ensemble_bucket_ev"]
+  },
+  {
+    "url": "https://www.businessinsider.com/polymarket-paris-weather-bet-insider-trading-manipulation-2026-4",
+    "source_type": "news",
+    "date_checked": "2026-04-26",
+    "claim_summary": "Paris temperature spike/tampering investigation highlights source-anomaly and resolution-lag risks in weather markets.",
+    "strategy_tags": ["resolution_lag_anomaly"]
+  }
+]
