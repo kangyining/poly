@@ -5,7 +5,7 @@ use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, info, warn};
 
 use crate::core::bus::EventBus;
-use crate::core::events::{Event, EventSource, StrategyEvent, SystemEvent};
+use crate::core::events::{Event, EventSource};
 use crate::core::state::SharedState;
 use crate::services::StrategyService;
 
@@ -30,7 +30,7 @@ impl StrategyConsumer {
         loop {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
-                    Event::Strategy(StrategyEvent::EvaluationRequested(request)) => {
+                    Event::EvaluationRequested(request) => {
                         let forecast = {
                             let state = self.state.read().await;
                             state.weather.forecast.clone()
@@ -46,9 +46,7 @@ impl StrategyConsumer {
                             Ok(outcome) => {
                                 self.bus.publish(
                                     EventSource::StrategyEngine,
-                                    Event::Strategy(StrategyEvent::EvaluationCompleted(Arc::new(
-                                        outcome,
-                                    ))),
+                                    Event::EvaluationCompleted(Arc::new(outcome)),
                                 );
                             }
                             Err(error) => {
@@ -56,7 +54,7 @@ impl StrategyConsumer {
                             }
                         }
                     }
-                    Event::System(SystemEvent::Stopping) => break,
+                    Event::Stopping => break,
                     _ => {}
                 },
                 Err(RecvError::Lagged(dropped)) => {

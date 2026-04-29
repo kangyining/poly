@@ -7,10 +7,10 @@ use tracing::{info, warn};
 use crate::config::AppConfig;
 use crate::consumers::{self, ConsumerServices};
 use crate::core::bus::EventBus;
-use crate::core::events::{Event, EventSource, StrategyEvent, SystemEvent, TradingEvent};
+use crate::core::events::{Event, EventSource};
 use crate::core::state::new_shared_state;
 use crate::market::MarketService;
-use crate::services::{EventService, ExecutionService, StrategyService};
+use crate::services::{EventService, ExecutionService, PortfolioService, StrategyService};
 use crate::strategy::CalibrationTable;
 use crate::weather::WeatherService;
 
@@ -57,6 +57,10 @@ impl App {
             market_service.clone(),
         ));
         let execution_service = Arc::new(ExecutionService::new(self.config.clone()));
+        let portfolio_service = Arc::new(PortfolioService::new(
+            self.config.clone(),
+            state.clone(),
+        ));
 
         let mut tasks = JoinSet::new();
         let mut control_rx = bus.subscribe();
@@ -67,6 +71,7 @@ impl App {
             ConsumerServices {
                 strategy: strategy_service.clone(),
                 execution: execution_service.clone(),
+                portfolio: portfolio_service.clone(),
             },
         );
         let initial_markets = market_service.publish_metadata().await?;
@@ -75,20 +80,20 @@ impl App {
         let market_service = market_service.clone();
         tasks.spawn(async move { market_service.run_poller(initial_markets).await });
 
-        bus.publish(EventSource::App, Event::System(SystemEvent::Started));
+        bus.publish(EventSource::App, Event::Started);
         info!("event-driven bot framework started");
 
         if self.config.run_loop {
             tokio::signal::ctrl_c().await?;
             info!("received ctrl-c, stopping");
-            bus.publish(EventSource::App, Event::System(SystemEvent::Stopping));
+            bus.publish(EventSource::App, Event::Stopping);
         } else {
             loop {
                 match control_rx.recv().await {
                     Ok(envelope) => match envelope.payload {
-                        Event::Trading(TradingEvent::OrderSubmitted(_))
-                        | Event::Trading(TradingEvent::OrderSkipped(_))
-                        | Event::Strategy(StrategyEvent::EvaluationCompleted(_)) => break,
+                        Event::OrderSubmitted(_)
+                        | Event::OrderSkipped(_)
+                        | Event::EvaluationCompleted(_) => break,
                         _ => {}
                     },
                     Err(error) => {
@@ -97,7 +102,7 @@ impl App {
                     }
                 }
             }
-            bus.publish(EventSource::App, Event::System(SystemEvent::Stopping));
+            bus.publish(EventSource::App, Event::Stopping);
         }
 
         while let Some(task_result) = tasks.join_next().await {
