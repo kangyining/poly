@@ -1,4 +1,4 @@
-use tracing::{debug, info, info_span};
+use tracing::{debug, info, instrument};
 
 use crate::market::WeatherMarket;
 
@@ -28,59 +28,11 @@ impl StrategyEngine {
         let mut evaluated_markets = Vec::new();
 
         for (index, market) in markets.iter().enumerate() {
-            let decision_id = format!("{}:{}:{}", input.run_id, market.id, index);
-            let span = info_span!(
-                "market_decision",
-                run_id = %input.run_id,
-                decision_id = %decision_id,
-                market_id = %market.id,
-                question = %market.question
-            );
-            let _entered = span.enter();
-
-            let mut trace = DecisionTrace::new(decision_id.clone(), market);
-            let mut accepted = true;
-
-            for rule in &self.rules {
-                if !rule.evaluate(input, market, &mut trace) {
-                    accepted = false;
-                    debug!(rule = rule.name(), "market rejected");
-                    break;
-                }
+            let (candidate, evaluated_market) = self.evaluate_market(input, market, index);
+            if let Some(candidate) = candidate {
+                candidates.push(candidate);
             }
-
-            if accepted {
-                // Re-compute p_model and ev_no for the candidate record
-                let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
-                let effective_ask = market
-                    .effective_ask_no
-                    .expect("accepted market has effective_ask");
-                let fee_rate = market.fee_rate.expect("accepted market has fee_rate");
-                let ev_no = (1.0 - p) - effective_ask * (1.0 + fee_rate * (1.0 - effective_ask));
-                let no_token_id = market
-                    .no_token_id
-                    .clone()
-                    .expect("accepted market has no_token_id");
-
-                candidates.push(TradeCandidate {
-                    market_id: market.id.clone(),
-                    question: market.question.clone(),
-                    slug: market.slug.clone(),
-                    range: market.range,
-                    p_model: p,
-                    ev_no,
-                    effective_ask,
-                    fee_rate,
-                    no_token_id,
-                    shares: input.desired_shares,
-                    stake_usd: input.desired_shares
-                        * effective_ask
-                        * (1.0 + fee_rate * (1.0 - effective_ask)),
-                    decision_id,
-                });
-            }
-
-            evaluated_markets.push(trace.into_evaluated_market(accepted));
+            evaluated_markets.push(evaluated_market);
         }
 
         info!(
@@ -94,6 +46,69 @@ impl StrategyEngine {
             candidates,
             evaluated_markets,
         }
+    }
+
+    #[instrument(
+        name = "market_decision",
+        skip(self, input, market),
+        fields(
+            run_id = %input.run_id,
+            decision_id = %format!("{}:{}:{}", input.run_id, market.id, index),
+            market_id = %market.id,
+            question = %market.question
+        )
+    )]
+    fn evaluate_market(
+        &self,
+        input: &StrategyInput,
+        market: &WeatherMarket,
+        index: usize,
+    ) -> (Option<TradeCandidate>, super::types::EvaluatedMarket) {
+        let decision_id = format!("{}:{}:{}", input.run_id, market.id, index);
+        let mut trace = DecisionTrace::new(decision_id.clone(), market);
+        let mut accepted = true;
+
+        for rule in &self.rules {
+            if !rule.evaluate(input, market, &mut trace) {
+                accepted = false;
+                debug!(rule = rule.name(), "market rejected");
+                break;
+            }
+        }
+
+        let candidate = if accepted {
+            let p = market.range.bucket_probability(input.mu_f, input.sigma_f);
+            let effective_ask = market
+                .effective_ask_no
+                .expect("accepted market has effective_ask");
+            let fee_rate = market.fee_rate.expect("accepted market has fee_rate");
+            let ev_no = (1.0 - p) - effective_ask * (1.0 + fee_rate * (1.0 - effective_ask));
+            let no_token_id = market
+                .no_token_id
+                .clone()
+                .expect("accepted market has no_token_id");
+
+            Some(TradeCandidate {
+                market_id: market.id.clone(),
+                question: market.question.clone(),
+                slug: market.slug.clone(),
+                range: market.range,
+                p_model: p,
+                ev_no,
+                effective_ask,
+                fee_rate,
+                no_token_id,
+                shares: input.desired_shares,
+                stake_usd: input.desired_shares
+                    * effective_ask
+                    * (1.0 + fee_rate * (1.0 - effective_ask)),
+                decision_id,
+            })
+        } else {
+            None
+        };
+
+        (candidate, trace.into_evaluated_market(accepted))
     }
 }
 

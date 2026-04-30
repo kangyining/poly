@@ -54,7 +54,6 @@ impl StrategyService {
             self.config.city,
             Utc::now().format("%Y%m%dT%H%M%SZ")
         );
-
         let (beta_f, sigma_f) = self
             .calibration
             .as_ref()
