@@ -5,9 +5,7 @@ use anyhow::{Context, Result};
 use chrono::{NaiveDate, Utc};
 
 use crate::config::AppConfig;
-use crate::core::state::{
-    PortfolioPosition, PortfolioState, SharedState, TradeRationale,
-};
+use crate::core::state::{PortfolioPosition, PortfolioState, SharedState, TradeRationale};
 use crate::market::PolymarketClient;
 
 use super::{ExecutedTrade, ExecutionReport};

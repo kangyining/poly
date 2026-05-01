@@ -153,7 +153,11 @@ pub struct PortfolioState {
 
 impl PortfolioState {
     pub fn refresh_summary(&mut self) {
-        self.realized_pnl_usd = self.positions.iter().filter_map(|position| position.pnl).sum();
+        self.realized_pnl_usd = self
+            .positions
+            .iter()
+            .filter_map(|position| position.pnl)
+            .sum();
         self.equity_usd = self.cash_usd + self.open_exposure_usd();
     }
 

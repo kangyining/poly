@@ -21,9 +21,7 @@ impl EvaluationTriggerConsumer {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
                     Event::Started => self.publish(EvaluationReason::Startup),
-                    Event::ForecastUpdated(_) => {
-                        self.publish(EvaluationReason::WeatherChanged)
-                    }
+                    Event::ForecastUpdated(_) => self.publish(EvaluationReason::WeatherChanged),
                     Event::MetadataRefreshed(_) => {
                         self.publish(EvaluationReason::MarketMetadataChanged)
                     }
