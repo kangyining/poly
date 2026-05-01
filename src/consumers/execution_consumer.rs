@@ -42,7 +42,9 @@ impl ExecutionConsumer {
                                 .trades
                                 .iter()
                                 .map(|trade| trade.no_token_id.clone())
-                                .filter(|token_id| !state.execution.submitted_tokens.contains(token_id))
+                                .filter(|token_id| {
+                                    !state.execution.submitted_tokens.contains(token_id)
+                                })
                                 .collect::<Vec<_>>()
                         };
 

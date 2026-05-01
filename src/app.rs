@@ -57,10 +57,7 @@ impl App {
             market_service.clone(),
         ));
         let execution_service = Arc::new(ExecutionService::new(self.config.clone()));
-        let portfolio_service = Arc::new(PortfolioService::new(
-            self.config.clone(),
-            state.clone(),
-        ));
+        let portfolio_service = Arc::new(PortfolioService::new(self.config.clone(), state.clone()));
 
         let mut tasks = JoinSet::new();
         let mut control_rx = bus.subscribe();
