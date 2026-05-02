@@ -26,7 +26,11 @@ from typing import Any, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.db import Database
-from config.cities import CITIES
+from config.weather_contracts import (
+    contract_for_city,
+    enabled_daily_high_contracts,
+)
+from data.weather_contracts import build_daily_high_slug
 from analysis.calibration import lookup as calibration_lookup
 from analysis.strategies import ForecastState, MarketBin, StrategyContext, get_strategy, group_members, list_strategy_configs, load_strategy_params
 from analysis.strategies.core import StrategyCandidate, StrategyDiagnostic
@@ -383,6 +387,17 @@ def _finalize_backtest_run(
     total_pnl = sum(t["pnl"] for t in trades)
     wins = sum(1 for t in trades if t["won"])
     win_rate = wins / len(trades) if trades else 0.0
+    days_considered = int(extra_summary.get("days_considered") or 0)
+    trade_days = {t["target_date"] for t in trades}
+    active_trade_days = len(trade_days)
+    max_daily_stake = run_params.get("max_stake_usd")
+    daily_cap_return = None
+    try:
+        max_daily_stake_float = float(max_daily_stake)
+        if max_daily_stake_float > 0:
+            daily_cap_return = total_pnl / max_daily_stake_float
+    except (TypeError, ValueError):
+        daily_cap_return = None
 
     from collections import defaultdict
     daily = defaultdict(float)
@@ -410,6 +425,12 @@ def _finalize_backtest_run(
         "total_pnl": round(total_pnl, 4),
         "sharpe": round(sharpe, 4),
         "total_stake": round(total_stake, 4),
+        "turnover_yield": round(total_pnl / total_stake, 6) if total_stake > 0 else None,
+        "pnl_per_calendar_day": round(total_pnl / days_considered, 4) if days_considered > 0 else None,
+        "pnl_per_active_day": round(total_pnl / active_trade_days, 4) if active_trade_days > 0 else None,
+        "pnl_per_trade": round(total_pnl / len(trades), 4) if trades else None,
+        "active_trade_days": active_trade_days,
+        "return_on_daily_cap": round(daily_cap_return, 6) if daily_cap_return is not None else None,
         "result_storage": "files",
     }
     summary.update(extra_summary)
@@ -452,6 +473,12 @@ def _write_summary_csv(path: Path, summaries: list[dict[str, Any]]) -> None:
         "total_pnl",
         "sharpe",
         "total_stake",
+        "turnover_yield",
+        "pnl_per_calendar_day",
+        "pnl_per_active_day",
+        "pnl_per_trade",
+        "active_trade_days",
+        "return_on_daily_cap",
         "result_storage",
         "days_considered",
         "days_with_forecast",
@@ -534,7 +561,9 @@ def _fmt_pct(value: Any) -> str:
         return str(value)
 
 
-def _roi(summary: dict[str, Any]) -> float | None:
+def _turnover_yield(summary: dict[str, Any]) -> float | None:
+    if summary.get("turnover_yield") is not None:
+        return float(summary["turnover_yield"])
     stake = float(summary.get("total_stake") or 0.0)
     if stake <= 0:
         return None
@@ -559,16 +588,16 @@ def _write_summary_report(
         summaries,
         key=lambda summary: (
             float(summary.get("total_pnl") or 0.0),
-            _roi(summary) if _roi(summary) is not None else float("-inf"),
+            _turnover_yield(summary) if _turnover_yield(summary) is not None else float("-inf"),
             int(summary.get("total_trades") or 0),
         ),
         reverse=True,
     )
     traded = [summary for summary in summaries if int(summary.get("total_trades") or 0) > 0]
     best_pnl = ranked[0] if ranked else None
-    best_roi = max(
-        (summary for summary in summaries if _roi(summary) is not None),
-        key=lambda summary: _roi(summary) or float("-inf"),
+    best_turnover_yield = max(
+        (summary for summary in summaries if _turnover_yield(summary) is not None),
+        key=lambda summary: _turnover_yield(summary) or float("-inf"),
         default=None,
     )
     total_trades = sum(int(summary.get("total_trades") or 0) for summary in summaries)
@@ -598,10 +627,11 @@ def _write_summary_report(
             f"- Best total PnL: `{best_pnl.get('strategy')}` with `{_fmt_num(best_pnl.get('total_pnl'))}` "
             f"over `{best_pnl.get('total_trades')}` trades."
         )
-    if best_roi:
+    if best_turnover_yield:
         lines.append(
-            f"- Best ROI: `{best_roi.get('strategy')}` with `{_fmt_pct(_roi(best_roi))}` "
-            f"on `{_fmt_num(best_roi.get('total_stake'))}` stake."
+            f"- Best turnover yield: `{best_turnover_yield.get('strategy')}` with "
+            f"`{_fmt_pct(_turnover_yield(best_turnover_yield))}` "
+            f"on `{_fmt_num(best_turnover_yield.get('total_stake'))}` simulated stake turnover."
         )
     if not traded:
         lines.append("- No strategy produced trades in this run. Check `days_considered`, price history, forecasts, and diagnostics.")
@@ -611,13 +641,13 @@ def _write_summary_report(
             "",
             "## Strategy Comparison",
             "",
-            "| Rank | Strategy | Plugin | Trades | Win% | PnL | Stake | ROI | Sharpe | Days | Forecast Days | Price Days | Snapshot Days | Diagnostics |",
-            "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+            "| Rank | Strategy | Plugin | Trades | Win% | PnL | Stake Turnover | Turnover Yield | PnL/Day | PnL/Trade | Return on Daily Cap | Sharpe | Days | Forecast Days | Price Days | Snapshot Days | Diagnostics |",
+            "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
         ]
     )
     for rank, summary in enumerate(ranked, start=1):
         lines.append(
-            "| {rank} | `{strategy}` | `{plugin}` | {trades} | {win_rate} | {pnl} | {stake} | {roi} | {sharpe} | {days} | {forecast_days} | {price_days} | {snapshot_days} | {diagnostics} |".format(
+            "| {rank} | `{strategy}` | `{plugin}` | {trades} | {win_rate} | {pnl} | {stake} | {turnover_yield} | {pnl_per_day} | {pnl_per_trade} | {daily_cap_return} | {sharpe} | {days} | {forecast_days} | {price_days} | {snapshot_days} | {diagnostics} |".format(
                 rank=rank,
                 strategy=summary.get("strategy") or "",
                 plugin=summary.get("strategy_plugin") or "",
@@ -625,7 +655,10 @@ def _write_summary_report(
                 win_rate=_fmt_pct(summary.get("win_rate")),
                 pnl=_fmt_num(summary.get("total_pnl")),
                 stake=_fmt_num(summary.get("total_stake")),
-                roi=_fmt_pct(_roi(summary)),
+                turnover_yield=_fmt_pct(_turnover_yield(summary)),
+                pnl_per_day=_fmt_num(summary.get("pnl_per_calendar_day")),
+                pnl_per_trade=_fmt_num(summary.get("pnl_per_trade")),
+                daily_cap_return=_fmt_pct(summary.get("return_on_daily_cap")),
                 sharpe=_fmt_num(summary.get("sharpe")),
                 days=summary.get("days_considered") or 0,
                 forecast_days=summary.get("days_with_forecast") or 0,
@@ -641,7 +674,10 @@ def _write_summary_report(
             "## Notes",
             "",
             "- This report compares the strategies exactly as configured for this run.",
-            "- ROI is `total_pnl / total_stake`; blank ROI means the strategy placed no trades.",
+            "- `Stake Turnover` is the sum of simulated trade stakes, not starting capital.",
+            "- `Turnover Yield` is `total_pnl / stake_turnover`; it is not portfolio ROI.",
+            "- `PnL/Day` is `total_pnl / days_considered`.",
+            "- `Return on Daily Cap` is `total_pnl / max_stake_usd` for this run's daily stake cap.",
             "- Diagnostics are emitted by strategy plugins when required data is missing or a research strategy is not yet fully supported.",
             "- Use the trade-level CSV to inspect individual bins, prices, rationale JSON, and PnL.",
             "",
@@ -713,6 +749,39 @@ def _load_forecast_snapshots(db: Database, city: str, target_date: str) -> list[
         })
 
     return snapshots
+
+
+def _station_for_city(city: str) -> str:
+    _slug, contract = contract_for_city(city)
+    if contract:
+        return contract["station_id"]
+    return city
+
+
+def _default_event_slug(city: str, target_date: str) -> str:
+    _slug, contract = contract_for_city(city)
+    target = date.fromisoformat(target_date)
+    if contract:
+        return build_daily_high_slug(_slug, target)
+    fallback_slug = re.sub(r"[^a-z0-9]+", "-", city.strip().lower()).strip("-")
+    return build_daily_high_slug(fallback_slug, target)
+
+
+def _known_city_names() -> list[str]:
+    names = {cfg["display_city"] for cfg in enabled_daily_high_contracts().values()}
+    return sorted(names)
+
+
+def _normalize_city_filter(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    _slug, contract = contract_for_city(raw)
+    if contract:
+        return contract["display_city"]
+    for name in _known_city_names():
+        if name.lower() == raw.lower():
+            return name
+    return raw
 
 
 def _select_active_forecast(
@@ -847,7 +916,7 @@ def _run_interval_backtest(
     calibration_table = calibration_table or {"cells": {}, "_defaults": {}}
 
     settlement_sql = """
-        SELECT city, target_date, winning_bin FROM settlement_records
+        SELECT city, target_date, winning_bin, event_slug FROM settlement_records
         WHERE target_date >= ? AND target_date <= ?
     """
     settlement_params: list[object] = [date_from.isoformat(), date_to.isoformat()]
@@ -878,6 +947,7 @@ def _run_interval_backtest(
         settlement_city = row["city"]
         target_date = row["target_date"]
         winning_bin = row["winning_bin"]
+        event_slug = row["event_slug"] or _default_event_slug(settlement_city, target_date)
         days_considered += 1
 
         if not winning_bin:
@@ -900,7 +970,7 @@ def _run_interval_backtest(
         snapshot_fills = _load_snapshot_fill_bars(
             db, settlement_city, target_date, interval_minutes, shares
         )
-        station_code = CITIES.get(settlement_city, {}).get("icao", settlement_city)
+        station_code = _station_for_city(settlement_city)
         target_dt = date.fromisoformat(target_date)
         metar_records = _load_metar_records(db, settlement_city, target_date)
         metar_times, metar_maxes = _metar_prefix_max(metar_records)
@@ -993,7 +1063,7 @@ def _run_interval_backtest(
                 params=params,
                 replay_mode="interval",
                 evaluation_time=bucket_ts,
-                event_slug=f"highest-temperature-in-{settlement_city}-on-{target_date}",
+                event_slug=event_slug,
                 settlement_temp_f=None,
                 metar_max_so_far_f=_metar_max_from_prefix(metar_times, metar_maxes, bucket_ts),
                 climatology_temps_f=climatology_temps,
@@ -1192,9 +1262,10 @@ def main():
         date_from = date.fromisoformat(args.date_from)
     else:
         date_from = date_to - timedelta(days=args.days - 1)
-    city = args.city.upper() if args.city else None
-    if city and city not in CITIES:
-        parser.error(f"--city must be one of: {', '.join(sorted(CITIES))}")
+    city = _normalize_city_filter(args.city)
+    known_cities = _known_city_names()
+    if city and city not in known_cities:
+        parser.error(f"--city must be one of: {', '.join(known_cities)}")
     strategies_file = Path(args.strategies_file) if args.strategies_file else None
     if args.list_strategies:
         print(json.dumps(list_strategy_configs(strategies_file or DEFAULT_STRATEGIES_PATH), indent=2))

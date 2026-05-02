@@ -28,12 +28,6 @@ from pathlib import Path
 DB_PATH   = Path(__file__).parent.parent / "db" / "data.db"
 OUT_PATH  = Path(__file__).parent.parent / "calibration.json"
 
-STATION_MAP = {
-    "Chicago": "KORD",
-    "Dallas":  "KDAL",
-    "NYC":     "KLGA",
-}
-
 # Minimum samples required to use a fitted cell; fall back to station default otherwise
 MIN_SAMPLES = 10
 
@@ -67,6 +61,12 @@ def fit(errors: list[float]) -> tuple[float, float]:
     return beta, clamp(sigma, SIGMA_MIN, SIGMA_MAX)
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, name: str, ddl: str) -> None:
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if name not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+
+
 def build_table() -> dict:
     """
     Returns nested dict:
@@ -76,6 +76,9 @@ def build_table() -> dict:
     """
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
+    _ensure_column(conn, "forecast_records", "station_id", "TEXT")
+    _ensure_column(conn, "settlement_records", "station_id", "TEXT")
+    _ensure_column(conn, "settlement_records", "settlement_temp_station", "TEXT")
 
     rows = conn.execute("""
         SELECT
@@ -83,7 +86,10 @@ def build_table() -> dict:
             f.target_date,
             f.temp_max_gfs_f     AS forecast_f,
             f.forecast_lead_hours,
+            f.station_id          AS forecast_station,
             s.settlement_temp_f,
+            s.station_id          AS settlement_station,
+            s.settlement_temp_station,
             s.wunderground_station
         FROM forecast_records f
         JOIN settlement_records s
@@ -102,7 +108,13 @@ def build_table() -> dict:
     all_errors: list[float] = []
 
     for row in rows:
-        station = STATION_MAP.get(row["city"], row["wunderground_station"] or row["city"])
+        station = (
+            row["settlement_station"]
+            or row["settlement_temp_station"]
+            or row["wunderground_station"]
+            or row["forecast_station"]
+            or row["city"]
+        )
         month   = str(datetime.fromisoformat(row["target_date"]).month)
         lb      = lead_bin(row["forecast_lead_hours"] or 26.0)
         error   = row["settlement_temp_f"] - row["forecast_f"]
