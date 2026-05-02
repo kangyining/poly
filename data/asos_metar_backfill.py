@@ -11,7 +11,11 @@ from datetime import datetime, timezone
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import (
+    contract_for_city,
+    contract_for_station,
+    enabled_daily_high_contracts,
+)
 from data.db import Database
 from data.models import METARRecord
 
@@ -41,7 +45,12 @@ def _parse_valid(value: str) -> datetime | None:
             return None
 
 
-def fetch_asos_observations(station: str, target_date: str, retries: int = 4) -> list[METARRecord]:
+def fetch_asos_observations(
+    station: str,
+    target_date: str,
+    retries: int = 4,
+    city_name: str | None = None,
+) -> list[METARRecord]:
     params = [
         ("station", station),
         ("data", "tmpf"),
@@ -67,7 +76,9 @@ def fetch_asos_observations(station: str, target_date: str, retries: int = 4) ->
     if not text:
         return []
 
-    city = next((name for name, cfg in CITIES.items() if cfg["icao"] == station), station)
+    if city_name is None:
+        _, cfg = contract_for_station(station)
+        city_name = cfg["display_city"] if cfg else station
     now = datetime.now(timezone.utc)
     records: list[METARRecord] = []
     for row in csv.DictReader(io.StringIO(text)):
@@ -90,7 +101,7 @@ def fetch_asos_observations(station: str, target_date: str, retries: int = 4) ->
             METARRecord(
                 timestamp=now,
                 icao=station,
-                city=city,
+                city=city_name,
                 temp_c=_f_to_c(temp_f),
                 temp_f=round(temp_f, 1),
                 dewpoint_c=dewpoint_c,
@@ -101,13 +112,24 @@ def fetch_asos_observations(station: str, target_date: str, retries: int = 4) ->
     return records
 
 
+def _contract_filter(city: str | None) -> dict[str, dict]:
+    if city:
+        slug, cfg = contract_for_city(city)
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+            return {}
+        return {slug: cfg}
+    return enabled_daily_high_contracts()
+
+
 def backfill_asos_metars(db: Database, city: str | None = None) -> int:
-    cities = {city: CITIES[city]} if city else CITIES
     total = 0
-    for city_name, cfg in cities.items():
+    for _, cfg in _contract_filter(city).items():
+        city_name = cfg["display_city"]
         rows = db.conn.execute(
             """
-            SELECT DISTINCT target_date
+            SELECT DISTINCT target_date,
+                   COALESCE(station_id, settlement_temp_station, wunderground_station) AS station_id
             FROM settlement_records
             WHERE city = ? AND winning_bin IS NOT NULL
             ORDER BY target_date
@@ -126,8 +148,9 @@ def backfill_asos_metars(db: Database, city: str | None = None) -> int:
             ).fetchone()["c"]
             if existing:
                 continue
+            station = row["station_id"] or cfg["station_id"]
             try:
-                records = fetch_asos_observations(cfg["icao"], target_date)
+                records = fetch_asos_observations(station, target_date, city_name=city_name)
             except Exception as e:
                 log.warning("ASOS METAR backfill failed for %s %s: %s", city_name, target_date, e)
                 time.sleep(0.5)

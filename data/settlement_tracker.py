@@ -13,10 +13,15 @@ from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from config.cities import CITIES
 from data.db import Database
-from data.gamma_client import fetch_event, parse_markets, winning_bin
-from data.models import SettlementRecord
+from data.gamma_client import winning_bin
+from data.models import SettlementRecord, WeatherContract
+from data.weather_contracts import (
+    configured_weather_contracts,
+    fetch_event_by_slug,
+    validate_weather_event,
+)
+from config.weather_contracts import contract_for_city
 
 # Path written for the Rust bot to read on its next run
 OPEN_POSITIONS_JSON = Path(__file__).parent.parent.parent / "poly-weather" / "open_positions.json"
@@ -24,8 +29,7 @@ OPEN_POSITIONS_JSON = Path(__file__).parent.parent.parent / "poly-weather" / "op
 log = logging.getLogger(__name__)
 
 
-def _extract_settlement(event: dict, city: str, target_date: str,
-                        cfg: dict) -> Optional[SettlementRecord]:
+def _extract_settlement(event: dict, contract: WeatherContract) -> Optional[SettlementRecord]:
     """Build a SettlementRecord from a closed event. Returns None if not resolved."""
     markets = event.get("markets", [])
     if not markets:
@@ -34,7 +38,7 @@ def _extract_settlement(event: dict, city: str, target_date: str,
     win_bin = winning_bin(event)
     if not win_bin:
         # Market closed but resolution not yet visible in prices
-        log.debug("No winner yet for %s %s", city, target_date)
+        log.debug("No winner yet for %s %s", contract.display_city, contract.target_date)
         return None
 
     # Snapshot all outcome prices for audit
@@ -58,15 +62,23 @@ def _extract_settlement(event: dict, city: str, target_date: str,
             pass
 
     return SettlementRecord(
-        city=city,
-        target_date=target_date,
+        city=contract.display_city,
+        target_date=contract.target_date,
         event_id=str(event.get("id", "")),
-        event_slug=event.get("_slug", ""),
+        event_slug=event.get("_slug", "") or contract.event_slug,
         winning_bin=win_bin,
         settlement_temp_f=settlement_temp,
-        wunderground_station=cfg.get("wunderground_station", cfg.get("icao", "")),
+        wunderground_station=contract.station_id,
         resolved_at=resolved_at,
         raw_outcome_prices=json.dumps(outcome_snapshot),
+        market_type=contract.market_type,
+        measure=contract.measure,
+        unit=contract.unit,
+        city_slug=contract.city_slug,
+        station_id=contract.station_id,
+        source_url=contract.source_url,
+        settlement_value=settlement_temp,
+        settlement_unit=contract.unit,
     )
 
 
@@ -96,7 +108,7 @@ def _parse_bin_midpoint(bin_label: str) -> Optional[float]:
 
 
 def _settle_positions(db: Database, target_date: str, winning_bin_label: str,
-                      resolved_at: Optional[datetime]) -> int:
+                      resolved_at: Optional[datetime], event_slug: Optional[str] = None) -> int:
     """
     Close any open positions for target_date whose bin matches the winning bin.
     NO tokens on the winning bin pay 0 (NO loses); all other bins pay 1/share.
@@ -108,6 +120,8 @@ def _settle_positions(db: Database, target_date: str, winning_bin_label: str,
 
     for pos in open_positions:
         if pos["target_date"] != target_date:
+            continue
+        if event_slug and pos.get("event_slug") != event_slug:
             continue
 
         # NO token wins if the actual outcome is a DIFFERENT bin
@@ -147,35 +161,45 @@ def daily_check(db: Database,
     saved = 0
     positions_closed = 0
 
-    for city, cfg in CITIES.items():
-        date_str = check_date.isoformat()
-        if db.settlement_exists(city, date_str):
-            log.debug("Settlement already recorded: %s %s", city, date_str)
+    for contract in configured_weather_contracts([check_date]):
+        date_str = contract.target_date
+        if db.settlement_exists(contract.display_city, date_str):
+            log.debug("Settlement already recorded: %s %s", contract.display_city, date_str)
             continue
 
         try:
-            event = fetch_event(cfg["polymarket_slug_city"], check_date)
+            event = fetch_event_by_slug(contract.event_slug)
         except Exception as e:
-            log.error("Settlement check failed %s %s: %s", city, date_str, e)
+            log.error("Settlement check failed %s %s: %s", contract.display_city, date_str, e)
             continue
 
         if not event:
-            log.debug("No event found: %s %s", city, date_str)
+            log.debug("No event found: %s %s", contract.display_city, date_str)
             continue
+
+        validation = validate_weather_event(event)
+        db.upsert_weather_contract(validation.contract)
+        if not validation.is_valid:
+            log.info(
+                "Settlement check skipped invalid contract: slug=%s reason=%s",
+                validation.contract.event_slug, validation.contract.skip_reason,
+            )
+            continue
+        contract = validation.contract
 
         # Use winning_bin as the resolution signal — more reliable than closed flag
         if not winning_bin(event):
-            log.info("Market not yet resolved (no winner): %s %s", city, date_str)
+            log.info("Market not yet resolved (no winner): %s %s", contract.display_city, date_str)
             continue
 
-        rec = _extract_settlement(event, city, date_str, cfg)
+        rec = _extract_settlement(event, contract)
         if rec:
             db.insert_settlement(rec)
-            log.info("Settlement saved: %s %s -> %s", city, date_str, rec.winning_bin)
+            log.info("Settlement saved: %s %s -> %s", contract.display_city, date_str, rec.winning_bin)
             saved += 1
 
             if rec.winning_bin:
-                n = _settle_positions(db, date_str, rec.winning_bin, rec.resolved_at)
+                n = _settle_positions(db, date_str, rec.winning_bin, rec.resolved_at, rec.event_slug)
                 positions_closed += n
 
     # Always export current open positions so Rust bot has a fresh view
@@ -187,44 +211,62 @@ def daily_check(db: Database,
     )
 
 
-def backfill(db: Database, days_back: int = 60):
+def backfill(db: Database, days_back: int = 60, city: str | None = None):
     """
     Pull historical settled markets going back `days_back` days.
     Used to reach the Phase 0 gate of ≥50 settled markets.
 
-    Iterates all cities × all dates in range, skips already stored.
+    Iterates configured cities × dates in range, skips already stored.
     """
     today = datetime.now(timezone.utc).date()
     saved = 0
     skipped = 0
+    city_slug_filter = None
+    if city:
+        city_slug_filter, cfg = contract_for_city(city)
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+            return db.settlement_count()
 
-    for city, cfg in CITIES.items():
-        for offset in range(1, days_back + 1):
-            target = today - timedelta(days=offset)
-            date_str = target.isoformat()
+    for offset in range(1, days_back + 1):
+        target = today - timedelta(days=offset)
+        for contract in configured_weather_contracts([target]):
+            if city_slug_filter and contract.city_slug != city_slug_filter:
+                continue
+            date_str = contract.target_date
 
-            if db.settlement_exists(city, date_str):
+            if db.settlement_exists(contract.display_city, date_str):
                 skipped += 1
                 continue
 
             try:
-                event = fetch_event(cfg["polymarket_slug_city"], target)
+                event = fetch_event_by_slug(contract.event_slug)
             except Exception as e:
-                log.warning("Backfill fetch failed %s %s: %s", city, date_str, e)
+                log.warning("Backfill fetch failed %s %s: %s", contract.display_city, date_str, e)
                 continue
 
             if not event:
-                log.debug("No market for %s %s", city, date_str)
+                log.debug("No market for %s %s", contract.display_city, date_str)
                 continue
+
+            validation = validate_weather_event(event)
+            db.upsert_weather_contract(validation.contract)
+            if not validation.is_valid:
+                log.debug(
+                    "Backfill skipped invalid contract %s: %s",
+                    validation.contract.event_slug, validation.contract.skip_reason,
+                )
+                continue
+            contract = validation.contract
 
             if not event.get("closed"):
-                log.debug("Market not yet closed: %s %s", city, date_str)
+                log.debug("Market not yet closed: %s %s", contract.display_city, date_str)
                 continue
 
-            rec = _extract_settlement(event, city, date_str, cfg)
+            rec = _extract_settlement(event, contract)
             if rec:
                 db.insert_settlement(rec)
-                log.info("Backfill: %s %s -> %s", city, date_str, rec.winning_bin)
+                log.info("Backfill: %s %s -> %s", contract.display_city, date_str, rec.winning_bin)
                 saved += 1
 
     count = db.settlement_count()

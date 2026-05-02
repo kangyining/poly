@@ -4,7 +4,7 @@ Gamma API client — read-only market data.
 Phase 0 findings:
   - ?tag=weather filter is BROKEN (silently ignored), do NOT use it
   - Access weather markets via slug:
-      highest-temperature-in-{city}-on-april-{dd}-2026
+      highest-temperature-in-{city-slug}-on-april-{dd}-2026
   - clobTokenIds is ALSO a JSON-encoded string — must json.loads() it too
   - clobTokenIds[0] = YES token, clobTokenIds[1] = NO token
   - negRisk: true on all temperature markets
@@ -40,7 +40,7 @@ def _get(url: str, params: dict = None, retries: int = 3) -> dict | list:
 def build_slug(city_slug: str, target: date) -> str:
     """
     Build the Gamma event slug for a daily temperature market.
-    city_slug: "chicago", "dallas", "nyc"
+    city_slug: "atlanta", "los-angeles", "nyc", etc.
     """
     month = target.strftime("%B").lower()   # "april"
     day   = target.day                      # 7  (no leading zero)
@@ -54,6 +54,19 @@ def fetch_event(city_slug: str, target: date) -> Optional[dict]:
     Returns the first element of the response array, or None if not found.
     """
     slug = build_slug(city_slug, target)
+    data = _get(f"{GAMMA_BASE}/events", params={"slug": slug})
+    if not data:
+        log.debug("No event found for slug: %s", slug)
+        return None
+    event = data[0] if isinstance(data, list) else data
+    event["_slug"] = slug
+    return event
+
+
+def fetch_event_by_slug(slug: str) -> Optional[dict]:
+    """
+    Fetch one event from Gamma API by exact slug.
+    """
     data = _get(f"{GAMMA_BASE}/events", params={"slug": slug})
     if not data:
         log.debug("No event found for slug: %s", slug)
@@ -169,6 +182,10 @@ def fetch_fee_rate(token_id: str) -> float | None:
     if raw is None:
         return None
 
+    return normalize_fee_rate(raw)
+
+
+def normalize_fee_rate(raw) -> float | None:
     try:
         rate = float(raw)
     except (TypeError, ValueError):

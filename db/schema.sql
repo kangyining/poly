@@ -3,6 +3,28 @@
 --   temps in Fahrenheit (Polymarket settles in whole °F via Wunderground)
 --   settlement stations: Chicago→KORD, Dallas→KDAL, NYC→KLGA
 
+CREATE TABLE IF NOT EXISTS weather_contracts (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_slug             TEXT NOT NULL UNIQUE,
+    event_id               TEXT,
+    target_date            TEXT NOT NULL,
+    market_type            TEXT NOT NULL,
+    measure                TEXT NOT NULL,
+    unit                   TEXT NOT NULL,
+    city_slug              TEXT NOT NULL,
+    display_city           TEXT NOT NULL,
+    resolution_source_kind TEXT,
+    station_id             TEXT,
+    source_url             TEXT,
+    timezone               TEXT,
+    lat                    REAL,
+    lon                    REAL,
+    validation_status      TEXT NOT NULL,
+    skip_reason            TEXT,
+    discovered_at          TEXT NOT NULL,
+    raw_json               TEXT
+);
+
 CREATE TABLE IF NOT EXISTS market_snapshots (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp       TEXT NOT NULL,        -- ISO 8601 UTC
@@ -27,7 +49,15 @@ CREATE TABLE IF NOT EXISTS market_snapshots (
     fee_rate        REAL,                 -- token fee rate at snapshot time (decimal, e.g. 0.10)
     no_vwap_10      REAL,                 -- convenience VWAP ask for 10 shares on NO side
     volume_24h      REAL,
-    liquidity       REAL
+    liquidity       REAL,
+    market_type     TEXT,
+    measure         TEXT,
+    unit            TEXT,
+    city_slug       TEXT,
+    station_id      TEXT,
+    source_url      TEXT,
+    validation_status TEXT,
+    skip_reason     TEXT
 );
 
 CREATE TABLE IF NOT EXISTS metar_records (
@@ -54,7 +84,16 @@ CREATE TABLE IF NOT EXISTS forecast_records (
     temp_max_gfs_f      REAL,
     model_spread_c      REAL,             -- |ecmwf - gfs|
     forecast_lead_hours REAL,
-    raw_json            TEXT
+    raw_json            TEXT,
+    market_type         TEXT,
+    measure             TEXT,
+    unit                TEXT,
+    city_slug           TEXT,
+    station_id          TEXT,
+    event_slug          TEXT,
+    value_ecmwf         REAL,
+    value_gfs           REAL,
+    value_unit          TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settlement_records (
@@ -67,7 +106,18 @@ CREATE TABLE IF NOT EXISTS settlement_records (
     settlement_temp_f    REAL,
     wunderground_station TEXT,
     resolved_at          TEXT,
-    raw_outcome_prices   TEXT             -- JSON
+    raw_outcome_prices   TEXT,            -- JSON
+    market_type          TEXT,
+    measure              TEXT,
+    unit                 TEXT,
+    city_slug            TEXT,
+    station_id           TEXT,
+    source_url           TEXT,
+    settlement_value     REAL,
+    settlement_unit      TEXT,
+    settlement_temp_source TEXT,
+    settlement_temp_station TEXT,
+    settlement_temp_raw_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS taf_records (
@@ -186,7 +236,15 @@ CREATE TABLE IF NOT EXISTS forecast_model_runs (
     model_run_time      TEXT,
     forecast_lead_hours REAL,
     temp_max_f          REAL,
-    raw_json            TEXT
+    raw_json            TEXT,
+    market_type         TEXT,
+    measure             TEXT,
+    unit                TEXT,
+    city_slug           TEXT,
+    station_id          TEXT,
+    event_slug          TEXT,
+    value               REAL,
+    value_unit          TEXT
 );
 
 CREATE TABLE IF NOT EXISTS market_relationships (
@@ -238,6 +296,8 @@ CREATE INDEX IF NOT EXISTS idx_settlement_city_date
     ON settlement_records(city, target_date);
 CREATE INDEX IF NOT EXISTS idx_forecast_model_runs_city_date
     ON forecast_model_runs(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_weather_contracts_status_date
+    ON weather_contracts(validation_status, target_date);
 CREATE INDEX IF NOT EXISTS idx_market_relationships_city_date
     ON market_relationships(city, target_date);
 CREATE INDEX IF NOT EXISTS idx_wallet_signal_snapshots_wallet_time

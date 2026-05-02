@@ -3,7 +3,7 @@ Phase 0 data recorder — run this continuously to collect data.
 
 Schedule:
   Every 5m  → market snapshots (all cities, today + tomorrow)
-  Every 1h  → METAR observations (KORD, KDAL, KLGA)
+  Every 1h  → METAR observations (all configured settlement stations)
   Every 30m → NWS forecasts (next 7 days)
   Every 1h  → Open-Meteo forecasts (ECMWF + GFS)
   Every 24h → settlement check (yesterday's results)
@@ -16,6 +16,7 @@ Usage:
   python run_recorder.py --backfill-prices    # historical CLOB price history
   python run_recorder.py --backfill-settlement-temps  # fill missing temperatures from ASOS
   python run_recorder.py --backfill-metars    # historical hourly ASOS observations
+  python run_recorder.py --backfill-us-high-temp-data # run all read-only/data backfills
 """
 
 import argparse
@@ -66,12 +67,44 @@ def run_all(db: Database):
              db.snapshot_count(), db.settlement_count())
 
 
+def backfill_us_high_temp_data(db: Database, days_back: int, city: str | None = None) -> dict[str, int]:
+    """Run the full read-only/data backfill chain for US daily high-temperature markets."""
+    results: dict[str, int] = {}
+
+    log.info("US high-temp backfill: settlements")
+    before = db.settlement_count()
+    after = backfill(db, days_back=days_back, city=city)
+    results["settlements"] = max(0, after - before)
+
+    log.info("US high-temp backfill: ASOS exact settlement highs")
+    results["settlement_temps"] = backfill_missing_temps(db, city=city)
+
+    log.info("US high-temp backfill: historical ASOS METAR observations")
+    results["metars"] = backfill_asos_metars(db, city=city)
+
+    log.info("US high-temp backfill: historical Open-Meteo forecasts")
+    results["historical_forecasts"] = backfill_historical_forecasts(db, city=city)
+
+    log.info("US high-temp backfill: true 24h GFS forecasts")
+    results["true_forecasts"] = backfill_true_forecasts(db, city=city)
+
+    log.info("US high-temp backfill: CLOB price history")
+    results["price_history"] = backfill_price_history(db, city=city)
+
+    log.info("US high-temp backfill: missing price bins")
+    results["missing_bins"] = backfill_missing_bins(db, city=city)
+
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--once",     action="store_true",
                         help="Run all jobs once and exit")
     parser.add_argument("--backfill", action="store_true",
                         help="Pull historical settled markets and exit")
+    parser.add_argument("--backfill-us-high-temp-data", action="store_true",
+                        help="Run the full read-only/data backfill chain for US daily high-temp markets")
     parser.add_argument("--backfill-forecasts", action="store_true",
                         help="Backfill historical ECMWF/GFS forecasts for all settled dates")
     parser.add_argument("--backfill-prices", action="store_true",
@@ -94,14 +127,21 @@ def main():
 
     if args.backfill:
         log.info("Starting backfill — looking back %d days", args.days_back)
-        count = backfill(db, days_back=args.days_back)
+        count = backfill(db, days_back=args.days_back, city=args.city)
         log.info("Backfill done. Total settlements in DB: %d", count)
+        db.close()
+        return
+
+    if args.backfill_us_high_temp_data:
+        log.info("Starting full US high-temp data backfill")
+        results = backfill_us_high_temp_data(db, days_back=args.days_back, city=args.city)
+        log.info("Done. US high-temp backfill summary: %s", results)
         db.close()
         return
 
     if args.backfill_prices:
         log.info("Starting price history backfill")
-        count = backfill_price_history(db)
+        count = backfill_price_history(db, city=args.city)
         total_hourly = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
         total_minute = db.conn.execute("SELECT COUNT(*) FROM price_history_1m").fetchone()[0]
         log.info(
@@ -113,7 +153,7 @@ def main():
 
     if args.backfill_forecasts:
         log.info("Starting historical forecast backfill")
-        count = backfill_historical_forecasts(db)
+        count = backfill_historical_forecasts(db, city=args.city)
         log.info("Done. Total forecast records in DB: %d", db.conn.execute(
             "SELECT COUNT(*) FROM forecast_records").fetchone()[0])
         db.close()
@@ -121,12 +161,11 @@ def main():
 
     if args.backfill_settlement_temps:
         log.info("Starting settlement temperature backfill from ASOS")
-        for city in ["Chicago", "Dallas", "NYC"]:
-            count = backfill_missing_temps(db, city=city)
+        count = backfill_missing_temps(db, city=args.city)
         total = db.conn.execute(
             "SELECT COUNT(*) FROM settlement_records WHERE settlement_temp_f IS NOT NULL"
         ).fetchone()[0]
-        log.info("Done. Settlement records with temps: %d", total)
+        log.info("Done. New/updated temperatures: %d; settlement records with temps: %d", count, total)
         db.close()
         return
 
@@ -140,8 +179,7 @@ def main():
 
     if args.backfill_missing_bins:
         log.info("Starting missing bins price history backfill (warm-side retry)")
-        for city in ["Chicago", "Dallas", "NYC"]:
-            count = backfill_missing_bins(db, city=city)
+        count = backfill_missing_bins(db, city=args.city)
         total_hourly = db.conn.execute("SELECT COUNT(*) FROM price_history").fetchone()[0]
         total_minute = db.conn.execute("SELECT COUNT(*) FROM price_history_1m").fetchone()[0]
         log.info(

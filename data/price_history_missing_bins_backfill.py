@@ -12,9 +12,10 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import contract_for_city, enabled_daily_high_contracts
 from data.db import Database
-from data.gamma_client import fetch_event, parse_markets
+from data.gamma_client import fetch_event_by_slug, parse_markets
+from data.weather_contracts import build_daily_high_slug
 
 log = logging.getLogger(__name__)
 
@@ -97,96 +98,107 @@ def _build_hourly_rows(city: str, target_date: str, mkt: dict,
     return rows
 
 
-def backfill_missing_bins(db: Database, city: str = "NYC") -> int:
+def _contract_filter(city: str | None) -> dict[str, dict]:
+    if city:
+        slug, cfg = contract_for_city(city)
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+            return {}
+        return {slug: cfg}
+    return enabled_daily_high_contracts()
+
+
+def backfill_missing_bins(db: Database, city: str | None = None) -> int:
     """
     Retry CLOB price history for missing bins in price_history table.
 
     For each settlement, find which bins have no price data and retry those.
     """
-    # Get settlements for this city
-    settlements = db.conn.execute(
-        "SELECT target_date, event_slug FROM settlement_records WHERE city = ? ORDER BY target_date",
-        (city,)
-    ).fetchall()
-
-    if not settlements:
-        log.info("No settlements found for %s", city)
-        return 0
-
-    cfg = CITIES.get(city)
-    if not cfg:
-        log.error("No config for city %s", city)
-        return 0
-
     total_saved = 0
 
-    for target_date, event_slug in settlements:
-        # Get current bin coverage
-        current_bins = set(
-            b[0] for b in db.conn.execute(
-                "SELECT DISTINCT bin_index FROM price_history WHERE city = ? AND target_date = ?",
-                (city, target_date)
-            ).fetchall()
-        )
+    for city_slug, cfg in _contract_filter(city).items():
+        city_name = cfg["display_city"]
+        settlements = db.conn.execute(
+            """
+            SELECT target_date, event_slug
+            FROM settlement_records
+            WHERE city = ?
+            ORDER BY target_date
+            """,
+            (city_name,),
+        ).fetchall()
 
-        # Find missing bins (should be 0-10)
-        all_bins = set(range(11))
-        missing_bins = all_bins - current_bins
-
-        if not missing_bins:
+        if not settlements:
+            log.info("No settlements found for %s", city_name)
             continue
 
-        log.info("Retrying %s %s: missing bins %s", city, target_date, sorted(missing_bins))
+        for target_date, event_slug in settlements:
+            # Get current bin coverage
+            current_bins = set(
+                b[0] for b in db.conn.execute(
+                    "SELECT DISTINCT bin_index FROM price_history WHERE city = ? AND target_date = ?",
+                    (city_name, target_date)
+                ).fetchall()
+            )
 
-        # Fetch event to get all markets
-        try:
-            from datetime import date
-            target = date.fromisoformat(target_date)
-            event = fetch_event(cfg["polymarket_slug_city"], target)
-        except Exception as e:
-            log.warning("Gamma fetch failed %s %s: %s", city, target_date, e)
-            continue
+            # Find missing bins (should be 0-10)
+            all_bins = set(range(11))
+            missing_bins = all_bins - current_bins
 
-        if not event:
-            continue
-
-        markets = parse_markets(event)
-        if not markets:
-            continue
-
-        # Time window
-        close_dt = datetime.fromisoformat(target_date).replace(
-            hour=12, minute=0, second=0, tzinfo=timezone.utc
-        )
-        start_ts = int((close_dt - timedelta(hours=48)).timestamp())
-        end_ts = int(close_dt.timestamp())
-
-        # Retry only missing bins
-        for mkt in markets:
-            if mkt["bin_index"] not in missing_bins:
+            if not missing_bins:
                 continue
 
-            token_yes = mkt["token_id_yes"]
-            if not token_yes:
+            log.info("Retrying %s %s: missing bins %s", city_name, target_date, sorted(missing_bins))
+
+            # Fetch event to get all markets
+            try:
+                from datetime import date
+                slug = event_slug or build_daily_high_slug(city_slug, date.fromisoformat(target_date))
+                event = fetch_event_by_slug(slug)
+            except Exception as e:
+                log.warning("Gamma fetch failed %s %s: %s", city_name, target_date, e)
                 continue
 
-            history = _fetch_price_history(token_yes, start_ts, end_ts)
-            if not history:
-                log.debug("No history for %s %s bin=%d", city, target_date, mkt["bin_index"])
-                time.sleep(0.2)
+            if not event:
                 continue
 
-            minute_rows = _build_minute_rows(city, target_date, mkt, history)
-            hourly_rows = _build_hourly_rows(city, target_date, mkt, history)
-            db.insert_price_history_minute_rows(minute_rows)
-            db.insert_price_history_rows(hourly_rows)
+            markets = parse_markets(event)
+            if not markets:
+                continue
 
-            log.info("Retry: %s %s bin %d — %d raw minute / %d hourly points saved",
-                    city, target_date, mkt["bin_index"], len(minute_rows), len(hourly_rows))
-            total_saved += len(minute_rows) + len(hourly_rows)
-            time.sleep(0.15)
+            # Time window
+            close_dt = datetime.fromisoformat(target_date).replace(
+                hour=12, minute=0, second=0, tzinfo=timezone.utc
+            )
+            start_ts = int((close_dt - timedelta(hours=48)).timestamp())
+            end_ts = int(close_dt.timestamp())
 
-        time.sleep(0.3)
+            # Retry only missing bins
+            for mkt in markets:
+                if mkt["bin_index"] not in missing_bins:
+                    continue
+
+                token_yes = mkt["token_id_yes"]
+                if not token_yes:
+                    continue
+
+                history = _fetch_price_history(token_yes, start_ts, end_ts)
+                if not history:
+                    log.debug("No history for %s %s bin=%d", city_name, target_date, mkt["bin_index"])
+                    time.sleep(0.2)
+                    continue
+
+                minute_rows = _build_minute_rows(city_name, target_date, mkt, history)
+                hourly_rows = _build_hourly_rows(city_name, target_date, mkt, history)
+                db.insert_price_history_minute_rows(minute_rows)
+                db.insert_price_history_rows(hourly_rows)
+
+                log.info("Retry: %s %s bin %d — %d raw minute / %d hourly points saved",
+                         city_name, target_date, mkt["bin_index"], len(minute_rows), len(hourly_rows))
+                total_saved += len(minute_rows) + len(hourly_rows)
+                time.sleep(0.15)
+
+            time.sleep(0.3)
 
     log.info("Missing bins backfill complete: %d rows added", total_saved)
     return total_saved

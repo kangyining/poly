@@ -5,10 +5,10 @@ SQLite storage layer.
 import json
 import sqlite3
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-from data.models import MarketSnapshot, METARRecord, ForecastRecord, SettlementRecord
+from data.models import MarketSnapshot, METARRecord, ForecastRecord, SettlementRecord, WeatherContract
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +45,57 @@ class Database:
                 "no_asks_json": "TEXT",
                 "fee_rate": "REAL",
                 "no_vwap_10": "REAL",
+                "market_type": "TEXT",
+                "measure": "TEXT",
+                "unit": "TEXT",
+                "city_slug": "TEXT",
+                "station_id": "TEXT",
+                "source_url": "TEXT",
+                "validation_status": "TEXT",
+                "skip_reason": "TEXT",
+            },
+        )
+        self._ensure_columns(
+            "forecast_records",
+            {
+                "market_type": "TEXT",
+                "measure": "TEXT",
+                "unit": "TEXT",
+                "city_slug": "TEXT",
+                "station_id": "TEXT",
+                "event_slug": "TEXT",
+                "value_ecmwf": "REAL",
+                "value_gfs": "REAL",
+                "value_unit": "TEXT",
+            },
+        )
+        self._ensure_columns(
+            "settlement_records",
+            {
+                "market_type": "TEXT",
+                "measure": "TEXT",
+                "unit": "TEXT",
+                "city_slug": "TEXT",
+                "station_id": "TEXT",
+                "source_url": "TEXT",
+                "settlement_value": "REAL",
+                "settlement_unit": "TEXT",
+                "settlement_temp_source": "TEXT",
+                "settlement_temp_station": "TEXT",
+                "settlement_temp_raw_json": "TEXT",
+            },
+        )
+        self._ensure_columns(
+            "forecast_model_runs",
+            {
+                "market_type": "TEXT",
+                "measure": "TEXT",
+                "unit": "TEXT",
+                "city_slug": "TEXT",
+                "station_id": "TEXT",
+                "event_slug": "TEXT",
+                "value": "REAL",
+                "value_unit": "TEXT",
             },
         )
         self._ensure_columns(
@@ -69,6 +120,27 @@ class Database:
     def _ensure_auxiliary_tables(self) -> None:
         """Create research/strategy-lab tables when older DB files predate schema.sql."""
         self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS weather_contracts (
+                id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_slug             TEXT NOT NULL UNIQUE,
+                event_id               TEXT,
+                target_date            TEXT NOT NULL,
+                market_type            TEXT NOT NULL,
+                measure                TEXT NOT NULL,
+                unit                   TEXT NOT NULL,
+                city_slug              TEXT NOT NULL,
+                display_city           TEXT NOT NULL,
+                resolution_source_kind TEXT,
+                station_id             TEXT,
+                source_url             TEXT,
+                timezone               TEXT,
+                lat                    REAL,
+                lon                    REAL,
+                validation_status      TEXT NOT NULL,
+                skip_reason            TEXT,
+                discovered_at          TEXT NOT NULL,
+                raw_json               TEXT
+            );
             CREATE TABLE IF NOT EXISTS research_sources (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
                 url             TEXT NOT NULL UNIQUE,
@@ -122,7 +194,45 @@ class Database:
                 ON market_relationships(city, target_date);
             CREATE INDEX IF NOT EXISTS idx_wallet_signal_snapshots_wallet_time
                 ON wallet_signal_snapshots(wallet, timestamp);
+            CREATE INDEX IF NOT EXISTS idx_weather_contracts_status_date
+                ON weather_contracts(validation_status, target_date);
         """)
+
+    # ── weather contracts ─────────────────────────────────────────────────
+
+    def upsert_weather_contract(self, c: WeatherContract) -> None:
+        self.conn.execute("""
+            INSERT INTO weather_contracts (
+                event_slug, event_id, target_date, market_type, measure, unit,
+                city_slug, display_city, resolution_source_kind, station_id,
+                source_url, timezone, lat, lon, validation_status, skip_reason,
+                discovered_at, raw_json
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(event_slug) DO UPDATE SET
+                event_id=excluded.event_id,
+                target_date=excluded.target_date,
+                market_type=excluded.market_type,
+                measure=excluded.measure,
+                unit=excluded.unit,
+                city_slug=excluded.city_slug,
+                display_city=excluded.display_city,
+                resolution_source_kind=excluded.resolution_source_kind,
+                station_id=excluded.station_id,
+                source_url=excluded.source_url,
+                timezone=excluded.timezone,
+                lat=excluded.lat,
+                lon=excluded.lon,
+                validation_status=excluded.validation_status,
+                skip_reason=excluded.skip_reason,
+                discovered_at=excluded.discovered_at,
+                raw_json=excluded.raw_json
+        """, (
+            c.event_slug, c.event_id, c.target_date, c.market_type, c.measure, c.unit,
+            c.city_slug, c.display_city, c.resolution_source_kind, c.station_id,
+            c.source_url, c.timezone, c.lat, c.lon, c.validation_status, c.skip_reason,
+            datetime.now(timezone.utc).isoformat(), c.raw_json,
+        ))
+        self.conn.commit()
 
     # ── market snapshots ──────────────────────────────────────────────────
 
@@ -134,8 +244,10 @@ class Database:
                 yes_price, no_price,
                 yes_best_bid, yes_best_ask, no_best_bid, no_best_ask,
                 book_depth_bid, book_depth_ask, no_asks_json, fee_rate, no_vwap_10,
-                volume_24h, liquidity
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                volume_24h, liquidity,
+                market_type, measure, unit, city_slug, station_id, source_url,
+                validation_status, skip_reason
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             s.timestamp.isoformat(), s.city, s.target_date, s.hours_to_close,
             s.event_id, s.event_slug, s.bin_label, s.bin_index,
@@ -144,6 +256,8 @@ class Database:
             s.yes_best_bid, s.yes_best_ask, s.no_best_bid, s.no_best_ask,
             s.book_depth_bid, s.book_depth_ask, s.no_asks_json, s.fee_rate, s.no_vwap_10,
             s.volume_24h, s.liquidity,
+            s.market_type, s.measure, s.unit, s.city_slug, s.station_id, s.source_url,
+            s.validation_status, s.skip_reason,
         ))
         self.conn.commit()
 
@@ -176,13 +290,17 @@ class Database:
                 timestamp, city, target_date, source,
                 temp_max_ecmwf_c, temp_max_gfs_c,
                 temp_max_ecmwf_f, temp_max_gfs_f,
-                model_spread_c, forecast_lead_hours, raw_json
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                model_spread_c, forecast_lead_hours, raw_json,
+                market_type, measure, unit, city_slug, station_id, event_slug,
+                value_ecmwf, value_gfs, value_unit
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             f.timestamp.isoformat(), f.city, f.target_date, f.source,
             f.temp_max_ecmwf_c, f.temp_max_gfs_c,
             f.temp_max_ecmwf_f, f.temp_max_gfs_f,
             f.model_spread_c, f.forecast_lead_hours, f.raw_json,
+            f.market_type, f.measure, f.unit, f.city_slug, f.station_id, f.event_slug,
+            f.value_ecmwf, f.value_gfs, f.value_unit,
         ))
         self.conn.commit()
 
@@ -190,13 +308,18 @@ class Database:
         cur = self.conn.execute("""
             INSERT INTO forecast_model_runs (
                 timestamp, city, target_date, source, model_name, model_run_time,
-                forecast_lead_hours, temp_max_f, raw_json
-            ) VALUES (?,?,?,?,?,?,?,?,?)
+                forecast_lead_hours, temp_max_f, raw_json,
+                market_type, measure, unit, city_slug, station_id, event_slug,
+                value, value_unit
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             row["timestamp"], row["city"], row["target_date"], row["source"],
             row["model_name"], row.get("model_run_time"),
             row.get("forecast_lead_hours"), row.get("temp_max_f"),
             row.get("raw_json"),
+            row.get("market_type"), row.get("measure"), row.get("unit"),
+            row.get("city_slug"), row.get("station_id"), row.get("event_slug"),
+            row.get("value"), row.get("value_unit"),
         ))
         self.conn.commit()
         return cur.lastrowid
@@ -226,14 +349,20 @@ class Database:
             INSERT OR IGNORE INTO settlement_records (
                 city, target_date, event_id, event_slug,
                 winning_bin, settlement_temp_f,
-                wunderground_station, resolved_at, raw_outcome_prices
-            ) VALUES (?,?,?,?,?,?,?,?,?)
+                wunderground_station, resolved_at, raw_outcome_prices,
+                market_type, measure, unit, city_slug, station_id, source_url,
+                settlement_value, settlement_unit,
+                settlement_temp_source, settlement_temp_station, settlement_temp_raw_json
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             s.city, s.target_date, s.event_id, s.event_slug,
             s.winning_bin, s.settlement_temp_f,
             s.wunderground_station,
             s.resolved_at.isoformat() if s.resolved_at else None,
             s.raw_outcome_prices,
+            s.market_type, s.measure, s.unit, s.city_slug, s.station_id, s.source_url,
+            s.settlement_value, s.settlement_unit,
+            s.settlement_temp_source, s.settlement_temp_station, s.settlement_temp_raw_json,
         ))
         self.conn.commit()
 

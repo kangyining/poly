@@ -66,7 +66,7 @@ MAKER_FEE_RATE  = 0.00
 MAKER_REBATE    = 0.25    # maker receives 25% of counterparty's taker fee
 
 # ── Market structure (Phase 0 verified) ──────────────────────────────────────
-BINS_PER_CITY       = 11      # confirmed for all 3 cities
+BINS_PER_CITY       = 11      # current US daily-high markets use 11 bins
 BIN_WIDTH_F         = 2       # bin width in °F (e.g. "38-39°F" covers 2 integers)
 TRADING_CLOSE_UTC   = 12      # hour: market stops accepting orders at 12:00 UTC
 MARKET_OPEN_DAYS    = 2       # markets open ~24-36h before target date
