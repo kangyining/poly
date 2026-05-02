@@ -87,10 +87,9 @@ src/
     calibration.rs      Forecast calibration lookup
     types.rs            Strategy inputs, traces, trade candidates
   services/
-    event_service.rs    Target date and event slug resolution
+    event_service.rs    Target date and event slug helpers
     strategy_service.rs Orchestrates market fetch, calibration, and rule engine
-    execution_plan.rs   Serializable execution plan
-    execution_service.rs Writes plan and invokes Python bridge
+    execution_service.rs Builds and executes combined execution plans
 ```
 
 ## Runtime Lifecycle
@@ -99,12 +98,12 @@ src/
 
 At startup it:
 
-1. Resolves the target date and constructs the Polymarket event slug.
+1. Expands configured cities and `days_in_future` into a set of `(city, target_date)` contexts.
 2. Creates the `EventBus` and shared `BotState`.
-3. Builds `WeatherService`, `MarketService`, `StrategyService`, and `ExecutionService`.
+3. Builds one `WeatherService` and one `MarketService` per context, plus shared strategy/execution services.
 4. Spawns all consumers as long-running tasks.
-5. Performs an initial market metadata fetch and publishes it.
-6. Starts the weather poller and market websocket poller.
+5. Performs an initial market metadata fetch for every context and publishes it.
+6. Starts the weather poller and market websocket poller for every context.
 7. Publishes `SystemEvent::Started`.
 
 In single-pass mode, the app exits after the first meaningful evaluation/execution cycle. In loop mode, it stays alive until `ctrl-c`, then publishes `SystemEvent::Stopping` so consumers can shut down cleanly.
@@ -340,36 +339,18 @@ Execution has two layers:
 
 ### 1. Internal execution plan
 
-[src/services/execution_plan.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/execution_plan.rs)
+[src/services/execution_service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/execution_service.rs)
 
-This converts `TradeCandidate`s into a JSON-serializable plan containing:
+This converts the latest `TradeCandidate`s across all active city/date contexts into a JSON-serializable plan containing:
 
 - run metadata
 - dry-run flag
 - total stake
-- one planned trade per qualified market
+- one planned trade per qualified market across the whole portfolio
 
-Each planned trade includes the `NO` token id, ask price, shares, stake, modeled probability, EV, and fee rate.
+Each planned trade includes `city_slug`, `target_date`, `event_slug`, the `NO` token id, ask price, shares, stake, modeled probability, EV, and fee rate.
 
-### 2. Python bridge
-
-[src/services/execution_service.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/services/execution_service.rs)
-
-`ExecutionService`:
-
-- writes `execution_plan.json` to the configured directory
-- optionally invokes `python3 execute.py --plan ... --positions ...`
-
-The Rust side is therefore responsible for:
-
-- deciding what should be traded
-- recording an execution plan
-- preventing duplicate submissions within the bot runtime
-
-The Python bridge is responsible for:
-
-- talking to the actual execution layer
-- updating `open_positions.json`
+`ExecutionService` writes one combined `execution_plan.json` and can then execute those trades directly.
 
 ## REST vs Websocket
 
@@ -457,12 +438,13 @@ StrategyEvent::EvaluationCompleted
 
 The most important config knobs in [src/config.rs](/Users/ryanqin/git/poly/poly-weather-bot/src/config.rs) are:
 
-- `target_date`, `city`, `station_code`, `lat`, `lon`
-- `forecast_high_f` to bypass live weather fetches
+- `days_in_future` and optional `start_date`
+- `[[cities]]` entries with `slug`, `station_code`, `lat`, `lon`
+- per-city `forecast_high_f` to bypass live weather fetches
 - `gamma_url`, `clob_url`
 - `min_ev_threshold`, `desired_shares`, `order_size_usd`
 - `max_total_stake_usd`
-- `open_positions_path`, `execution_plan_dir`, `execute_script`
+- `open_positions_path`, `execution_plan_dir`
 - `dry_run`
 - `run_loop`, `poll_interval_secs`
 

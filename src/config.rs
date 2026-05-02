@@ -1,230 +1,194 @@
-use anyhow::{bail, Result};
-use chrono::NaiveDate;
+use anyhow::{bail, Context, Result};
+use chrono::{Duration, NaiveDate, Utc};
 use clap::Parser;
-use std::path::PathBuf;
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+
+use crate::weather::market_close_utc;
 
 #[derive(Debug, Clone, Parser)]
 #[command(author, version, about)]
 pub struct Cli {
-    // ── Target date (optional — auto-computed from today/tomorrow if absent) ──
-    #[arg(long, env = "FORECAST_TARGET_DATE")]
-    pub target_date: Option<NaiveDate>,
+    #[arg(long, default_value = "config.toml")]
+    pub config: PathBuf,
+}
 
-    // ── City / location ───────────────────────────────────────────────────────
-    /// Polymarket city slug (used to construct event slug), e.g. "nyc"
-    #[arg(long, env = "CITY", default_value = "nyc")]
-    pub city: String,
-
-    /// ICAO/station code used for calibration lookup, e.g. "KLGA"
-    #[arg(long, env = "STATION_CODE", default_value = "KLGA")]
+#[derive(Debug, Clone, Deserialize)]
+pub struct CityConfig {
+    pub slug: String,
     pub station_code: String,
-
-    /// Latitude for NWS forecast (KLGA default)
-    #[arg(long, env = "LAT", default_value_t = 40.7769)]
     pub lat: f64,
-
-    /// Longitude for NWS forecast (KLGA default)
-    #[arg(long, env = "LON", default_value_t = -73.8740)]
     pub lon: f64,
-
-    // ── Forecast override (skips NWS if provided) ────────────────────────────
-    /// Manual forecast high in °F. If set, skips the NWS API call.
-    #[arg(long, env = "FORECAST_HIGH_F")]
+    #[serde(default)]
     pub forecast_high_f: Option<f64>,
+}
 
-    // ── Polymarket API ────────────────────────────────────────────────────────
-    #[arg(
-        long,
-        env = "POLYMARKET_GAMMA_URL",
-        default_value = "https://gamma-api.polymarket.com"
-    )]
+#[derive(Debug, Clone, Deserialize)]
+pub struct AppConfig {
+    #[serde(default)]
+    pub start_date: Option<NaiveDate>,
+    pub days_in_future: u32,
+    pub cities: Vec<CityConfig>,
     pub gamma_url: String,
-
-    #[arg(
-        long,
-        env = "POLYMARKET_CLOB_URL",
-        default_value = "https://clob.polymarket.com"
-    )]
     pub clob_url: String,
-
-    // ── Strategy ──────────────────────────────────────────────────────────────
-    /// Minimum fee-adjusted EV per share required to qualify a bin (default 0.10)
-    #[arg(long, env = "MIN_EV_THRESHOLD", default_value_t = 0.10)]
     pub min_ev_threshold: f64,
-
-    /// Shares to buy per qualifying bin
-    #[arg(long, env = "DESIRED_SHARES", default_value_t = 5.0)]
     pub desired_shares: f64,
-
-    /// Dollar stake per qualifying bin (used for execution plan sizing)
-    #[arg(long, env = "ORDER_SIZE_USD", default_value_t = 5.0)]
     pub order_size_usd: f64,
-
-    // ── Risk limits ───────────────────────────────────────────────────────────
-    /// Maximum total stake per run in USD
-    #[arg(long, env = "MAX_TOTAL_STAKE_USD", default_value_t = 5.0)]
     pub max_total_stake_usd: f64,
-
-    /// Maximum number of open positions before skipping new trades
-    #[arg(long, env = "MAX_OPEN_POSITIONS", default_value_t = 8)]
     pub max_open_positions: usize,
-
-    // ── Paths ─────────────────────────────────────────────────────────────────
-    /// Path to calibration.json exported by analysis/calibration.py
-    #[arg(
-        long,
-        env = "CALIBRATION_PATH",
-        default_value = "../poly-weather/calibration.json"
-    )]
     pub calibration_path: PathBuf,
-
-    /// Path to open_positions.json exported by Python after each order
-    #[arg(
-        long,
-        env = "OPEN_POSITIONS_PATH",
-        default_value = "../poly-weather/open_positions.json"
-    )]
     pub open_positions_path: PathBuf,
-
-    /// Directory where execution_plan.json is written for the Python bridge
-    #[arg(long, env = "EXECUTION_PLAN_DIR", default_value = "../poly-weather")]
     pub execution_plan_dir: PathBuf,
-
-    /// Path to the paper portfolio state file used for paper balance tracking
-    #[arg(
-        long,
-        env = "PAPER_PORTFOLIO_PATH",
-        default_value = "../poly-weather/paper_portfolio.json"
-    )]
     pub paper_portfolio_path: PathBuf,
-
-    /// CSV file that records one row per paper-trading action
-    #[arg(
-        long,
-        env = "PERFORMANCE_CSV_PATH",
-        default_value = "../poly-weather/performance_log.csv"
-    )]
     pub performance_csv_path: PathBuf,
-
-    /// Path to execute.py — called automatically after each evaluation pass.
-    /// Set to empty string to disable.
-    #[arg(
-        long,
-        env = "EXECUTE_SCRIPT",
-        default_value = "../poly-weather/execute.py"
-    )]
-    pub execute_script: PathBuf,
-
-    /// Path to strategies.toml. If absent, falls back to a single "default" strategy
-    /// built from the other CLI flags (min_ev_threshold, desired_shares, etc.).
-    #[arg(long, env = "STRATEGIES_FILE", default_value = "strategies.toml")]
     pub strategies_file: PathBuf,
-
-    #[arg(long, env = "LOG_DIRECTORY", default_value = "logs")]
     pub log_directory: PathBuf,
-
-    // ── Mode ──────────────────────────────────────────────────────────────────
-    /// Dry run: write execution plan but do not signal Python bridge to submit
-    #[arg(long, env = "DRY_RUN", default_value_t = true)]
     pub dry_run: bool,
-
-    /// Starting paper account balance used when DRY_RUN=true
-    #[arg(long, env = "PAPER_STARTING_BALANCE_USD", default_value_t = 1000.0)]
     pub paper_starting_balance_usd: f64,
-
-    /// Run the scheduler loop instead of a single pass
-    #[arg(long, env = "LOOP", default_value_t = false)]
     pub run_loop: bool,
-
-    /// Legacy market polling interval; the current live loop is websocket/event-driven.
-    #[arg(long, env = "POLL_INTERVAL_SECS", default_value_t = 15)]
     pub poll_interval_secs: u64,
-
-    /// Seconds between live forecast refreshes while looping (default 1800 = 30 min)
-    #[arg(long, env = "FORECAST_REFRESH_SECS", default_value_t = 1800)]
     pub forecast_refresh_secs: u64,
 }
 
 #[derive(Debug, Clone)]
-pub struct AppConfig {
-    pub target_date: Option<NaiveDate>,
-    pub city: String,
+pub struct MarketContext {
+    pub key: String,
+    pub city_slug: String,
     pub station_code: String,
     pub lat: f64,
     pub lon: f64,
     pub forecast_high_f: Option<f64>,
-    pub gamma_url: String,
-    pub clob_url: String,
-    pub min_ev_threshold: f64,
-    pub desired_shares: f64,
-    pub order_size_usd: f64,
-    pub max_total_stake_usd: f64,
-    pub max_open_positions: usize,
-    pub calibration_path: PathBuf,
-    pub open_positions_path: PathBuf,
-    pub execution_plan_dir: PathBuf,
-    pub paper_portfolio_path: PathBuf,
-    pub performance_csv_path: PathBuf,
-    pub execute_script: PathBuf,
-    pub strategies_file: PathBuf,
-    pub log_directory: PathBuf,
-    pub dry_run: bool,
-    pub paper_starting_balance_usd: f64,
-    pub run_loop: bool,
-    pub poll_interval_secs: u64,
-    pub forecast_refresh_secs: u64,
+    pub target_date: NaiveDate,
+    pub event_slug: String,
 }
 
-impl TryFrom<Cli> for AppConfig {
-    type Error = anyhow::Error;
+impl AppConfig {
+    pub fn load(path: &Path) -> Result<Self> {
+        let text = std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read config file {}", path.display()))?;
+        let config: Self = toml::from_str(&text)
+            .with_context(|| format!("failed to parse config file {}", path.display()))?;
+        config.validate()?;
+        Ok(config)
+    }
 
-    fn try_from(c: Cli) -> Result<Self> {
-        if c.desired_shares <= 0.0 {
+    pub fn contexts(&self) -> Vec<MarketContext> {
+        let dates = self.target_dates();
+        let mut contexts = Vec::with_capacity(self.cities.len() * dates.len());
+        for city in &self.cities {
+            for target_date in &dates {
+                let event_slug = build_event_slug(&city.slug, *target_date);
+                contexts.push(MarketContext {
+                    key: context_key(&city.slug, *target_date),
+                    city_slug: city.slug.clone(),
+                    station_code: city.station_code.clone(),
+                    lat: city.lat,
+                    lon: city.lon,
+                    forecast_high_f: city.forecast_high_f,
+                    target_date: *target_date,
+                    event_slug,
+                });
+            }
+        }
+        contexts
+    }
+
+    pub fn context_map(&self) -> HashMap<String, MarketContext> {
+        self.contexts()
+            .into_iter()
+            .map(|context| (context.key.clone(), context))
+            .collect()
+    }
+
+    fn target_dates(&self) -> Vec<NaiveDate> {
+        let start = resolve_start_date(self.start_date);
+        (0..self.days_in_future)
+            .map(|offset| start + Duration::days(i64::from(offset)))
+            .collect()
+    }
+
+    fn validate(&self) -> Result<()> {
+        if self.days_in_future == 0 {
+            bail!("days_in_future must be positive");
+        }
+        if self.cities.is_empty() {
+            bail!("cities must not be empty");
+        }
+        if self.desired_shares <= 0.0 {
             bail!("desired_shares must be positive");
         }
-        if c.order_size_usd <= 0.0 {
+        if self.order_size_usd <= 0.0 {
             bail!("order_size_usd must be positive");
         }
-        if c.max_total_stake_usd <= 0.0 {
+        if self.max_total_stake_usd <= 0.0 {
             bail!("max_total_stake_usd must be positive");
         }
-        if c.paper_starting_balance_usd <= 0.0 {
+        if self.paper_starting_balance_usd <= 0.0 {
             bail!("paper_starting_balance_usd must be positive");
         }
-        if c.poll_interval_secs == 0 {
+        if self.poll_interval_secs == 0 {
             bail!("poll_interval_secs must be positive");
         }
-        if c.forecast_refresh_secs == 0 {
+        if self.forecast_refresh_secs == 0 {
             bail!("forecast_refresh_secs must be positive");
         }
 
-        Ok(Self {
-            target_date: c.target_date,
-            city: c.city,
-            station_code: c.station_code,
-            lat: c.lat,
-            lon: c.lon,
-            forecast_high_f: c.forecast_high_f,
-            gamma_url: c.gamma_url,
-            clob_url: c.clob_url,
-            min_ev_threshold: c.min_ev_threshold,
-            desired_shares: c.desired_shares,
-            order_size_usd: c.order_size_usd,
-            max_total_stake_usd: c.max_total_stake_usd,
-            max_open_positions: c.max_open_positions,
-            calibration_path: c.calibration_path,
-            open_positions_path: c.open_positions_path,
-            execution_plan_dir: c.execution_plan_dir,
-            paper_portfolio_path: c.paper_portfolio_path,
-            performance_csv_path: c.performance_csv_path,
-            execute_script: c.execute_script,
-            strategies_file: c.strategies_file,
-            log_directory: c.log_directory,
-            dry_run: c.dry_run,
-            paper_starting_balance_usd: c.paper_starting_balance_usd,
-            run_loop: c.run_loop,
-            poll_interval_secs: c.poll_interval_secs,
-            forecast_refresh_secs: c.forecast_refresh_secs,
-        })
+        for city in &self.cities {
+            if city.slug.trim().is_empty() {
+                bail!("city slug must not be empty");
+            }
+            if city.station_code.trim().is_empty() {
+                bail!("city station_code must not be empty");
+            }
+        }
+
+        Ok(())
     }
 }
+
+pub fn resolve_start_date(override_date: Option<NaiveDate>) -> NaiveDate {
+    if let Some(date) = override_date {
+        return date;
+    }
+
+    let now = Utc::now();
+    let today = now.date_naive();
+    if now < market_close_utc(today) {
+        today
+    } else {
+        today + Duration::days(1)
+    }
+}
+
+pub fn context_key(city_slug: &str, target_date: NaiveDate) -> String {
+    format!("{city_slug}:{}", target_date.format("%Y-%m-%d"))
+}
+
+pub fn build_event_slug(city: &str, date: NaiveDate) -> String {
+    let month = match date.month() {
+        1 => "january",
+        2 => "february",
+        3 => "march",
+        4 => "april",
+        5 => "may",
+        6 => "june",
+        7 => "july",
+        8 => "august",
+        9 => "september",
+        10 => "october",
+        11 => "november",
+        12 => "december",
+        _ => "unknown",
+    };
+
+    format!(
+        "highest-temperature-in-{}-on-{}-{}-{}",
+        city,
+        month,
+        date.day(),
+        date.year()
+    )
+}
+
+use chrono::Datelike;

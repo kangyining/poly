@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
 use tokio::time::sleep;
@@ -10,6 +10,7 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tracing::{debug, info, warn};
 
+use crate::config::MarketContext;
 use crate::core::bus::EventBus;
 use crate::core::events::{
     BestBidAskChanged, ConnectionStatusChanged, Event, EventSource, MarketMetadataRefreshed,
@@ -22,36 +23,35 @@ const MARKET_WS_URL: &str = "wss://ws-subscriptions-clob.polymarket.com/ws/marke
 pub struct MarketService {
     bus: EventBus,
     client: PolymarketClient,
-    event_slug: String,
-    target_date: NaiveDate,
+    context: MarketContext,
     desired_shares: f64,
 }
 
 impl MarketService {
+    pub fn context_key(&self) -> &str {
+        &self.context.key
+    }
+
     pub fn new(
         bus: EventBus,
         gamma_url: &str,
         clob_url: &str,
-        event_slug: String,
-        target_date: NaiveDate,
+        context: MarketContext,
         desired_shares: f64,
     ) -> Self {
         Self {
             bus,
             client: PolymarketClient::new(gamma_url, clob_url),
-            event_slug,
-            target_date,
+            context,
             desired_shares,
         }
     }
 
-    pub async fn fetch_event_markets(
-        &self,
-        event_slug: &str,
-        target_date: NaiveDate,
-        desired_shares: f64,
-    ) -> Result<Vec<WeatherMarket>> {
-        let payload = self.client.get_event_by_slug(event_slug).await?;
+    pub async fn fetch_event_markets(&self) -> Result<Vec<WeatherMarket>> {
+        let payload = self
+            .client
+            .get_event_by_slug(&self.context.event_slug)
+            .await?;
 
         let end_date = payload
             .end_date
@@ -60,12 +60,12 @@ impl MarketService {
             .map(|dt| dt.with_timezone(&Utc));
 
         if let Some(end_dt) = end_date {
-            if end_dt.date_naive() != target_date {
+            if end_dt.date_naive() != self.context.target_date {
                 anyhow::bail!(
                     "event {} resolves on {}, expected {}",
-                    event_slug,
+                    self.context.event_slug,
                     end_dt.date_naive(),
-                    target_date
+                    self.context.target_date
                 );
             }
         }
@@ -75,11 +75,12 @@ impl MarketService {
             .markets
             .unwrap_or_default()
             .into_iter()
-            .filter_map(|market| WeatherMarket::try_from_gamma(market, target_date))
+            .filter_map(|market| WeatherMarket::try_from_gamma(market, self.context.target_date))
             .collect();
 
         info!(
-            event_slug,
+            context_key = %self.context.key,
+            event_slug = %self.context.event_slug,
             event_title,
             market_count = markets.len(),
             "fetched weather event markets from Gamma"
@@ -87,7 +88,7 @@ impl MarketService {
 
         for market in &mut markets {
             if let Some(no_token_id) = &market.no_token_id {
-                match self.fetch_clob_data(no_token_id, desired_shares).await {
+                match self.fetch_clob_data(no_token_id, self.desired_shares).await {
                     Ok((effective_ask, fee_rate)) => {
                         market.effective_ask_no = Some(effective_ask);
                         market.fee_rate = Some(fee_rate);
@@ -108,15 +109,12 @@ impl MarketService {
     }
 
     pub async fn publish_metadata(&self) -> Result<Vec<WeatherMarket>> {
-        let markets = self
-            .fetch_event_markets(&self.event_slug, self.target_date, self.desired_shares)
-            .await?;
+        let markets = self.fetch_event_markets().await?;
 
         self.bus.publish(
             EventSource::App,
             Event::MetadataRefreshed(MarketMetadataRefreshed {
-                event_slug: self.event_slug.clone(),
-                target_date: self.target_date,
+                context: self.context.clone(),
                 markets: Arc::new(markets.clone()),
             }),
         );
@@ -259,6 +257,7 @@ impl MarketService {
         self.bus.publish(
             EventSource::MarketWs,
             Event::BestBidAskChanged(BestBidAskChanged {
+                context_key: self.context.key.clone(),
                 token_id: token_id.to_string(),
                 best_bid,
                 best_ask,

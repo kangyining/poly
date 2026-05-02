@@ -10,7 +10,7 @@ use polymarket_weather_bot::strategy::CalibrationTable;
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let config = AppConfig::try_from(cli)?;
+    let config = AppConfig::load(&cli.config)?;
     let _logging_guard = init_logging(&config.log_directory)?;
 
     let calibration = if config.calibration_path.exists() {

@@ -20,16 +20,19 @@ impl EvaluationTriggerConsumer {
         loop {
             match rx.recv().await {
                 Ok(envelope) => match envelope.payload {
-                    Event::Started => self.publish(EvaluationReason::Startup),
-                    Event::ForecastUpdated(_) => self.publish(EvaluationReason::WeatherChanged),
-                    Event::MetadataRefreshed(_) => {
-                        self.publish(EvaluationReason::MarketMetadataChanged)
+                    Event::MetadataRefreshed(update) => {
+                        self.publish(update.context.key.clone(), EvaluationReason::Startup);
+                        self.publish(update.context.key, EvaluationReason::MarketMetadataChanged)
                     }
-                    Event::BestBidAskChanged(update) => {
-                        self.publish(EvaluationReason::MarketPriceChanged {
+                    Event::ForecastUpdated(update) => {
+                        self.publish(update.current.context_key, EvaluationReason::WeatherChanged)
+                    }
+                    Event::BestBidAskChanged(update) => self.publish(
+                        update.context_key,
+                        EvaluationReason::MarketPriceChanged {
                             token_id: update.token_id,
-                        })
-                    }
+                        },
+                    ),
                     Event::Stopping => break,
                     _ => {}
                 },
@@ -49,10 +52,13 @@ impl EvaluationTriggerConsumer {
         Ok(())
     }
 
-    fn publish(&self, reason: EvaluationReason) {
+    fn publish(&self, context_key: String, reason: EvaluationReason) {
         self.bus.publish(
             EventSource::TriggerConsumer,
-            Event::EvaluationRequested(EvaluationRequested { reason }),
+            Event::EvaluationRequested(EvaluationRequested {
+                context_key,
+                reason,
+            }),
         );
     }
 }

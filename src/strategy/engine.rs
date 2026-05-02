@@ -89,6 +89,10 @@ impl StrategyEngine {
                 .expect("accepted market has no_token_id");
 
             Some(TradeCandidate {
+                context_key: input.context_key.clone(),
+                city_slug: input.city_slug.clone(),
+                target_date: input.target_date,
+                event_slug: input.event_slug.clone(),
                 market_id: market.id.clone(),
                 question: market.question.clone(),
                 slug: market.slug.clone(),
@@ -151,6 +155,8 @@ mod tests {
     fn keeps_only_high_ev_no_bins() {
         // mu=50°F, sigma=2 → bins far from 50 have low P_model → high EV_NO
         let forecast = Forecast {
+            context_key: "nyc:2026-04-20".into(),
+            city_slug: "nyc".into(),
             target_date: NaiveDate::from_ymd_opt(2026, 4, 20).unwrap(),
             forecast_high_f: 50.0,
             lead_hours: 26.0,
@@ -164,6 +170,9 @@ mod tests {
             min_ev_threshold: 0.02,
             desired_shares: 10.0,
             order_size_usd: 5.0,
+            context_key: "nyc:2026-04-20".into(),
+            city_slug: "nyc".into(),
+            target_date: NaiveDate::from_ymd_opt(2026, 4, 20).unwrap(),
             run_id: "test".into(),
             event_slug: "test-slug".into(),
             // Set evaluation time 20h before close so timing rule passes

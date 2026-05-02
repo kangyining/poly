@@ -33,15 +33,26 @@ impl StrategyConsumer {
                     Event::EvaluationRequested(request) => {
                         let forecast = {
                             let state = self.state.read().await;
-                            state.weather.forecast.clone()
+                            state
+                                .weather
+                                .get(&request.context_key)
+                                .and_then(|weather| weather.forecast.clone())
                         };
 
                         let Some(forecast) = forecast else {
-                            debug!(reason = ?request.reason, "skipping evaluation until forecast is available");
+                            debug!(
+                                context_key = %request.context_key,
+                                reason = ?request.reason,
+                                "skipping evaluation until forecast is available"
+                            );
                             continue;
                         };
 
-                        info!(reason = ?request.reason, "running strategy evaluation");
+                        info!(
+                            context_key = %request.context_key,
+                            reason = ?request.reason,
+                            "running strategy evaluation"
+                        );
                         match self.strategy_service.evaluate(forecast).await {
                             Ok(outcome) => {
                                 self.bus.publish(
