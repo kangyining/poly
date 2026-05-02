@@ -1,11 +1,4 @@
-"""
-METAR recorder — fetches hourly observations for settlement stations.
-
-Stations (Phase 0 verified):
-  Chicago → KORD  (O'Hare, matches Polymarket Wunderground settlement)
-  Dallas  → KDAL  (Love Field, NOT KDFW/DFW)
-  NYC     → KLGA  (LaGuardia, NOT KJFK/JFK)
-"""
+"""METAR recorder — fetches hourly observations for settlement stations."""
 
 import json
 import logging
@@ -13,7 +6,7 @@ from datetime import datetime, timezone
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import contract_for_station, enabled_station_ids
 from data.db import Database
 from data.models import METARRecord
 
@@ -41,11 +34,8 @@ def parse_metar(raw: dict) -> METARRecord | None:
         log.warning("No temp in METAR for %s", icao)
         return None
 
-    # Map ICAO to city name
-    city = next(
-        (name for name, cfg in CITIES.items() if cfg["icao"] == icao),
-        icao
-    )
+    _, cfg = contract_for_station(icao)
+    city = cfg["display_city"] if cfg else icao
 
     # Parse observation time
     obs_time_raw = raw.get("obsTime") or raw.get("reportTime")
@@ -68,7 +58,7 @@ def parse_metar(raw: dict) -> METARRecord | None:
 
 def record_metars(db: Database):
     """Fetch and store current METAR for all settlement stations."""
-    icao_list = [cfg["icao"] for cfg in CITIES.values()]
+    icao_list = enabled_station_ids()
     try:
         raw_list = fetch_metars(icao_list)
     except Exception as e:

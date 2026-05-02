@@ -28,7 +28,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import contract_for_city, enabled_daily_high_contracts
+from data.weather_contracts import build_daily_high_slug
 from data.db import Database
 from data.models import ForecastRecord
 
@@ -89,19 +90,31 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
 
     Args:
         db: Database instance
-        city: if given, only backfill this city; otherwise all 3
+        city: if given, only backfill this city; otherwise all enabled contracts
 
     Returns:
         number of records saved
     """
     now = datetime.now(timezone.utc)
-    cities = {city: CITIES[city]} if city else CITIES
+    if city:
+        slug, cfg = contract_for_city(city)
+        cities = {slug: cfg} if cfg else {}
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+    else:
+        cities = enabled_daily_high_contracts()
     total_saved = 0
 
-    for city_name, cfg in cities.items():
+    for city_slug, cfg in cities.items():
+        city_name = cfg["display_city"]
         # All settlement dates for this city
         rows = db.conn.execute(
-            "SELECT target_date FROM settlement_records WHERE city = ? ORDER BY target_date",
+            """
+            SELECT target_date, event_slug
+            FROM settlement_records
+            WHERE city = ?
+            ORDER BY target_date
+            """,
             (city_name,)
         ).fetchall()
 
@@ -118,7 +131,7 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
             ).fetchall()
         )
 
-        missing = [r[0] for r in rows if r[0] not in existing]
+        missing = [r for r in rows if r["target_date"] not in existing]
 
         if not missing:
             log.info("%s: all %d dates already have true forecasts", city_name, len(rows))
@@ -127,7 +140,8 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
         log.info("%s: fetching true 24h forecasts for %d dates", city_name, len(missing))
         saved = 0
 
-        for target_date in missing:
+        for row in missing:
+            target_date = row["target_date"]
             gfs_f = fetch_true_forecast(cfg["lat"], cfg["lon"], target_date)
 
             if gfs_f is None:
@@ -137,6 +151,9 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
 
             gfs_c = round((gfs_f - 32) * 5 / 9, 1)
             model_run = _prev_day_run(target_date)
+            event_slug = row["event_slug"] or build_daily_high_slug(
+                city_slug, date.fromisoformat(target_date)
+            )
 
             # Market closes noon UTC; D-1 06:00 run = ~26h lead
             lead_hours = 26.0
@@ -158,8 +175,40 @@ def backfill_true_forecasts(db: Database, city: str | None = None) -> int:
                     "target_date": target_date,
                     "gfs_f": gfs_f,
                 }),
+                market_type="daily_temperature",
+                measure="high",
+                unit="F",
+                city_slug=city_slug,
+                station_id=cfg["station_id"],
+                event_slug=event_slug,
+                value_gfs=gfs_f,
+                value_unit="F",
             )
             db.insert_forecast(rec)
+            db.insert_forecast_model_run({
+                "timestamp": now.isoformat(),
+                "city": city_name,
+                "target_date": target_date,
+                "source": SOURCE,
+                "model_name": "gfs_global",
+                "model_run_time": model_run,
+                "forecast_lead_hours": lead_hours,
+                "temp_max_f": gfs_f,
+                "raw_json": json.dumps({
+                    "model": "gfs_global",
+                    "past_model_run": model_run,
+                    "target_date": target_date,
+                    "gfs_f": gfs_f,
+                }),
+                "market_type": "daily_temperature",
+                "measure": "high",
+                "unit": "F",
+                "city_slug": city_slug,
+                "station_id": cfg["station_id"],
+                "event_slug": event_slug,
+                "value": gfs_f,
+                "value_unit": "F",
+            })
             saved += 1
 
             log.debug("%s %s: GFS 24h = %.1f°F (run %s)",

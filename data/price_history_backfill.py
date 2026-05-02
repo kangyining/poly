@@ -26,9 +26,10 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import contract_for_city
 from data.db import Database
-from data.gamma_client import fetch_event, parse_markets
+from data.gamma_client import fetch_event_by_slug, parse_markets
+from data.weather_contracts import build_daily_high_slug
 
 log = logging.getLogger(__name__)
 
@@ -116,17 +117,35 @@ def _build_hourly_rows(city: str, target_date: str, mkt: dict,
     return rows
 
 
-def backfill_price_history(db: Database):
+def backfill_price_history(db: Database, city: str | None = None):
     """
     Backfill raw minute and hourly price history for all settled markets not yet in DB.
     """
-    # Load all settlements
-    rows = db.conn.execute(
-        "SELECT city, target_date, event_slug FROM settlement_records "
-        "ORDER BY city, target_date"
-    ).fetchall()
+    city_filter = None
+    if city:
+        _slug, cfg = contract_for_city(city)
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+            return 0
+        city_filter = cfg["display_city"]
 
-    city_cfg = {name: cfg for name, cfg in CITIES.items()}
+    # Load all settlements
+    if city_filter:
+        rows = db.conn.execute(
+            """
+            SELECT city, target_date, event_slug
+            FROM settlement_records
+            WHERE city = ?
+            ORDER BY city, target_date
+            """,
+            (city_filter,),
+        ).fetchall()
+    else:
+        rows = db.conn.execute(
+            "SELECT city, target_date, event_slug FROM settlement_records "
+            "ORDER BY city, target_date"
+        ).fetchall()
+
     total_saved = 0
     skipped = 0
 
@@ -137,16 +156,17 @@ def backfill_price_history(db: Database):
             skipped += 1
             continue
 
-        cfg = city_cfg.get(city)
-        if not cfg:
-            log.warning("No config for city %s, skipping", city)
-            continue
-
         # Fetch event from Gamma to get token IDs
         try:
             from datetime import date
             target = date.fromisoformat(target_date)
-            event = fetch_event(cfg["polymarket_slug_city"], target)
+            event = fetch_event_by_slug(event_slug) if event_slug else None
+            if event is None:
+                city_slug, cfg = contract_for_city(city)
+                if not cfg:
+                    log.warning("No config or event_slug for city %s, skipping", city)
+                    continue
+                event = fetch_event_by_slug(build_daily_high_slug(city_slug, target))
         except Exception as e:
             log.warning("Gamma fetch failed %s %s: %s", city, target_date, e)
             continue

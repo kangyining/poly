@@ -152,8 +152,10 @@ npm run dev:web
 ## Backtesting
 
 Use `poly-weather/backtest.py` as the only supported backtest entry point.
-It delegates to `analysis/phase1_backtest.py`, stores run metadata in the
-`backtests` table, and records simulated trades in `positions`.
+It delegates to `analysis/phase1_backtest.py`, reads historical data from
+SQLite, and writes result artifacts to CSV/Markdown files without inserting
+simulated results into `backtests` or `positions`.
+By default, backtests use 1-minute interval replay.
 
 ```powershell
 cd F:\Polymark\poly-weather
@@ -163,47 +165,78 @@ python backtest.py --strategy aggressive_tail --date-from 2026-02-01 --date-to 2
 
 The dashboard backtesting screen calls this same command path through the API.
 
+### Strategy Lab
+
+The Python backtester now uses pluggable strategies from
+`analysis/strategies/strategies.json`. `base_ev` is kept as a compatibility
+alias for `base_no_ev`; `poly-weather-bot` is not changed by this lab layer.
+
+```powershell
+python backtest.py --list-strategies
+python backtest.py --strategy base_no_ev --days 60 --city NYC
+python backtest.py --strategy-group core --date-from 2026-04-01 --date-to 2026-04-05 --city NYC
+python backtest.py --all-strategies --date-from 2026-04-01 --date-to 2026-04-25 --city NYC
+python backtest.py --strategy nowcast_metar --days 7 --city NYC
+```
+
+Every backtest run writes a summary CSV, trade-level CSV, and Markdown
+comparison report under `backtest/`. Pass `--csv`, `--trades-csv`, or
+`--report` only when you want custom artifact paths.
+
+Implemented strategy plugins include exact-bucket NO EV, YES/NO EV,
+ensemble-style bucket EV, dynamic sigma EV, climatology blending, corridor
+ladders, synthetic threshold unions, basket arbitrage scans, maker quote
+simulation, and METAR nowcasting. Research-only candidates such as monthly
+remainder, semantic arbitrage, exit overlays, wallet-copy signals, and
+resolution-lag monitoring emit explicit missing-data diagnostics until their
+required data is available.
+
 ### Parameter Sweeps
 
 Use `backtest_param_finetune/param_sweep.py` to test combinations of the
-current NO-EV strategy parameters. It reuses `analysis/phase1_backtest.py`, so
-each combination is persisted as a normal backtest run in SQLite, and it also
-writes ranked CSV/Markdown summaries under `backtest_param_finetune/results/`.
+strategy lab plugin parameters. It reuses `analysis/phase1_backtest.py`, so
+each combination uses the same engine and writes ranked CSV/Markdown summaries
+under `backtest_param_finetune/results/`.
+Default sizing sweeps `desired_shares` from `1` through `10`, does not use
+`funding_pct`, and has no daily/global stake cap unless you pass
+`--daily-max-stake-usd`.
 
 ```powershell
 cd F:\Polymark\poly-weather
 
 python backtest_param_finetune\param_sweep.py `
-  --nyc-all-available `
-  --sweep-name nyc_all_available_full_v1 `
-  --replay-mode single `
-  --rank-by roi `
-  --min-trades 10
-```
-
-That shortcut uses NYC, discovers all currently backtest-ready NYC dates in
-`db/data.db`, tests the full built-in parameter grid, and writes a report. For a
-custom range/grid:
-
-```powershell
-python backtest_param_finetune\param_sweep.py `
-  --sweep-name nyc_april_single_v1 `
+  --backtest-ready-strategies `
+  --sweep-name nyc_april_all_strategies_uncapped_v1 `
   --city NYC `
   --date-from 2026-04-01 `
-  --date-to 2026-04-19 `
-  --replay-mode single `
-  --min-ev-thresholds 0.02,0.03,0.04,0.05,0.06 `
-  --desired-shares 2.5,5,10 `
-  --funding-pcts 0.5,1.0 `
-  --max-stake-usd 25,50,100 `
+  --date-to 2026-04-25 `
   --rank-by roi `
   --min-trades 5
 ```
 
-The swept parameters are `min_ev_threshold`, `desired_shares`, `funding_pct`,
-and `max_stake_usd`. Use a train/validation split when choosing final values;
-for example tune on February-March and validate on April rather than ranking
-and reporting on the same period.
+That sweeps all currently executable strategy plugins using the built-in quick
+grid, writes one report per strategy, and writes a final best-by-strategy
+comparison. For a custom range/grid:
+
+```powershell
+python backtest_param_finetune\param_sweep.py `
+  --strategy dynamic_sigma_ev `
+  --strategy maker_quote_sim `
+  --sweep-name nyc_april_dynamic_maker_uncapped_v1 `
+  --city NYC `
+  --date-from 2026-04-01 `
+  --date-to 2026-04-25 `
+  --min-ev-thresholds 0.01:0.10:0.01 `
+  --desired-shares 1:10:1 `
+  --strategy-param-grid dynamic_sigma_ev:dynamic_sigma_min=0.4:1.2:0.2 `
+  --strategy-param-grid maker_quote_sim:tick_size=0.005,0.01,0.02 `
+  --rank-by roi `
+  --min-trades 5
+```
+
+Use a train/validation split when choosing final values; for example tune on
+February-March and validate on April rather than ranking and reporting on the
+same period.
 
 ---
 
@@ -215,7 +248,7 @@ All flags can be set via CLI argument or environment variable.
 |------|---------|---------|-------------|
 | `--run-loop` | `LOOP` | false | Continuous loop (vs single pass) |
 | `--dry-run` | `DRY_RUN` | **true** | Paper mode — no real orders |
-| `--poll-interval-secs` | `POLL_INTERVAL_SECS` | 15 | Seconds between market evaluation passes |
+| `--poll-interval-secs` | `POLL_INTERVAL_SECS` | 15 | Legacy market polling knob; current live loop is websocket/event-driven |
 | `--forecast-refresh-secs` | `FORECAST_REFRESH_SECS` | 1800 | Seconds between forecast refreshes |
 | `--min-ev-threshold` | `MIN_EV_THRESHOLD` | 0.10 | Minimum EV to qualify a bin |
 | `--desired-shares` | `DESIRED_SHARES` | 5.0 | Shares to buy per bin |
