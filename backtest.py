@@ -1,11 +1,11 @@
 """
-Backtest runner — the single supported entry point for historical backtests.
+Backtest runner — the supported entry point for historical backtests.
 
 This wrapper delegates to `analysis/phase1_backtest.py`, which owns the current
-dashboard-backed backtest flow and persists results to SQLite.
+backtest flow and writes result artifacts to CSV/Markdown files.
 
 Usage:
-    python backtest.py                                    # base_ev, last 60 days
+    python backtest.py                                    # base_ev, last 60 days, 1-minute interval replay
     python backtest.py --strategy base_ev --days 90
     python backtest.py --strategy aggressive_tail --date-from 2026-01-01
     python backtest.py --strategy base_ev --date-from 2026-01-01 --date-to 2026-03-31

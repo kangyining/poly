@@ -20,7 +20,7 @@ from datetime import date, datetime, timezone
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import contract_for_city, enabled_daily_high_contracts
 from data.db import Database
 from data.models import ForecastRecord
 
@@ -51,7 +51,17 @@ def fetch_historical_forecasts(lat: float, lon: float,
     return r.json()
 
 
-def backfill_historical_forecasts(db: Database):
+def _contract_filter(city: str | None) -> dict[str, dict]:
+    if city:
+        slug, cfg = contract_for_city(city)
+        if not cfg:
+            log.error("No enabled daily-high contract for city %r", city)
+            return {}
+        return {slug: cfg}
+    return enabled_daily_high_contracts()
+
+
+def backfill_historical_forecasts(db: Database, city: str | None = None):
     """
     For each city, find all settlement dates that lack a historical forecast
     record, then fetch and store them in one batched API call per city.
@@ -59,7 +69,8 @@ def backfill_historical_forecasts(db: Database):
     now = datetime.now(timezone.utc)
     total_saved = 0
 
-    for city, cfg in CITIES.items():
+    for city_slug, cfg in _contract_filter(city).items():
+        city = cfg["display_city"]
         # Find settlement dates for this city
         rows = db.conn.execute(
             "SELECT target_date FROM settlement_records WHERE city = ? ORDER BY target_date",
@@ -138,8 +149,42 @@ def backfill_historical_forecasts(db: Database):
                 model_spread_c=spread_c,
                 forecast_lead_hours=-1.0,   # historical: target already passed
                 raw_json=json.dumps({"date": d_str, "ecmwf_f": ec_f, "gfs_f": gf_f}),
+                market_type="daily_temperature",
+                measure="high",
+                unit="F",
+                city_slug=city_slug,
+                station_id=cfg["station_id"],
+                event_slug=f"highest-temperature-in-{city_slug}-on-{d.strftime('%B').lower()}-{d.day}-{d.year}",
+                value_ecmwf=ec_f,
+                value_gfs=gf_f,
+                value_unit="F",
             )
             db.insert_forecast(rec)
+            for model_name, temp_f in (
+                ("ecmwf_ifs025", ec_f),
+                ("gfs_seamless", gf_f),
+            ):
+                if temp_f is None:
+                    continue
+                db.insert_forecast_model_run({
+                    "timestamp": now.isoformat(),
+                    "city": city,
+                    "target_date": d_str,
+                    "source": "open-meteo-historical",
+                    "model_name": model_name,
+                    "model_run_time": None,
+                    "forecast_lead_hours": -1.0,
+                    "temp_max_f": temp_f,
+                    "raw_json": json.dumps({"date": d_str, "model": model_name, "temp_max_f": temp_f}),
+                    "market_type": "daily_temperature",
+                    "measure": "high",
+                    "unit": "F",
+                    "city_slug": city_slug,
+                    "station_id": cfg["station_id"],
+                    "event_slug": f"highest-temperature-in-{city_slug}-on-{d.strftime('%B').lower()}-{d.day}-{d.year}",
+                    "value": temp_f,
+                    "value_unit": "F",
+                })
             saved += 1
 
         total_saved += saved

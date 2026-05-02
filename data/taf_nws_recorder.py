@@ -6,7 +6,7 @@ TAF  (Terminal Aerodrome Forecast): 24-30hr airport forecast, updated 4x/day.
 
 NWS  (National Weather Service): official US 7-day forecast by grid point.
      Free, no API key. Provides daytime high temperatures per day.
-     Source: api.weather.gov — pre-computed grid URLs stored in CITIES config.
+     Source: api.weather.gov — forecast URLs are resolved from station coords.
 """
 
 import logging
@@ -15,13 +15,18 @@ from datetime import date, datetime, timedelta, timezone
 
 import requests
 
-from config.cities import CITIES
+from config.weather_contracts import (
+    contract_for_station,
+    enabled_daily_high_contracts,
+    enabled_station_ids,
+)
 from data.db import Database
 
 log = logging.getLogger(__name__)
 
 TAF_URL = "https://aviationweather.gov/api/data/taf"
 NWS_HEADERS = {"User-Agent": "poly-weather-bot/1.0 (contact: admin@localhost)"}
+_NWS_FORECAST_URL_CACHE: dict[str, str] = {}
 
 
 # ── TAF ──────────────────────────────────────────────────────────────────────
@@ -35,7 +40,7 @@ def _parse_unix(ts) -> datetime | None:
 
 def record_tafs(db: Database):
     """Fetch and store current TAF for all settlement stations."""
-    icao_list = [cfg["icao"] for cfg in CITIES.values()]
+    icao_list = enabled_station_ids()
     ids = ",".join(icao_list)
 
     try:
@@ -46,12 +51,12 @@ def record_tafs(db: Database):
         log.error("TAF fetch failed: %s", e)
         return
 
-    icao_to_city = {cfg["icao"]: name for name, cfg in CITIES.items()}
     saved = 0
 
     for taf in data:
         icao = taf.get("icaoId", "")
-        city = icao_to_city.get(icao, icao)
+        _, cfg = contract_for_station(icao)
+        city = cfg["display_city"] if cfg else icao
 
         issue_time  = _parse_unix(taf.get("issueTime") or taf.get("bulletinTime"))
         valid_from  = _parse_unix(taf.get("validTimeFrom"))
@@ -78,19 +83,37 @@ def _lead_hours_to_noon(target: date, now: datetime) -> float:
     return max(0.0, delta.total_seconds() / 3600)
 
 
+def _resolve_nws_forecast_url(station_id: str, lat: float, lon: float) -> str | None:
+    cached = _NWS_FORECAST_URL_CACHE.get(station_id)
+    if cached:
+        return cached
+    response = requests.get(
+        f"https://api.weather.gov/points/{lat:.4f},{lon:.4f}",
+        headers=NWS_HEADERS,
+        timeout=30,
+    )
+    response.raise_for_status()
+    url = response.json().get("properties", {}).get("forecast")
+    if url:
+        _NWS_FORECAST_URL_CACHE[station_id] = url
+    return url
+
+
 def record_nws_forecasts(db: Database):
     """Fetch and store NWS daytime high forecasts for the next 7 days."""
     now = datetime.now(timezone.utc)
     today = now.date()
     saved = 0
 
-    for city, cfg in CITIES.items():
-        url = cfg.get("nws_forecast_url")
-        if not url:
-            log.debug("%s: no NWS forecast URL configured", city)
-            continue
+    for _, cfg in enabled_daily_high_contracts().items():
+        city = cfg["display_city"]
+        station_id = cfg["station_id"]
 
         try:
+            url = _resolve_nws_forecast_url(station_id, float(cfg["lat"]), float(cfg["lon"]))
+            if not url:
+                log.debug("%s: no NWS forecast URL resolved", city)
+                continue
             r = requests.get(url, headers=NWS_HEADERS, timeout=30)
             r.raise_for_status()
             periods = r.json()["properties"]["periods"]
