@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 
+use crate::config::MarketContext;
 use crate::market::WeatherMarket;
 use crate::services::{ExecutionReport, StrategyOutcome};
 use crate::weather::Forecast;
@@ -47,13 +48,13 @@ pub enum EventSource {
 
 #[derive(Debug, Clone)]
 pub struct MarketMetadataRefreshed {
-    pub event_slug: String,
-    pub target_date: NaiveDate,
+    pub context: MarketContext,
     pub markets: Arc<Vec<WeatherMarket>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct BestBidAskChanged {
+    pub context_key: String,
     pub token_id: String,
     pub best_bid: Option<f64>,
     pub best_ask: Option<f64>,
@@ -73,6 +74,7 @@ pub struct ForecastUpdated {
 
 #[derive(Debug, Clone)]
 pub struct EvaluationRequested {
+    pub context_key: String,
     pub reason: EvaluationReason,
 }
 

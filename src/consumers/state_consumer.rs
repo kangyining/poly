@@ -29,34 +29,35 @@ impl StateConsumer {
                     }
                     Event::ForecastUpdated(update) => {
                         let mut state = self.state.write().await;
-                        state.weather.forecast = Some(update.current);
-                        state.weather.last_update_at = Some(Utc::now());
+                        let context_key = update.current.context_key.clone();
+                        let weather = state.weather.entry(context_key).or_default();
+                        weather.forecast = Some(update.current);
+                        weather.last_update_at = Some(Utc::now());
                         if state.is_ready() {
                             state.lifecycle = LifecycleState::Ready;
                         }
                     }
                     Event::MetadataRefreshed(update) => {
                         let mut state = self.state.write().await;
-                        state.market.event_slug = Some(update.event_slug);
-                        state.market.target_date = Some(update.target_date);
-                        state.market.markets = (*update.markets).clone();
-                        state.market.last_metadata_at = Some(Utc::now());
+                        let market = state.markets.entry(update.context.key).or_default();
+                        market.event_slug = update.context.event_slug;
+                        market.target_date = update.context.target_date;
+                        market.markets = (*update.markets).clone();
+                        market.last_metadata_at = Some(Utc::now());
                         if state.is_ready() {
                             state.lifecycle = LifecycleState::Ready;
                         }
                     }
                     Event::BestBidAskChanged(update) => {
                         let mut state = self.state.write().await;
+                        let market = state.markets.entry(update.context_key).or_default();
                         if let Some(best_bid) = update.best_bid {
-                            state
-                                .market
-                                .best_bids
-                                .insert(update.token_id.clone(), best_bid);
+                            market.best_bids.insert(update.token_id.clone(), best_bid);
                         }
                         if let Some(best_ask) = update.best_ask {
-                            state.market.best_asks.insert(update.token_id, best_ask);
+                            market.best_asks.insert(update.token_id, best_ask);
                         }
-                        state.market.last_price_event_at = Some(Utc::now());
+                        market.last_price_event_at = Some(Utc::now());
                     }
                     Event::EvaluationRequested(_) => {
                         let mut state = self.state.write().await;
@@ -64,6 +65,14 @@ impl StateConsumer {
                     }
                     Event::EvaluationCompleted(outcome) => {
                         let mut state = self.state.write().await;
+                        state
+                            .execution
+                            .latest_outcomes
+                            .insert(outcome.context.key.clone(), outcome.clone());
+                        state
+                            .execution
+                            .completed_initial_contexts
+                            .insert(outcome.context.key.clone());
                         state.execution.last_run_id = Some(outcome.run_id.clone());
                         state.execution.last_evaluation_at = Some(Utc::now());
                         state.lifecycle = LifecycleState::Ready;

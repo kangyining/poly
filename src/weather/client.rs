@@ -6,6 +6,8 @@ use tracing::info;
 
 #[derive(Debug, Clone)]
 pub struct Forecast {
+    pub context_key: String,
+    pub city_slug: String,
     pub target_date: NaiveDate,
     pub forecast_high_f: f64,
     pub lead_hours: f64,
@@ -22,11 +24,19 @@ impl StaticForecastProvider {
         Self { forecast_high_f }
     }
 
-    pub fn get_forecast(&self, target_date: NaiveDate, station_code: &str) -> Result<Forecast> {
+    pub fn get_forecast(
+        &self,
+        context_key: &str,
+        city_slug: &str,
+        target_date: NaiveDate,
+        station_code: &str,
+    ) -> Result<Forecast> {
         let now = Utc::now();
         let close = market_close_utc(target_date);
         let lead_hours = (close - now).num_minutes() as f64 / 60.0;
         Ok(Forecast {
+            context_key: context_key.to_string(),
+            city_slug: city_slug.to_string(),
             target_date,
             forecast_high_f: self.forecast_high_f,
             lead_hours: lead_hours.max(0.0),
@@ -85,6 +95,8 @@ impl NwsForecastProvider {
 
     pub async fn get_forecast(
         &self,
+        context_key: &str,
+        city_slug: &str,
         target_date: NaiveDate,
         station_code: &str,
     ) -> Result<Forecast> {
@@ -156,6 +168,8 @@ impl NwsForecastProvider {
         );
 
         Ok(Forecast {
+            context_key: context_key.to_string(),
+            city_slug: city_slug.to_string(),
             target_date,
             forecast_high_f,
             lead_hours,

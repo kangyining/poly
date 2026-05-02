@@ -16,6 +16,9 @@ pub struct StrategyInput {
     pub desired_shares: f64,
     /// Dollar stake per bin (for execution plan sizing)
     pub order_size_usd: f64,
+    pub context_key: String,
+    pub city_slug: String,
+    pub target_date: NaiveDate,
     pub run_id: String,
     pub event_slug: String,
     pub evaluation_time_utc: Option<DateTime<Utc>>,
@@ -23,6 +26,10 @@ pub struct StrategyInput {
 
 #[derive(Debug, Clone)]
 pub struct TradeCandidate {
+    pub context_key: String,
+    pub city_slug: String,
+    pub target_date: NaiveDate,
+    pub event_slug: String,
     pub market_id: String,
     pub question: String,
     pub slug: Option<String>,
