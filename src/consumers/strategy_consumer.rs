@@ -54,11 +54,13 @@ impl StrategyConsumer {
                             "running strategy evaluation"
                         );
                         match self.strategy_service.evaluate(forecast).await {
-                            Ok(outcome) => {
-                                self.bus.publish(
-                                    EventSource::StrategyEngine,
-                                    Event::EvaluationCompleted(Arc::new(outcome)),
-                                );
+                            Ok(outcomes) => {
+                                for outcome in outcomes {
+                                    self.bus.publish(
+                                        EventSource::StrategyEngine,
+                                        Event::EvaluationCompleted(Arc::new(outcome)),
+                                    );
+                                }
                             }
                             Err(error) => {
                                 warn!(error = %error, "strategy evaluation failed");

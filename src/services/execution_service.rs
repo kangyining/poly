@@ -82,20 +82,25 @@ pub struct ExecutedTrade {
 }
 
 impl ExecutionPlan {
-    pub fn from_outcomes(outcomes: &[&StrategyOutcome], dry_run: bool) -> Self {
+    pub fn from_outcomes(
+        outcomes: &[&StrategyOutcome],
+        dry_run: bool,
+        max_total_stake_usd: f64,
+    ) -> Self {
         let generated_at = Utc::now().to_rfc3339();
         let run_id = format!("portfolio-{}", Utc::now().format("%Y%m%dT%H%M%SZ"));
-        let trades = outcomes
+        let mut trades = outcomes
             .iter()
             .flat_map(|outcome| {
                 outcome
                     .evaluation
                     .candidates
                     .iter()
-                    .map(|candidate| PlannedTrade::from_candidate(candidate, "default"))
+                    .map(PlannedTrade::from_candidate)
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
+        retain_by_total_stake(&mut trades, max_total_stake_usd);
         let total_stake_usd = trades.iter().map(|trade| trade.stake_usd).sum();
 
         Self {
@@ -127,7 +132,7 @@ impl ExecutionPlan {
 }
 
 impl PlannedTrade {
-    fn from_candidate(candidate: &TradeCandidate, strategy_name: &str) -> Self {
+    fn from_candidate(candidate: &TradeCandidate) -> Self {
         Self {
             context_key: candidate.context_key.clone(),
             city_slug: candidate.city_slug.clone(),
@@ -145,7 +150,7 @@ impl PlannedTrade {
             p_model: candidate.p_model,
             ev_no: candidate.ev_no,
             fee_rate: candidate.fee_rate,
-            strategy_name: strategy_name.to_string(),
+            strategy_name: candidate.strategy_name.clone(),
         }
     }
 }
@@ -161,6 +166,10 @@ impl ExecutionService {
 
     pub fn is_dry_run(&self) -> bool {
         self.config.dry_run
+    }
+
+    pub fn max_total_stake_usd(&self) -> f64 {
+        self.config.max_total_stake_usd
     }
 
     pub fn write_plan(&self, plan: &ExecutionPlan) -> Result<()> {
@@ -296,4 +305,21 @@ impl ExecutionService {
         );
         Ok(order_id)
     }
+}
+
+fn retain_by_total_stake(trades: &mut Vec<PlannedTrade>, max_total_stake_usd: f64) {
+    let total_stake_usd: f64 = trades.iter().map(|trade| trade.stake_usd).sum();
+    if total_stake_usd <= max_total_stake_usd {
+        return;
+    }
+
+    let mut running = 0.0_f64;
+    trades.retain(|trade| {
+        if running + trade.stake_usd <= max_total_stake_usd {
+            running += trade.stake_usd;
+            true
+        } else {
+            false
+        }
+    });
 }

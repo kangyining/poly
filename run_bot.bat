@@ -10,7 +10,6 @@ REM All flags are passed through to the binary. See --help for full list.
 REM
 REM Environment variables (for live trading):
 REM   set POLYMARKET_PRIVATE_KEY=0x...
-REM   set POLYMARKET_FUNDER=0x...
 
 setlocal
 

@@ -89,6 +89,7 @@ impl StrategyEngine {
                 .expect("accepted market has no_token_id");
 
             Some(TradeCandidate {
+                strategy_name: input.strategy_name.clone(),
                 context_key: input.context_key.clone(),
                 city_slug: input.city_slug.clone(),
                 target_date: input.target_date,
@@ -164,12 +165,12 @@ mod tests {
         };
 
         let input = StrategyInput {
+            strategy_name: "test".into(),
             forecast,
             mu_f: 50.0,
             sigma_f: 2.0,
             min_ev_threshold: 0.02,
             desired_shares: 10.0,
-            order_size_usd: 5.0,
             context_key: "nyc:2026-04-20".into(),
             city_slug: "nyc".into(),
             target_date: NaiveDate::from_ymd_opt(2026, 4, 20).unwrap(),

@@ -17,6 +17,7 @@ use crate::weather::Forecast;
 
 #[derive(Debug, Clone)]
 pub struct StrategyOutcome {
+    pub strategy_name: String,
     pub context: MarketContext,
     pub run_id: String,
     pub evaluation: StrategyEvaluation,
@@ -52,7 +53,7 @@ impl StrategyService {
         }
     }
 
-    pub async fn evaluate(&self, forecast: Forecast) -> Result<StrategyOutcome> {
+    pub async fn evaluate(&self, forecast: Forecast) -> Result<Vec<StrategyOutcome>> {
         let context = self
             .contexts
             .get(&forecast.context_key)
@@ -97,21 +98,6 @@ impl StrategyService {
             })
             .collect();
 
-        let strategy_input = StrategyInput {
-            forecast: forecast.clone(),
-            mu_f,
-            sigma_f,
-            min_ev_threshold: self.config.min_ev_threshold,
-            desired_shares: self.config.desired_shares,
-            order_size_usd: self.config.order_size_usd,
-            context_key: context.key.clone(),
-            city_slug: context.city_slug.clone(),
-            target_date: context.target_date,
-            run_id: run_id.clone(),
-            event_slug: context.event_slug.clone(),
-            evaluation_time_utc: Some(Utc::now()),
-        };
-
         let engine = StrategyEngine::new(vec![
             Box::<MarketTimingRule>::default(),
             Box::<TokenAvailabilityRule>::default(),
@@ -119,27 +105,41 @@ impl StrategyService {
             Box::<NoEdgeRule>::default(),
         ]);
 
-        let mut evaluation = engine.evaluate(&strategy_input, &markets);
-        log_evaluation(&context, &evaluation);
+        let mut outcomes = Vec::new();
+        for strategy in self.config.active_strategies() {
+            let strategy_input = StrategyInput {
+                strategy_name: strategy.name.clone(),
+                forecast: forecast.clone(),
+                mu_f,
+                sigma_f,
+                min_ev_threshold: strategy.min_ev_threshold,
+                desired_shares: strategy.desired_shares,
+                context_key: context.key.clone(),
+                city_slug: context.city_slug.clone(),
+                target_date: context.target_date,
+                run_id: format!("{run_id}-{}", strategy.name),
+                event_slug: context.event_slug.clone(),
+                evaluation_time_utc: Some(Utc::now()),
+            };
 
-        let total_stake: f64 = evaluation.candidates.iter().map(|c| c.stake_usd).sum();
-        if total_stake > self.config.max_total_stake_usd {
-            let mut running = 0.0_f64;
-            evaluation.candidates.retain(|candidate| {
-                if running + candidate.stake_usd <= self.config.max_total_stake_usd {
-                    running += candidate.stake_usd;
-                    true
-                } else {
-                    false
-                }
+            let mut evaluation = engine.evaluate(&strategy_input, &markets);
+            log_evaluation(&context, strategy.name.as_str(), &evaluation);
+            retain_by_total_stake(
+                &mut evaluation,
+                strategy
+                    .max_stake_usd
+                    .min(self.config.max_total_stake_usd * strategy.funding_pct),
+            );
+
+            outcomes.push(StrategyOutcome {
+                strategy_name: strategy.name.clone(),
+                context: context.clone(),
+                run_id: strategy_input.run_id,
+                evaluation,
             });
         }
 
-        Ok(StrategyOutcome {
-            context,
-            run_id,
-            evaluation,
-        })
+        Ok(outcomes)
     }
 }
 
@@ -174,13 +174,14 @@ fn load_open_positions(path: &Path) -> HashSet<String> {
     }
 }
 
-fn log_evaluation(context: &MarketContext, evaluation: &StrategyEvaluation) {
+fn log_evaluation(context: &MarketContext, strategy_name: &str, evaluation: &StrategyEvaluation) {
     for market in &evaluation.evaluated_markets {
         for trace in &market.traces {
             info!(
                 context_key = %context.key,
                 city = %context.city_slug,
                 target_date = %context.target_date,
+                strategy_name,
                 decision_id = %market.decision_id,
                 market_id = %market.market_id,
                 question = %market.question,
@@ -198,6 +199,7 @@ fn log_evaluation(context: &MarketContext, evaluation: &StrategyEvaluation) {
             context_key = %candidate.context_key,
             city = %candidate.city_slug,
             target_date = %candidate.target_date,
+            strategy_name = %candidate.strategy_name,
             decision_id = %candidate.decision_id,
             market_id = %candidate.market_id,
             bin = %candidate.range.label(),
@@ -209,4 +211,21 @@ fn log_evaluation(context: &MarketContext, evaluation: &StrategyEvaluation) {
             "qualified trade candidate"
         );
     }
+}
+
+fn retain_by_total_stake(evaluation: &mut StrategyEvaluation, max_stake_usd: f64) {
+    let total_stake: f64 = evaluation.candidates.iter().map(|candidate| candidate.stake_usd).sum();
+    if total_stake <= max_stake_usd {
+        return;
+    }
+
+    let mut running = 0.0_f64;
+    evaluation.candidates.retain(|candidate| {
+        if running + candidate.stake_usd <= max_stake_usd {
+            running += candidate.stake_usd;
+            true
+        } else {
+            false
+        }
+    });
 }

@@ -4,11 +4,13 @@ use std::str::FromStr;
 use alloy::signers::local::{LocalSigner, PrivateKeySigner};
 use alloy::signers::Signer as _;
 use anyhow::{Context, Result};
-use polymarket_client_sdk::auth::Normal;
-use polymarket_client_sdk::clob::types::{OrderType, Side, SignatureType};
-use polymarket_client_sdk::clob::{Client as ClobClient, Config as ClobConfig};
-use polymarket_client_sdk::types::{Address as PolyAddress, Decimal};
-use polymarket_client_sdk::POLYGON;
+use polymarket_client_sdk_v2::auth::{Credentials, Normal, Uuid};
+use polymarket_client_sdk_v2::clob::types::request::BalanceAllowanceRequest;
+use polymarket_client_sdk_v2::clob::types::response::BalanceAllowanceResponse;
+use polymarket_client_sdk_v2::clob::types::{AssetType, OrderType, Side, SignatureType};
+use polymarket_client_sdk_v2::clob::{Client as ClobClient, Config as ClobConfig};
+use polymarket_client_sdk_v2::types::{Address as PolyAddress, Decimal, U256};
+use polymarket_client_sdk_v2::POLYGON;
 
 #[derive(Clone)]
 pub struct TradingClient {
@@ -30,6 +32,8 @@ impl TradingClient {
     ) -> Result<String> {
         let client = self.authenticate().await?;
         let signer = load_signer()?;
+        let token_id = U256::from_str(token_id)
+            .with_context(|| format!("failed to parse token id {}", token_id))?;
 
         let order = client
             .limit_order()
@@ -62,48 +66,66 @@ impl TradingClient {
         Ok(response.order_id)
     }
 
+    pub async fn get_balance_allowance(&self) -> Result<BalanceAllowanceResponse> {
+        let client = self.authenticate().await?;
+        let request = BalanceAllowanceRequest::builder()
+            .asset_type(AssetType::Collateral)
+            .build();
+        client
+            .balance_allowance(request)
+            .await
+            .context("failed to fetch wallet balance/allowance")
+    }
+
+    pub fn wallet_address(&self) -> Result<String> {
+        Ok(load_signer()?.address().to_string())
+    }
+
     async fn authenticate(
         &self,
-    ) -> Result<ClobClient<polymarket_client_sdk::auth::state::Authenticated<Normal>>> {
+    ) -> Result<ClobClient<polymarket_client_sdk_v2::auth::state::Authenticated<Normal>>> {
         let signer = load_signer()?;
         let config = ClobConfig::builder().use_server_time(true).build();
         let base = ClobClient::new(&self.clob_url, config)
             .context("failed to build Polymarket CLOB client")?;
+        let credentials = self.fetch_credentials(&base, &signer).await?;
 
-        let mut auth = base.authentication_builder(&signer);
-        let sig_type = env::var("POLYMARKET_SIGNATURE_TYPE")
-            .ok()
-            .and_then(|v| v.parse::<u8>().ok());
+        let mut auth = base
+            .authentication_builder(&signer)
+            .credentials(credentials)
+            // Match the user's known Polymarket setup by default.
+            .signature_type(load_signature_type().unwrap_or(SignatureType::GnosisSafe));
 
-        auth = match sig_type {
-            Some(2) => auth.signature_type(SignatureType::GnosisSafe),
-            Some(1) => {
-                if let Ok(funder_raw) = env::var("POLYMARKET_FUNDER") {
-                    let funder = PolyAddress::from_str(&funder_raw)
-                        .context("failed to parse POLYMARKET_FUNDER")?;
-                    auth.funder(funder).signature_type(SignatureType::Proxy)
-                } else {
-                    auth.signature_type(SignatureType::Proxy)
-                }
-            }
-            _ => {
-                if let Ok(funder_raw) = env::var("POLYMARKET_FUNDER") {
-                    let funder = PolyAddress::from_str(&funder_raw)
-                        .context("failed to parse POLYMARKET_FUNDER")?;
-                    if funder == signer.address() {
-                        auth.signature_type(SignatureType::Eoa)
-                    } else {
-                        auth.funder(funder).signature_type(SignatureType::Proxy)
-                    }
-                } else {
-                    auth.signature_type(SignatureType::Eoa)
-                }
-            }
-        };
+        if let Some(funder) = load_funder_address()? {
+            auth = auth.funder(funder);
+        }
 
         auth.authenticate()
             .await
             .context("failed to authenticate Polymarket CLOB client")
+    }
+
+    async fn fetch_credentials(
+        &self,
+        base: &ClobClient<polymarket_client_sdk_v2::auth::state::Unauthenticated>,
+        signer: &PrivateKeySigner,
+    ) -> Result<Credentials> {
+        if let Some(credentials) = load_api_credentials()? {
+            return Ok(credentials);
+        }
+
+        match base.create_api_key(signer, None).await {
+            Ok(credentials) => Ok(credentials),
+            Err(create_error) => match base.derive_api_key(signer, None).await {
+                Ok(credentials) => Ok(credentials),
+                Err(derive_error) => Err(anyhow::anyhow!(
+                    "failed to obtain Polymarket API credentials for signer {}.\ncreate_api_key error: {}\nderive_api_key error: {}",
+                    signer.address(),
+                    create_error,
+                    derive_error
+                )),
+            },
+        }
     }
 }
 
@@ -119,6 +141,63 @@ fn load_signer() -> Result<PrivateKeySigner> {
 fn decimal_from_f64(value: f64) -> Result<Decimal> {
     Decimal::from_str(&value.to_string())
         .with_context(|| format!("failed to convert {value} into Decimal"))
+}
+
+fn load_api_credentials() -> Result<Option<Credentials>> {
+    let api_key = first_non_empty_env(&["POLYMARKET_API_KEY", "API_KEY", "api_key"]);
+    let api_secret =
+        first_non_empty_env(&["POLYMARKET_API_SECRET", "API_SECRET", "api_secret"]);
+    let api_passphrase =
+        first_non_empty_env(&["POLYMARKET_API_PASSPHRASE", "API_PASSPHRASE", "api_passphrase"]);
+
+    let all_blank = api_key.is_none() && api_secret.is_none() && api_passphrase.is_none();
+    if all_blank {
+        return Ok(None);
+    }
+
+    if api_key.is_none() || api_secret.is_none() || api_passphrase.is_none() {
+        anyhow::bail!(
+            "API credentials must all be set together. Supported names: POLYMARKET_API_KEY/API_KEY, POLYMARKET_API_SECRET/API_SECRET, POLYMARKET_API_PASSPHRASE/API_PASSPHRASE"
+        );
+    }
+
+    let api_key = Uuid::parse_str(api_key.as_deref().unwrap().trim())
+        .context("failed to parse API key as UUID")?;
+    Ok(Some(Credentials::new(
+        api_key,
+        api_secret.unwrap().trim().to_string(),
+        api_passphrase.unwrap().trim().to_string(),
+    )))
+}
+
+fn load_signature_type() -> Option<SignatureType> {
+    match first_non_empty_env(&["POLYMARKET_SIGNATURE_TYPE", "SIGNATURE_TYPE"]).as_deref() {
+        Some("0") | Some("eoa") | Some("EOA") => Some(SignatureType::Eoa),
+        Some("1") | Some("proxy") | Some("PROXY") => Some(SignatureType::Proxy),
+        Some("2") | Some("safe") | Some("SAFE") | Some("gnosis_safe") => {
+            Some(SignatureType::GnosisSafe)
+        }
+        Some(_) | None => None,
+    }
+}
+
+fn load_funder_address() -> Result<Option<PolyAddress>> {
+    let Some(raw) = first_non_empty_env(&["POLYMARKET_FUNDER", "FUNDER_ADDRESS"]) else {
+        return Ok(None);
+    };
+
+    let funder = PolyAddress::from_str(raw.trim())
+        .context("failed to parse funder address from POLYMARKET_FUNDER/FUNDER_ADDRESS")?;
+    Ok(Some(funder))
+}
+
+fn first_non_empty_env(names: &[&str]) -> Option<String> {
+    names.iter().find_map(|name| {
+        env::var(name)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    })
 }
 
 trait Pipe: Sized {

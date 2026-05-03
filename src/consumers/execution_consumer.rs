@@ -47,6 +47,7 @@ impl ExecutionConsumer {
                             let plan = ExecutionPlan::from_outcomes(
                                 &outcomes,
                                 self.execution_service.is_dry_run(),
+                                self.execution_service.max_total_stake_usd(),
                             );
                             let new_token_ids = plan
                                 .trades
