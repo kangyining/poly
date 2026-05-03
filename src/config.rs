@@ -15,6 +15,18 @@ pub struct Cli {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct StrategyConfig {
+    pub name: String,
+    #[serde(default = "bool_true")]
+    pub enabled: bool,
+    #[serde(default = "one")]
+    pub funding_pct: f64,
+    pub min_ev_threshold: f64,
+    pub desired_shares: f64,
+    pub max_stake_usd: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct CityConfig {
     pub slug: String,
     pub station_code: String,
@@ -30,11 +42,9 @@ pub struct AppConfig {
     pub start_date: Option<NaiveDate>,
     pub days_in_future: u32,
     pub cities: Vec<CityConfig>,
+    pub strategies: Vec<StrategyConfig>,
     pub gamma_url: String,
     pub clob_url: String,
-    pub min_ev_threshold: f64,
-    pub desired_shares: f64,
-    pub order_size_usd: f64,
     pub max_total_stake_usd: f64,
     pub max_open_positions: usize,
     pub calibration_path: PathBuf,
@@ -42,7 +52,6 @@ pub struct AppConfig {
     pub execution_plan_dir: PathBuf,
     pub paper_portfolio_path: PathBuf,
     pub performance_csv_path: PathBuf,
-    pub strategies_file: PathBuf,
     pub log_directory: PathBuf,
     pub dry_run: bool,
     pub paper_starting_balance_usd: f64,
@@ -101,6 +110,20 @@ impl AppConfig {
             .collect()
     }
 
+    pub fn active_strategies(&self) -> impl Iterator<Item = &StrategyConfig> {
+        self.strategies.iter().filter(|strategy| strategy.enabled)
+    }
+
+    pub fn active_strategy_count(&self) -> usize {
+        self.active_strategies().count()
+    }
+
+    pub fn max_desired_shares(&self) -> f64 {
+        self.active_strategies()
+            .map(|strategy| strategy.desired_shares)
+            .fold(0.0_f64, f64::max)
+    }
+
     fn target_dates(&self) -> Vec<NaiveDate> {
         let start = resolve_start_date(self.start_date);
         (0..self.days_in_future)
@@ -115,14 +138,11 @@ impl AppConfig {
         if self.cities.is_empty() {
             bail!("cities must not be empty");
         }
-        if self.desired_shares <= 0.0 {
-            bail!("desired_shares must be positive");
-        }
-        if self.order_size_usd <= 0.0 {
-            bail!("order_size_usd must be positive");
-        }
         if self.max_total_stake_usd <= 0.0 {
             bail!("max_total_stake_usd must be positive");
+        }
+        if self.strategies.is_empty() {
+            bail!("strategies must not be empty");
         }
         if self.paper_starting_balance_usd <= 0.0 {
             bail!("paper_starting_balance_usd must be positive");
@@ -140,6 +160,29 @@ impl AppConfig {
             }
             if city.station_code.trim().is_empty() {
                 bail!("city station_code must not be empty");
+            }
+        }
+
+        let enabled_count = self.active_strategy_count();
+        if enabled_count == 0 {
+            bail!("at least one strategy must be enabled");
+        }
+
+        for strategy in &self.strategies {
+            if strategy.name.trim().is_empty() {
+                bail!("strategy name must not be empty");
+            }
+            if strategy.funding_pct <= 0.0 {
+                bail!("strategy funding_pct must be positive");
+            }
+            if strategy.min_ev_threshold <= 0.0 {
+                bail!("strategy min_ev_threshold must be positive");
+            }
+            if strategy.desired_shares <= 0.0 {
+                bail!("strategy desired_shares must be positive");
+            }
+            if strategy.max_stake_usd <= 0.0 {
+                bail!("strategy max_stake_usd must be positive");
             }
         }
 
@@ -192,3 +235,11 @@ pub fn build_event_slug(city: &str, date: NaiveDate) -> String {
 }
 
 use chrono::Datelike;
+
+fn bool_true() -> bool {
+    true
+}
+
+fn one() -> f64 {
+    1.0
+}

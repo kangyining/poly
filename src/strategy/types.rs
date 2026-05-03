@@ -5,6 +5,7 @@ use crate::weather::Forecast;
 
 #[derive(Debug, Clone)]
 pub struct StrategyInput {
+    pub strategy_name: String,
     pub forecast: Forecast,
     /// Calibrated mean: forecast_high_f + beta_f
     pub mu_f: f64,
@@ -14,8 +15,6 @@ pub struct StrategyInput {
     pub min_ev_threshold: f64,
     /// Shares to attempt to buy per bin
     pub desired_shares: f64,
-    /// Dollar stake per bin (for execution plan sizing)
-    pub order_size_usd: f64,
     pub context_key: String,
     pub city_slug: String,
     pub target_date: NaiveDate,
@@ -26,6 +25,7 @@ pub struct StrategyInput {
 
 #[derive(Debug, Clone)]
 pub struct TradeCandidate {
+    pub strategy_name: String,
     pub context_key: String,
     pub city_slug: String,
     pub target_date: NaiveDate,

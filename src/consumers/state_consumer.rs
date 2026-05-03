@@ -65,14 +65,16 @@ impl StateConsumer {
                     }
                     Event::EvaluationCompleted(outcome) => {
                         let mut state = self.state.write().await;
+                        let outcome_key =
+                            format!("{}:{}", outcome.context.key, outcome.strategy_name);
                         state
                             .execution
                             .latest_outcomes
-                            .insert(outcome.context.key.clone(), outcome.clone());
+                            .insert(outcome_key.clone(), outcome.clone());
                         state
                             .execution
                             .completed_initial_contexts
-                            .insert(outcome.context.key.clone());
+                            .insert(outcome_key);
                         state.execution.last_run_id = Some(outcome.run_id.clone());
                         state.execution.last_evaluation_at = Some(Utc::now());
                         state.lifecycle = LifecycleState::Ready;

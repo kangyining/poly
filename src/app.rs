@@ -30,7 +30,7 @@ impl App {
     pub async fn run(self) -> Result<()> {
         let contexts = self.config.contexts();
         let bus = EventBus::new(2048);
-        let state = new_shared_state(contexts.len());
+        let state = new_shared_state(contexts.len() * self.config.active_strategy_count());
         let weather_services = contexts
             .iter()
             .cloned()
@@ -51,7 +51,7 @@ impl App {
                     &self.config.gamma_url,
                     &self.config.clob_url,
                     context,
-                    self.config.desired_shares,
+                    self.config.max_desired_shares(),
                 ))
             })
             .collect::<Vec<_>>();

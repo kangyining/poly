@@ -329,8 +329,9 @@ Accepted markets become `TradeCandidate`s.
 
 After the rule engine runs:
 
-- candidates are summed by `stake_usd`
-- if total stake exceeds `max_total_stake_usd`, candidates are trimmed in evaluation order until the cap is satisfied
+- candidates are summed by `stake_usd` per enabled strategy
+- if a strategy exceeds its budget, candidates are trimmed in evaluation order until the cap is satisfied
+- the combined execution plan is then trimmed again against the global `max_total_stake_usd` cap
 - the remaining candidates are serialized into an `ExecutionPlan`
 
 ## Execution Flow
@@ -442,7 +443,7 @@ The most important config knobs in [src/config.rs](/Users/ryanqin/git/poly/poly-
 - `[[cities]]` entries with `slug`, `station_code`, `lat`, `lon`
 - per-city `forecast_high_f` to bypass live weather fetches
 - `gamma_url`, `clob_url`
-- `min_ev_threshold`, `desired_shares`, `order_size_usd`
+- `[[strategies]]` entries with `name`, `enabled`, `funding_pct`, `min_ev_threshold`, `desired_shares`, and `max_stake_usd`
 - `max_total_stake_usd`
 - `open_positions_path`, `execution_plan_dir`
 - `dry_run`
