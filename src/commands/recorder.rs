@@ -8,8 +8,9 @@ use std::time::Duration;
 
 use crate::data::{
     backfills, forecast_recorder, market_recorder, metar_recorder, settlement_tracker,
-    taf_nws_recorder,
+    taf_nws_recorder, weather_contracts,
 };
+use crate::db;
 use crate::db::Database;
 
 #[derive(Debug, Clone, Args)]
@@ -18,6 +19,10 @@ pub struct RecorderArgs {
     pub db: Option<PathBuf>,
     #[arg(long)]
     pub once: bool,
+    #[arg(long)]
+    pub discover_contracts: bool,
+    #[arg(long)]
+    pub broad_gamma_discovery: bool,
     #[arg(long)]
     pub backfill: bool,
     #[arg(long)]
@@ -47,6 +52,19 @@ pub fn run(args: RecorderArgs) -> Result<()> {
         .db
         .unwrap_or_else(|| PathBuf::from(crate::DEFAULT_DB_PATH));
     let db = Database::open(&db_path, false)?;
+
+    if args.discover_contracts {
+        let discovery_summary =
+            discover_contracts(&db, args.broad_gamma_discovery, args.city.as_deref())?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json!({
+                "db": db_path,
+                "contract_discovery": discovery_summary,
+            }))?
+        );
+        return Ok(());
+    }
 
     if args.backfill
         || args.backfill_us_high_temp_data
@@ -143,7 +161,7 @@ pub fn run(args: RecorderArgs) -> Result<()> {
     }
 
     if args.once {
-        let run_summary = run_once(&db)?;
+        let run_summary = run_once(&db, args.broad_gamma_discovery)?;
         println!(
             "{}",
             serde_json::to_string_pretty(&json!({
@@ -154,7 +172,7 @@ pub fn run(args: RecorderArgs) -> Result<()> {
         return Ok(());
     }
 
-    let first_run = run_once(&db)?;
+    let first_run = run_once(&db, args.broad_gamma_discovery)?;
     println!(
         "{}",
         serde_json::to_string_pretty(&json!({
@@ -171,7 +189,7 @@ pub fn run(args: RecorderArgs) -> Result<()> {
         if due.is_empty() {
             continue;
         }
-        let run_summary = run_due(&db, due.clone(), now)?;
+        let run_summary = run_due(&db, due.clone(), now, args.broad_gamma_discovery)?;
         scheduler.record(due, now);
         println!(
             "{}",
@@ -184,11 +202,11 @@ pub fn run(args: RecorderArgs) -> Result<()> {
     }
 }
 
-fn run_once(db: &Database) -> Result<serde_json::Value> {
+fn run_once(db: &Database, broad_gamma_discovery: bool) -> Result<serde_json::Value> {
     let metar_summary = metar_recorder::record_metars(db)?;
     let taf_summary = taf_nws_recorder::record_tafs(db)?;
     let nws_summary = taf_nws_recorder::record_nws_forecasts(db)?;
-    let market_summary = market_recorder::record_market_snapshots(db)?;
+    let market_summary = record_market_snapshots(db, broad_gamma_discovery)?;
     let forecast_summary = forecast_recorder::record_forecasts(db)?;
     let settlement_summary = settlement_tracker::daily_check(
         db,
@@ -278,7 +296,12 @@ fn due_jobs(now: DateTime<Utc>, state: &SchedulerState) -> Vec<RecorderJob> {
     due
 }
 
-fn run_due(db: &Database, due: Vec<RecorderJob>, now: DateTime<Utc>) -> Result<serde_json::Value> {
+fn run_due(
+    db: &Database,
+    due: Vec<RecorderJob>,
+    now: DateTime<Utc>,
+    broad_gamma_discovery: bool,
+) -> Result<serde_json::Value> {
     let mut out = serde_json::Map::new();
     for job in due {
         match job {
@@ -297,7 +320,7 @@ fn run_due(db: &Database, due: Vec<RecorderJob>, now: DateTime<Utc>) -> Result<s
             RecorderJob::MarketSnapshots => {
                 out.insert(
                     "market_snapshots".to_string(),
-                    serde_json::to_value(market_recorder::record_market_snapshots(db)?)?,
+                    serde_json::to_value(record_market_snapshots(db, broad_gamma_discovery)?)?,
                 );
             }
             RecorderJob::Forecasts => {
@@ -326,6 +349,63 @@ fn run_due(db: &Database, due: Vec<RecorderJob>, now: DateTime<Utc>) -> Result<s
         }
     }
     Ok(serde_json::Value::Object(out))
+}
+
+fn record_market_snapshots(
+    db: &Database,
+    broad_gamma_discovery: bool,
+) -> Result<market_recorder::SnapshotRunSummary> {
+    if broad_gamma_discovery {
+        market_recorder::record_market_snapshots_with_mode(
+            db,
+            market_recorder::DiscoveryMode::BroadGamma,
+        )
+    } else {
+        market_recorder::record_market_snapshots(db)
+    }
+}
+
+fn discover_contracts(
+    db: &Database,
+    broad_gamma_discovery: bool,
+    city: Option<&str>,
+) -> Result<serde_json::Value> {
+    let now = Utc::now();
+    let discoveries = if broad_gamma_discovery {
+        weather_contracts::discover_weather_contracts(None, true)?
+    } else {
+        weather_contracts::discover_configured_weather_contracts(
+            &market_recorder::dates_to_record(now),
+            true,
+        )
+    };
+    let city = city.map(|value| value.to_lowercase());
+    let mut seen = 0usize;
+    let mut valid = 0usize;
+    let mut skipped = 0usize;
+    for discovery in discoveries {
+        if let Some(city) = &city {
+            if discovery.contract.city_slug.to_lowercase() != *city
+                && discovery.contract.display_city.to_lowercase() != *city
+            {
+                continue;
+            }
+        }
+        seen += 1;
+        if discovery.is_valid() {
+            valid += 1;
+        } else {
+            skipped += 1;
+        }
+        db::upsert_weather_contract(db, &discovery.contract)?;
+    }
+    Ok(json!({
+        "mode": if broad_gamma_discovery { "broad_gamma" } else { "configured" },
+        "city": city,
+        "contracts_seen": seen,
+        "contracts_valid": valid,
+        "contracts_skipped": skipped,
+    }))
 }
 
 #[cfg(test)]

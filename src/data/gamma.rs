@@ -3,6 +3,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
+use std::{thread, time};
 
 const GAMMA_BASE: &str = "https://gamma-api.polymarket.com";
 const CLOB_BASE: &str = "https://clob.polymarket.com";
@@ -34,15 +35,8 @@ pub fn fetch_event(city_slug: &str, target: NaiveDate) -> Result<Option<Value>> 
 }
 
 pub fn fetch_event_by_slug(slug: &str) -> Result<Option<Value>> {
-    let client = client()?;
-    let payload: Value = client
-        .get(format!("{GAMMA_BASE}/events"))
-        .query(&[("slug", slug)])
-        .send()
-        .with_context(|| format!("failed to fetch Gamma event slug {slug}"))?
-        .error_for_status()?
-        .json()
-        .with_context(|| format!("failed to decode Gamma event slug {slug}"))?;
+    let payload = fetch_events_payload(&[("slug", slug.to_string())], 15)
+        .with_context(|| format!("failed to fetch Gamma event slug {slug}"))?;
     let event = payload
         .as_array()
         .and_then(|items| items.first())
@@ -60,14 +54,39 @@ pub fn fetch_events_range(city_slug: &str, start: NaiveDate, end: NaiveDate) -> 
     let mut out = Vec::new();
     let mut day = start;
     while day <= end {
-        if let Some(event) = fetch_event(city_slug, day)? {
+        if let Ok(Some(event)) = fetch_event(city_slug, day) {
             out.push(event);
         }
         day = day
             .succ_opt()
             .context("date overflow while fetching event range")?;
+        thread::sleep(time::Duration::from_millis(200));
     }
     Ok(out)
+}
+
+pub fn fetch_events_payload(params: &[(&str, String)], timeout_secs: u64) -> Result<Value> {
+    let retries = 3;
+    for attempt in 0..retries {
+        let result = (|| -> Result<Value> {
+            let payload = client(timeout_secs)?
+                .get(format!("{GAMMA_BASE}/events"))
+                .query(params)
+                .send()
+                .context("failed to send Gamma events request")?
+                .error_for_status()
+                .context("Gamma events request returned an error status")?
+                .json()
+                .context("failed to decode Gamma events response")?;
+            Ok(payload)
+        })();
+        match result {
+            Ok(payload) => return Ok(payload),
+            Err(err) if attempt + 1 == retries => return Err(err),
+            Err(_) => thread::sleep(time::Duration::from_secs(1_u64 << attempt)),
+        }
+    }
+    unreachable!("retry loop always returns")
 }
 
 pub fn parse_markets(event: &Value) -> Vec<ParsedMarket> {
@@ -125,7 +144,7 @@ pub fn parse_markets(event: &Value) -> Vec<ParsedMarket> {
 }
 
 pub fn fetch_order_book(token_id: &str) -> Result<Value> {
-    let client = client()?;
+    let client = client(20)?;
     let payload = client
         .get(format!("{CLOB_BASE}/book"))
         .query(&[("token_id", token_id)])
@@ -142,7 +161,7 @@ pub fn fetch_order_book(token_id: &str) -> Result<Value> {
 }
 
 pub fn fetch_fee_rate(token_id: &str) -> Result<Option<f64>> {
-    let client = client()?;
+    let client = client(20)?;
     let payload: Value = client
         .get(format!("{CLOB_BASE}/fee-rate"))
         .query(&[("token_id", token_id)])
@@ -244,9 +263,9 @@ pub fn winning_bin(event: &Value) -> Option<String> {
     None
 }
 
-fn client() -> Result<reqwest::blocking::Client> {
+fn client(timeout_secs: u64) -> Result<reqwest::blocking::Client> {
     reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(20))
+        .timeout(Duration::from_secs(timeout_secs))
         .build()
         .context("failed to build HTTP client")
 }

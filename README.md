@@ -42,8 +42,8 @@ Implemented:
   position closeout, and `open_positions.json` export.
 - Gamma/CLOB data helpers for event lookup, market parsing, order books, fee
   rates, VWAP fills, depth, best prices, and winning-bin detection.
-- Weather-contract slug parsing, configured contract generation, and
-  Wunderground station validation.
+- Weather-contract slug parsing, configured contract generation, broad Gamma
+  weather-event discovery, and Wunderground station validation.
 - `recorder --once` live METAR, TAF, NWS, market snapshot, and Open-Meteo
   forecast recording into the Rust DB.
 - Continuous recorder scheduling via `recorder --interval-seconds`.
@@ -58,7 +58,8 @@ Implemented:
 Still not claimed byte-identical:
 
 - Markdown/CSV wording and ordering in some reports.
-- Broad Gamma weather-event pagination/discovery and exact retry/backoff timing.
+- Live network recorder/backfill behavior unless explicitly smoke-tested with
+  the opt-in parity harness.
 - Full settlement-source metadata parity with Python's historical tracker.
 
 Live order submission is intentionally excluded. `execute` fails loudly with
@@ -115,4 +116,6 @@ python3 scripts/parity_compare.py \
 
 The harness runs Python and Rust checks against the same DB for backtest,
 strategy-group backtest, bankroll, quick sweep, calibration shape, and paper
-execute lifecycle. It exits nonzero on mismatches.
+execute lifecycle. It also exposes `sweep-full`, `sweep-exhaustive`,
+`sweep-all-available`, and opt-in `live-recorder --live` checks. It exits
+nonzero on mismatches.

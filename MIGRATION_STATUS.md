@@ -94,9 +94,12 @@ Implemented with remaining parity risks.
 
 Known remaining data/settlement risks:
 
-- Broad Gamma weather-event pagination/discovery remains partial; Rust mainly
-  fetches configured slugs directly.
-- Gamma retry/backoff and rate-limit timing are not byte-for-byte Python parity.
+- Broad Gamma weather-event pagination/discovery is ported behind
+  `recorder --broad-gamma-discovery` / `--discover-contracts`; configured-slug
+  discovery remains the default recorder path.
+- Gamma event lookup now uses Python-style retries/backoff for event requests;
+  live API behavior still needs opt-in smoke validation because network state is
+  external.
 - Settlement source enrichment is improved but not a full clone of Python's
   historical `settlement_tracker` metadata extraction.
 - Live order submission, execute log-file parity, and byte-exact console or
@@ -114,6 +117,11 @@ Known remaining data/settlement risks:
 - `param-sweep --all-available` one-combination smoke matches Python for NYC:
   84 available dates, 93 trades, 86 wins, `total_pnl=170.453`,
   `total_stake=830.0`, `roi=0.20536506024096385`, `sharpe=5.5098`.
+- The parity harness includes opt-in `sweep-full`, `sweep-exhaustive`,
+  `sweep-all-available`, and `live-recorder --live` checks for broader golden
+  coverage without making network calls part of default validation.
+- `sweep-full`, `sweep-exhaustive`, and `sweep-all-available` parity checks pass
+  for NYC against `../poly-weather/db/data.db` on bounded validation windows.
 - Full all-city April no-cap `base_no_ev` Rust release run completes in about
   92 seconds and matches the Python headline metrics:
   `total_trades=1050`, `wins=812`, `win_rate=0.7733`,

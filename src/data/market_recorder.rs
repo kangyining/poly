@@ -10,6 +10,12 @@ use crate::db::{self, Database};
 
 pub const DEFAULT_VWAP_SHARES: f64 = 10.0;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiscoveryMode {
+    Configured,
+    BroadGamma,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotRunSummary {
     pub contracts_seen: usize,
@@ -30,6 +36,13 @@ pub fn hours_to_close(ts: DateTime<Utc>, target_date: &str) -> Option<f64> {
 }
 
 pub fn record_market_snapshots(db: &Database) -> Result<SnapshotRunSummary> {
+    record_market_snapshots_with_mode(db, DiscoveryMode::Configured)
+}
+
+pub fn record_market_snapshots_with_mode(
+    db: &Database,
+    discovery_mode: DiscoveryMode,
+) -> Result<SnapshotRunSummary> {
     let now = Utc::now();
     let mut summary = SnapshotRunSummary {
         contracts_seen: 0,
@@ -38,8 +51,15 @@ pub fn record_market_snapshots(db: &Database) -> Result<SnapshotRunSummary> {
         snapshots_saved: 0,
         order_book_errors: 0,
     };
-    let discoveries =
-        weather_contracts::discover_configured_weather_contracts(&dates_to_record(now), true);
+    let dates = dates_to_record(now);
+    let discoveries = match discovery_mode {
+        DiscoveryMode::Configured => {
+            weather_contracts::discover_configured_weather_contracts(&dates, true)
+        }
+        DiscoveryMode::BroadGamma => {
+            weather_contracts::discover_weather_contracts(Some(&dates), true)?
+        }
+    };
     for discovery in discoveries {
         summary.contracts_seen += 1;
         db::upsert_weather_contract(db, &discovery.contract)?;

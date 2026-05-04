@@ -1,7 +1,9 @@
+use anyhow::Result;
 use chrono::NaiveDate;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashSet;
 
 use crate::config;
 use crate::data::models::WeatherContract;
@@ -90,6 +92,71 @@ pub fn discover_configured_weather_contracts(
                 }),
                 Err(_) => {}
             }
+        }
+    }
+    out
+}
+
+pub fn fetch_weather_events(limit: usize, max_pages: usize) -> Result<Vec<Value>> {
+    let mut events = Vec::new();
+    for page in 0..max_pages {
+        let offset = page * limit;
+        let payload = crate::data::gamma::fetch_events_payload(
+            &[
+                ("limit", limit.to_string()),
+                ("offset", offset.to_string()),
+                ("active", "true".to_string()),
+                ("closed", "false".to_string()),
+                ("tag_slug", "weather".to_string()),
+            ],
+            30,
+        )?;
+        let batch = payload.as_array().cloned().unwrap_or_default();
+        if batch.is_empty() {
+            break;
+        }
+        let batch_len = batch.len();
+        events.extend(batch);
+        if batch_len < limit {
+            break;
+        }
+    }
+    Ok(events)
+}
+
+pub fn discover_weather_contracts(
+    target_dates: Option<&[NaiveDate]>,
+    include_skipped: bool,
+) -> Result<Vec<WeatherContractDiscovery>> {
+    let events = fetch_weather_events(100, 5)?;
+    Ok(discover_contracts_from_events(
+        &events,
+        target_dates,
+        include_skipped,
+    ))
+}
+
+pub fn discover_contracts_from_events(
+    events: &[Value],
+    target_dates: Option<&[NaiveDate]>,
+    include_skipped: bool,
+) -> Vec<WeatherContractDiscovery> {
+    let targets = target_dates.map(|dates| {
+        dates
+            .iter()
+            .map(ToString::to_string)
+            .collect::<HashSet<String>>()
+    });
+    let mut out = Vec::new();
+    for event in events {
+        let discovery = validate_weather_event(event);
+        if let Some(targets) = &targets {
+            if !targets.contains(&discovery.contract.target_date) {
+                continue;
+            }
+        }
+        if discovery.is_valid() || include_skipped {
+            out.push(discovery);
         }
     }
     out
@@ -442,5 +509,51 @@ mod tests {
             .skip_reason
             .unwrap()
             .starts_with("station_mismatch"));
+    }
+
+    #[test]
+    fn discovers_contracts_from_event_list_with_target_filter() {
+        let nyc = json!({
+            "id": "1",
+            "slug": "highest-temperature-in-nyc-on-april-19-2026",
+            "description": "Resolves in °F.",
+            "resolutionSource": "https://www.wunderground.com/history/daily/us/ny/new-york-city/KLGA",
+            "markets": []
+        });
+        let london = json!({
+            "id": "2",
+            "slug": "highest-temperature-in-london-on-april-19-2026",
+            "description": "Resolves in °F.",
+            "resolutionSource": "https://www.wunderground.com/history/daily/gb/london/EGLL",
+            "markets": []
+        });
+        let precip = json!({
+            "id": "3",
+            "slug": "rain-in-nyc-on-april-19-2026",
+            "description": "Unsupported weather market.",
+            "endDate": "2026-04-19T12:00:00Z",
+            "markets": []
+        });
+        let other_day = json!({
+            "id": "4",
+            "slug": "highest-temperature-in-nyc-on-april-20-2026",
+            "description": "Resolves in °F.",
+            "resolutionSource": "https://www.wunderground.com/history/daily/us/ny/new-york-city/KLGA",
+            "markets": []
+        });
+        let target = NaiveDate::from_ymd_opt(2026, 4, 19).unwrap();
+        let discoveries = discover_contracts_from_events(
+            &[nyc, london, precip, other_day],
+            Some(&[target]),
+            true,
+        );
+        assert_eq!(discoveries.len(), 3);
+        assert!(discoveries.iter().any(|item| item.is_valid()));
+        assert!(discoveries
+            .iter()
+            .any(|item| item.contract.skip_reason.as_deref() == Some("city_not_allowlisted")));
+        assert!(discoveries
+            .iter()
+            .any(|item| item.contract.skip_reason.as_deref() == Some("unsupported_slug")));
     }
 }

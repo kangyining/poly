@@ -13,6 +13,7 @@ import argparse
 import csv
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -23,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PY_REPO = ROOT.parent / "poly-weather"
 OUT = ROOT / "parity_runs"
 CARGO = os.environ.get("CARGO", "cargo")
+COMMAND_TIMEOUT_SECONDS = int(os.environ.get("POLY_WEATHER_PARITY_TIMEOUT", "1200"))
 
 FLOAT_KEYS = {
     "total_pnl",
@@ -47,7 +49,22 @@ EXACT_KEYS = {
 
 
 def run_json(cmd: list[str], cwd: Path) -> dict[str, Any]:
-    proc = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True)
+    print(f"[parity] running in {cwd.name}: {' '.join(cmd)}", file=sys.stderr, flush=True)
+    try:
+        proc = subprocess.run(
+            cmd,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        raise SystemExit(
+            f"command timed out after {COMMAND_TIMEOUT_SECONDS}s: {' '.join(cmd)}\n"
+            f"STDOUT:\n{stdout[-2000:]}\nSTDERR:\n{stderr[-4000:]}"
+        )
     if proc.returncode != 0:
         raise SystemExit(
             f"command failed: {' '.join(cmd)}\nSTDOUT:\n{proc.stdout[-2000:]}\nSTDERR:\n{proc.stderr[-4000:]}"
@@ -101,6 +118,13 @@ def csv_row_count(path: Path) -> int | None:
         reader = csv.reader(fh)
         next(reader, None)
         return sum(1 for _ in reader)
+
+
+def csv_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with path.open(newline="") as fh:
+        return list(csv.DictReader(fh))
 
 
 def backtest(args: argparse.Namespace, strategy: str, suffix: str, extra_py: list[str] | None = None, extra_rust: list[str] | None = None) -> list[dict[str, Any]]:
@@ -229,6 +253,19 @@ def bankroll(args: argparse.Namespace) -> list[dict[str, Any]]:
 
 
 def sweep(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return sweep_preset(args, "quick", "sweep", "parity_quick")
+
+
+def sweep_preset(
+    args: argparse.Namespace,
+    preset: str,
+    check_name: str,
+    sweep_name: str,
+    extra: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    py_dir = OUT / f"python_{check_name}"
+    rust_dir = OUT / f"rust_{check_name}"
+    extra = extra or []
     py = run_json(
         [
             sys.executable,
@@ -244,12 +281,13 @@ def sweep(args: argparse.Namespace) -> list[dict[str, Any]]:
             "--db",
             args.db,
             "--preset",
-            "quick",
+            preset,
             "--out-dir",
-            str(OUT / "python_sweep"),
+            str(py_dir),
             "--sweep-name",
-            "parity_quick",
-        ],
+            sweep_name,
+        ]
+        + extra,
         PY_REPO,
     )
     rust = run_json(
@@ -270,22 +308,126 @@ def sweep(args: argparse.Namespace) -> list[dict[str, Any]]:
             "--db",
             args.db,
             "--preset",
-            "quick",
+            preset,
             "--out-dir",
-            str(OUT / "rust_sweep"),
+            str(rust_dir),
             "--sweep-name",
-            "parity_quick",
-        ],
+            sweep_name,
+        ]
+        + extra,
         ROOT,
     )
     failures: list[dict[str, Any]] = []
-    py_csv = OUT / "python_sweep" / "parity_quick.csv"
-    rust_csv = OUT / "rust_sweep" / "parity_quick.csv"
+    py_csv = py_dir / f"{sweep_name}.csv"
+    rust_csv = rust_dir / f"{sweep_name}.csv"
     py_rows = py.get("rows", csv_row_count(py_csv))
     rust_rows = rust.get("rows", csv_row_count(rust_csv))
     if py_rows != rust_rows:
-        failures.append({"check": "sweep", "key": "rows", "python": py_rows, "rust": rust_rows})
-    failures += compare_headers("sweep_csv", py_csv, rust_csv)
+        failures.append({"check": check_name, "key": "rows", "python": py_rows, "rust": rust_rows})
+    failures += compare_headers(f"{check_name}_csv", py_csv, rust_csv)
+    failures += compare_sweep_artifacts(check_name, py, rust, py_dir, rust_dir, sweep_name)
+    return failures
+
+
+def sweep_full(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return sweep_preset(args, "full", "sweep_full", "parity_full")
+
+
+def sweep_exhaustive(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return sweep_preset(args, "exhaustive", "sweep_exhaustive", "parity_exhaustive")
+
+
+def sweep_all_available(args: argparse.Namespace) -> list[dict[str, Any]]:
+    return sweep_preset(
+        args,
+        "quick",
+        "sweep_all_available",
+        "parity_all_available",
+        extra=[
+            "--all-available",
+            "--min-ev-thresholds",
+            "0.04",
+            "--desired-shares",
+            "10",
+        ],
+    )
+
+
+def compare_sweep_artifacts(
+    check_name: str,
+    py_payload: dict[str, Any],
+    rust_payload: dict[str, Any],
+    py_dir: Path,
+    rust_dir: Path,
+    sweep_name: str,
+) -> list[dict[str, Any]]:
+    failures: list[dict[str, Any]] = []
+    py_csv = py_dir / f"{sweep_name}.csv"
+    rust_csv = rust_dir / f"{sweep_name}.csv"
+    py_report = py_dir / f"{sweep_name}.md"
+    rust_report = rust_dir / f"{sweep_name}.md"
+    py_final = py_dir / f"{sweep_name}__best_by_strategy.md"
+    rust_final = rust_dir / f"{sweep_name}__best_by_strategy.md"
+    for label, py_path, rust_path in [
+        ("csv", py_csv, rust_csv),
+        ("report", py_report, rust_report),
+        ("best_by_strategy_report", py_final, rust_final),
+    ]:
+        if py_path.exists() != rust_path.exists():
+            failures.append(
+                {
+                    "check": check_name,
+                    "key": f"{label}_exists",
+                    "python": py_path.exists(),
+                    "rust": rust_path.exists(),
+                }
+            )
+    for label, path in [("python_report", py_report), ("rust_report", rust_report)]:
+        text = path.read_text() if path.exists() else ""
+        for marker in ["# Parameter Sweep Report", "## Top Results"]:
+            if marker not in text:
+                failures.append({"check": check_name, "key": label, "missing": marker})
+    for label, path in [("python_best_report", py_final), ("rust_best_report", rust_final)]:
+        text = path.read_text() if path.exists() else ""
+        if "Strategy" not in text:
+            failures.append({"check": check_name, "key": label, "missing": "Strategy"})
+    py_rows = csv_rows(py_csv)
+    rust_rows = csv_rows(rust_csv)
+    if py_rows and rust_rows:
+        for key in ["strategy", "strategy_id", "total_trades", "wins"]:
+            if py_rows[0].get(key) != rust_rows[0].get(key):
+                failures.append(
+                    {
+                        "check": check_name,
+                        "key": f"top.{key}",
+                        "python": py_rows[0].get(key),
+                        "rust": rust_rows[0].get(key),
+                    }
+                )
+    py_artifacts = py_payload.get("strategy_artifacts", {})
+    rust_artifacts = rust_payload.get("strategy_artifacts", {})
+    if sorted(py_artifacts) != sorted(rust_artifacts):
+        failures.append(
+            {
+                "check": check_name,
+                "key": "strategy_artifacts.keys",
+                "python": sorted(py_artifacts),
+                "rust": sorted(rust_artifacts),
+            }
+        )
+    for strategy in sorted(set(py_artifacts) & set(rust_artifacts)):
+        for suffix in [".csv", ".md"]:
+            py_path = py_dir / f"{sweep_name}__{strategy}{suffix}"
+            rust_path = rust_dir / f"{sweep_name}__{strategy}{suffix}"
+            if py_path.exists() != rust_path.exists():
+                failures.append(
+                    {
+                        "check": check_name,
+                        "key": f"{strategy}{suffix}.exists",
+                        "python": py_path.exists(),
+                        "rust": rust_path.exists(),
+                    }
+                )
     return failures
 
 
@@ -369,18 +511,80 @@ def lifecycle(args: argparse.Namespace) -> list[dict[str, Any]]:
     return failures
 
 
+def live_recorder(args: argparse.Namespace) -> list[dict[str, Any]]:
+    if not args.live:
+        return [
+            {
+                "check": "live_recorder",
+                "key": "live",
+                "message": "pass --live to run the opt-in network smoke check",
+            }
+        ]
+    fixture_db = OUT / "live_recorder.db"
+    if fixture_db.exists():
+        fixture_db.unlink()
+    rust = run_json(
+        [
+            CARGO,
+            "run",
+            "--quiet",
+            "--",
+            "recorder",
+            "--db",
+            str(fixture_db),
+            "--discover-contracts",
+            "--broad-gamma-discovery",
+            "--city",
+            args.city,
+        ],
+        ROOT,
+    )
+    failures: list[dict[str, Any]] = []
+    summary = rust.get("contract_discovery", {})
+    if "contracts_seen" not in summary:
+        failures.append({"check": "live_recorder", "key": "contracts_seen", "rust": summary})
+    if not fixture_db.exists():
+        failures.append({"check": "live_recorder", "key": "db_exists", "rust": False})
+    else:
+        conn = sqlite3.connect(fixture_db)
+        try:
+            columns = [
+                row[1]
+                for row in conn.execute("PRAGMA table_info(weather_contracts)").fetchall()
+            ]
+        finally:
+            conn.close()
+        for column in ["event_slug", "target_date", "city_slug", "validation_status", "raw_json"]:
+            if column not in columns:
+                failures.append({"check": "live_recorder", "key": "weather_contracts.column", "missing": column})
+    return failures
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy", default="base_no_ev")
     parser.add_argument("--city", default="NYC")
-    parser.add_argument("--date-from", required=True)
-    parser.add_argument("--date-to", required=True)
+    parser.add_argument("--date-from", default="2026-04-01")
+    parser.add_argument("--date-to", default="2026-04-02")
     parser.add_argument("--db", default=str(PY_REPO / "db" / "data.db"))
     parser.add_argument("--tolerance", type=float, default=1e-4)
+    parser.add_argument("--live", action="store_true")
     parser.add_argument(
         "--check",
         action="append",
-        choices=("backtest", "group", "bankroll", "sweep", "calibration", "lifecycle", "all"),
+        choices=(
+            "backtest",
+            "group",
+            "bankroll",
+            "sweep",
+            "sweep-full",
+            "sweep-exhaustive",
+            "sweep-all-available",
+            "calibration",
+            "lifecycle",
+            "live-recorder",
+            "all",
+        ),
         default=None,
     )
     args = parser.parse_args()
@@ -405,10 +609,18 @@ def main() -> None:
         failures += bankroll(args)
     if "sweep" in checks:
         failures += sweep(args)
+    if "sweep-full" in checks:
+        failures += sweep_full(args)
+    if "sweep-exhaustive" in checks:
+        failures += sweep_exhaustive(args)
+    if "sweep-all-available" in checks:
+        failures += sweep_all_available(args)
     if "calibration" in checks:
         failures += calibration(args)
     if "lifecycle" in checks:
         failures += lifecycle(args)
+    if "live-recorder" in checks:
+        failures += live_recorder(args)
 
     result = {"checks": checks, "failures": failures, "out_dir": str(OUT)}
     print(json.dumps(result, indent=2))

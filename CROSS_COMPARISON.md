@@ -37,9 +37,9 @@ Status legend:
 | `commands::bankroll::write_rows` | `_write_csv` | Near parity | Generic CSV serialization. |
 | `commands::bankroll::write_maps` | `_write_csv` with flattened dicts | Near parity | Generic map writer. |
 | `commands::sweep::RankBy` | `--rank-by` choices | Parity | ROI/PnL/Sharpe/win-rate rank options. |
-| `commands::sweep::Preset` | `PRESETS` names | Near parity | Rust has quick/full/exhaustive presets. Grid values still need golden comparison. |
+| `commands::sweep::Preset` | `PRESETS` names | Parity | Quick/full/exhaustive preset grids are now covered by the parity harness. |
 | `commands::sweep::SweepArgs` | `param_sweep.py` parser | Near parity | Accepts Python-compatible sweep flags. |
-| `commands::sweep::run` | `param_sweep.py::main` | Near parity | Runs sweep tasks with threaded `--jobs` workers over one shared replay dataset. Quick sweep parity is validated. |
+| `commands::sweep::run` | `param_sweep.py::main` | Near parity | Runs sweep tasks with threaded `--jobs` workers over one shared replay dataset. Quick/full/exhaustive/all-available sweep parity is validated on bounded checks. |
 | `commands::sweep::iter_param_grid` | `iter_param_grid` | Near parity | Expands common, preset, global, and strategy-specific grids. |
 | `commands::sweep::selected_strategies` | `strategy_names` | Near parity | Supports all/group/backtest-ready/default selection. |
 | `commands::sweep::preset_values` | `apply_preset` / `PRESETS` | Near parity | Quick/full/exhaustive values match intent; exact Python grid parity needs golden checks. |
@@ -288,7 +288,8 @@ Python calibration gaps:
 Python bankroll gaps:
 
 - `_fallback_resolved_at`, `_settlement_resolved_at`, and `_settlement_rows` are not standalone Rust helpers.
-- `generate_replay_candidates` is not separately ported; Rust uses `run_backtest(include_trades=true)` as the candidate source.
+- `generate_replay_candidates` is ported and replays strategy candidates
+  directly from the shared replay dataset.
 - Full Python `run_bankroll_backtest` wrapper is split between `commands::bankroll::run` and `analysis::bankroll`.
 
 ## Sweep Analysis
@@ -369,12 +370,14 @@ Most sweep behavior currently lives in `commands::sweep` rather than
 
 ## Python-Only Data/Recorder Gaps
 
-These Python functions/classes still differ materially from Rust:
+These Python functions/classes still have parity risk in live conditions:
 
-- `data/gamma_client.py`: `_get` retry/backoff wrapper and `fetch_events_range`
-  gentle rate limiting are not fully matched.
+- `data/gamma_client.py`: event request retry/backoff and `fetch_events_range`
+  gentle rate limiting are ported; CLOB/backfill-specific live retry timing is
+  still simplified.
 - `data/weather_contracts.py`: broad `fetch_weather_events` pagination and
-  `discover_contracts_from_events` over arbitrary event lists are not fully ported.
+  `discover_contracts_from_events` are ported; live Gamma tag behavior still
+  needs opt-in smoke validation.
 - Backfill retry/backoff/rate-limit timing is simplified compared with Python.
 - True forecast backfill now uses Python-compatible `gfs_global` and
   `past_model_run`, but live network behavior still needs manual smoke testing.
@@ -461,8 +464,10 @@ This is the current open-work list compared with the original Python repo.
 - CLOB price-history backfill is ported.
 - Missing-bin price-history retry now targets missing bin indexes.
 - Broad weather event pagination/discovery over arbitrary Gamma event lists is
-  partial; Rust currently fetches configured slugs directly.
-- Gamma `_get` retry/backoff and gentle rate limiting are not fully matched.
+  ported and available through the recorder discovery path; configured slugs
+  remain the default recorder behavior.
+- Gamma event requests now use retry/backoff and range fetches include gentle
+  rate limiting.
 
 ### DB Layer
 
@@ -485,7 +490,8 @@ This is the current open-work list compared with the original Python repo.
 1. Backtest summary CSV flattening and Markdown report text.
 2. Forecast snapshot ordering on real mixed-source rows.
 3. Snapshot fill VWAP selection when order book ladders are sparse.
-4. Parameter sweep output column ordering and final report text.
+4. Parameter sweep full/exhaustive/report golden coverage is available in the
+   parity harness; byte-exact report prose remains intentionally out of scope.
 5. Settlement source enrichment and edge-bin midpoint behavior.
 6. Live market snapshot recorder behavior around closed events, sparse books,
    fee-rate failures, and configured-slug discovery versus broad event search.

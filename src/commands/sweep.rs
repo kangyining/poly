@@ -139,8 +139,7 @@ pub fn run(mut args: SweepArgs) -> Result<()> {
         .unwrap_or_else(|| preset_values(&args.preset, "desired_shares"));
     let daily_cap = parse_float_list(args.max_stake_usd.as_deref())
         .and_then(|values| values.first().copied())
-        .or(args.daily_max_stake_usd)
-        .unwrap_or(10.0);
+        .or(args.daily_max_stake_usd);
 
     std::fs::create_dir_all(&args.out_dir)?;
     let sweep_name = args.sweep_name.clone().unwrap_or_else(|| {
@@ -216,32 +215,33 @@ fn iter_param_grid(
     args: &SweepArgs,
     min_evs: &[f64],
     desired_shares: &[f64],
-    daily_cap: f64,
+    daily_cap: Option<f64>,
 ) -> Result<Vec<Value>> {
-    let mut grid = BTreeMap::<String, Vec<f64>>::new();
-    grid.insert("min_ev_threshold".to_string(), min_evs.to_vec());
-    grid.insert("desired_shares".to_string(), desired_shares.to_vec());
+    let mut grid = vec![
+        ("min_ev_threshold".to_string(), min_evs.to_vec()),
+        ("desired_shares".to_string(), desired_shares.to_vec()),
+    ];
     for (key, values) in preset_extra_grid(&args.preset, strategy_name) {
-        grid.insert(key.to_string(), values);
+        replace_grid_value(&mut grid, key, values);
     }
     for (key, values) in parse_param_grid(&args.param_grid)? {
-        grid.insert(key, values);
+        replace_grid_value(&mut grid, &key, values);
     }
     for (target, key, values) in parse_strategy_param_grid(&args.strategy_param_grid)? {
         if target == strategy_name {
-            grid.insert(key, values);
+            replace_grid_value(&mut grid, &key, values);
         }
     }
-    if let Some(funding_values) = parse_float_list(args.funding_pcts.as_deref()) {
-        grid.insert("funding_pct".to_string(), funding_values);
-    } else {
-        grid.remove("funding_pct");
-    }
 
-    let keys = grid.keys().cloned().collect::<Vec<_>>();
+    let keys = grid.iter().map(|(key, _)| key.clone()).collect::<Vec<_>>();
     let value_sets = keys
         .iter()
-        .map(|key| grid.get(key).cloned().unwrap_or_else(|| vec![0.0]))
+        .map(|key| {
+            grid.iter()
+                .find(|(candidate, _)| candidate == key)
+                .map(|(_, values)| values.clone())
+                .unwrap_or_else(|| vec![0.0])
+        })
         .collect::<Vec<_>>();
     let combos = cartesian(&value_sets);
     let mut out = Vec::new();
@@ -256,13 +256,19 @@ fn iter_param_grid(
             obj.insert("max_stake_usd".to_string(), json!(daily_cap));
             obj.insert("fee_rate".to_string(), json!(args.fee_rate));
             obj.insert("sweep_name".to_string(), json!(args.sweep_name));
-            if let Some(fixed) = args.fixed_trade_stake_usd {
-                obj.insert("fixed_trade_stake_usd".to_string(), json!(fixed));
-            }
+            obj.insert(
+                "fixed_trade_stake_usd".to_string(),
+                json!(args.fixed_trade_stake_usd),
+            );
         }
         out.push(params);
     }
     Ok(out)
+}
+
+fn replace_grid_value(grid: &mut Vec<(String, Vec<f64>)>, key: &str, values: Vec<f64>) {
+    grid.retain(|(candidate, _)| candidate != key);
+    grid.push((key.to_string(), values));
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -326,9 +332,9 @@ fn selected_strategies(args: &SweepArgs) -> Result<Vec<String>> {
 fn preset_values(preset: &Preset, key: &str) -> Vec<f64> {
     match (preset, key) {
         (Preset::Exhaustive, "min_ev_threshold") => {
-            parse_float_list(Some("0.00:0.15:0.005")).unwrap()
+            parse_float_list(Some("0.00:0.15:0.01")).unwrap()
         }
-        (Preset::Exhaustive, "desired_shares") => parse_float_list(Some("1:25:1")).unwrap(),
+        (Preset::Exhaustive, "desired_shares") => parse_float_list(Some("1:10:1")).unwrap(),
         (Preset::Full, "min_ev_threshold") => parse_float_list(Some("0.01:0.10:0.01")).unwrap(),
         (Preset::Full, "desired_shares") => parse_float_list(Some("1:10:1")).unwrap(),
         (_, "min_ev_threshold") => parse_float_list(Some("0.02:0.08:0.02")).unwrap(),
