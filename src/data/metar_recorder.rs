@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Duration;
 
 use crate::config;
 use crate::data::gamma::{value_to_f64, value_to_string};
@@ -24,18 +23,12 @@ pub fn c_to_f(c: f64) -> f64 {
 
 pub fn fetch_metars(icao_list: &[String]) -> Result<Vec<Value>> {
     let ids = icao_list.join(",");
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .context("failed to build METAR HTTP client")?;
-    let payload: Value = client
-        .get(METAR_URL)
-        .query(&[("ids", ids), ("format", "json".to_string())])
-        .send()
-        .context("METAR fetch failed")?
-        .error_for_status()?
-        .json()
-        .context("failed to decode METAR JSON")?;
+    let payload = crate::data::http::get_json(
+        METAR_URL,
+        &[("ids", ids), ("format", "json".to_string())],
+        15,
+    )
+    .context("METAR fetch failed")?;
     Ok(payload.as_array().cloned().unwrap_or_default())
 }
 

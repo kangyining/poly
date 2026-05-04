@@ -41,7 +41,16 @@ pub fn backfill_settlement_temps(
         while day < today {
             summary.records_seen += 1;
             let d = day.to_string();
-            if let Some(temp_f) = fetch_daily_high_asos(cfg.station_id, &d)? {
+            let daily_high = match fetch_daily_high_asos(cfg.station_id, &d) {
+                Ok(value) => value,
+                Err(_) => {
+                    summary.fetch_errors += 1;
+                    day = day.succ_opt().context("date overflow in ASOS backfill")?;
+                    thread::sleep(StdDuration::from_millis(500));
+                    continue;
+                }
+            };
+            if let Some(temp_f) = daily_high {
                 let settlement = NewSettlement {
                     city: cfg.display_city.to_string(),
                     target_date: d.clone(),
@@ -79,6 +88,7 @@ pub fn backfill_settlement_temps(
                 summary.fetch_errors += 1;
             }
             day = day.succ_opt().context("date overflow in ASOS backfill")?;
+            thread::sleep(StdDuration::from_millis(500));
         }
     }
     Ok(summary)
@@ -102,6 +112,7 @@ pub fn backfill_asos_metars(
             Ok(csv) => csv,
             Err(_) => {
                 summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_secs(1));
                 continue;
             }
         };
@@ -125,6 +136,7 @@ pub fn backfill_asos_metars(
             db::insert_metar(db, &rec)?;
             summary.records_saved += 1;
         }
+        thread::sleep(StdDuration::from_secs(1));
     }
     Ok(summary)
 }
@@ -148,6 +160,7 @@ pub fn backfill_true_forecasts(db: &Database, city: Option<&str>) -> Result<Back
                 Ok(None) => continue,
                 Err(_) => {
                     summary.fetch_errors += 1;
+                    thread::sleep(StdDuration::from_millis(300));
                     continue;
                 }
             };
@@ -206,7 +219,7 @@ pub fn backfill_true_forecasts(db: &Database, city: Option<&str>) -> Result<Back
             };
             db::insert_forecast_model_run(db, &run)?;
             summary.records_saved += 1;
-            thread::sleep(StdDuration::from_millis(250));
+            thread::sleep(StdDuration::from_millis(300));
         }
     }
     Ok(summary)
@@ -234,6 +247,7 @@ fn backfill_open_meteo_history(
             Ok(raw) => raw,
             Err(_) => {
                 summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_millis(300));
                 continue;
             }
         };
@@ -318,6 +332,7 @@ fn backfill_open_meteo_history(
             }
             summary.records_saved += 1;
         }
+        thread::sleep(StdDuration::from_millis(300));
     }
     Ok(summary)
 }
@@ -333,9 +348,18 @@ pub fn backfill_price_history(db: &Database, city: Option<&str>) -> Result<Backf
         let target = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")?;
         let slug =
             event_slug.unwrap_or_else(|| config::default_event_slug(&city_name, &target_date));
-        let Some(event) = gamma::fetch_event_by_slug(&slug)? else {
-            summary.fetch_errors += 1;
-            continue;
+        let event = match gamma::fetch_event_by_slug(&slug) {
+            Ok(Some(event)) => event,
+            Ok(None) => {
+                summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_millis(300));
+                continue;
+            }
+            Err(_) => {
+                summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_millis(300));
+                continue;
+            }
         };
         let close = target.and_hms_opt(12, 0, 0).unwrap().and_utc();
         let start_ts = (close - Duration::hours(48)).timestamp();
@@ -344,81 +368,11 @@ pub fn backfill_price_history(db: &Database, city: Option<&str>) -> Result<Backf
             if market.token_id_yes.is_empty() {
                 continue;
             }
-            let history = fetch_clob_price_history(&market.token_id_yes, start_ts, end_ts)?;
-            let mut hourly = BTreeMap::<DateTime<Utc>, f64>::new();
-            for point in history {
-                let Some(ts) = point.t.and_then(|t| Utc.timestamp_opt(t, 0).single()) else {
-                    continue;
-                };
-                let hours_to_close = (close - ts).num_seconds() as f64 / 3600.0;
-                let minute = PriceHistoryRecord {
-                    city: city_name.clone(),
-                    target_date: target_date.clone(),
-                    bin_label: market.bin_label.clone(),
-                    bin_index: Some(market.bin_index),
-                    token_id_yes: Some(market.token_id_yes.clone()),
-                    timestamp: ts,
-                    yes_price: point.p,
-                    hours_to_close: Some(hours_to_close),
-                    source: "clob-backfill".to_string(),
-                    minute: true,
-                };
-                db::insert_price_history(db, &minute)?;
-                hourly.insert(truncate_hour(ts), point.p.unwrap_or(0.0));
-                summary.records_saved += 1;
-            }
-            for (ts, price) in hourly {
-                let hourly = PriceHistoryRecord {
-                    city: city_name.clone(),
-                    target_date: target_date.clone(),
-                    bin_label: market.bin_label.clone(),
-                    bin_index: Some(market.bin_index),
-                    token_id_yes: Some(market.token_id_yes.clone()),
-                    timestamp: ts,
-                    yes_price: Some(price),
-                    hours_to_close: Some((close - ts).num_seconds() as f64 / 3600.0),
-                    source: "clob-backfill".to_string(),
-                    minute: false,
-                };
-                db::insert_price_history(db, &hourly)?;
-                summary.records_saved += 1;
-            }
-        }
-    }
-    Ok(summary)
-}
-
-pub fn backfill_missing_bins(db: &Database, city: Option<&str>) -> Result<BackfillSummary> {
-    let mut summary = BackfillSummary {
-        records_seen: 0,
-        records_saved: 0,
-        fetch_errors: 0,
-    };
-    for (city_name, target_date, event_slug) in settlement_event_rows(db, city)? {
-        let current = existing_hourly_bin_indexes(db, &city_name, &target_date)?;
-        let missing = missing_bin_indexes(&current);
-        if missing.is_empty() {
-            continue;
-        }
-        summary.records_seen += missing.len();
-        let target = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")?;
-        let slug =
-            event_slug.unwrap_or_else(|| config::default_event_slug(&city_name, &target_date));
-        let Some(event) = gamma::fetch_event_by_slug(&slug)? else {
-            summary.fetch_errors += 1;
-            continue;
-        };
-        let close = target.and_hms_opt(12, 0, 0).unwrap().and_utc();
-        let start_ts = (close - Duration::hours(48)).timestamp();
-        let end_ts = close.timestamp();
-        for market in gamma::parse_markets(&event) {
-            if !missing.contains(&market.bin_index) || market.token_id_yes.is_empty() {
-                continue;
-            }
             let history = match fetch_clob_price_history(&market.token_id_yes, start_ts, end_ts) {
                 Ok(history) => history,
                 Err(_) => {
                     summary.fetch_errors += 1;
+                    thread::sleep(StdDuration::from_millis(150));
                     continue;
                 }
             };
@@ -460,7 +414,98 @@ pub fn backfill_missing_bins(db: &Database, city: Option<&str>) -> Result<Backfi
                 db::insert_price_history(db, &hourly)?;
                 summary.records_saved += 1;
             }
+            thread::sleep(StdDuration::from_millis(150));
         }
+        thread::sleep(StdDuration::from_millis(300));
+    }
+    Ok(summary)
+}
+
+pub fn backfill_missing_bins(db: &Database, city: Option<&str>) -> Result<BackfillSummary> {
+    let mut summary = BackfillSummary {
+        records_seen: 0,
+        records_saved: 0,
+        fetch_errors: 0,
+    };
+    for (city_name, target_date, event_slug) in settlement_event_rows(db, city)? {
+        let current = existing_hourly_bin_indexes(db, &city_name, &target_date)?;
+        let missing = missing_bin_indexes(&current);
+        if missing.is_empty() {
+            continue;
+        }
+        summary.records_seen += missing.len();
+        let target = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")?;
+        let slug =
+            event_slug.unwrap_or_else(|| config::default_event_slug(&city_name, &target_date));
+        let event = match gamma::fetch_event_by_slug(&slug) {
+            Ok(Some(event)) => event,
+            Ok(None) => {
+                summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_millis(300));
+                continue;
+            }
+            Err(_) => {
+                summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_millis(300));
+                continue;
+            }
+        };
+        let close = target.and_hms_opt(12, 0, 0).unwrap().and_utc();
+        let start_ts = (close - Duration::hours(48)).timestamp();
+        let end_ts = close.timestamp();
+        for market in gamma::parse_markets(&event) {
+            if !missing.contains(&market.bin_index) || market.token_id_yes.is_empty() {
+                continue;
+            }
+            let history = match fetch_clob_price_history(&market.token_id_yes, start_ts, end_ts) {
+                Ok(history) => history,
+                Err(_) => {
+                    summary.fetch_errors += 1;
+                    thread::sleep(StdDuration::from_millis(150));
+                    continue;
+                }
+            };
+            let mut hourly = BTreeMap::<DateTime<Utc>, f64>::new();
+            for point in history {
+                let Some(ts) = point.t.and_then(|t| Utc.timestamp_opt(t, 0).single()) else {
+                    continue;
+                };
+                let hours_to_close = (close - ts).num_seconds() as f64 / 3600.0;
+                let minute = PriceHistoryRecord {
+                    city: city_name.clone(),
+                    target_date: target_date.clone(),
+                    bin_label: market.bin_label.clone(),
+                    bin_index: Some(market.bin_index),
+                    token_id_yes: Some(market.token_id_yes.clone()),
+                    timestamp: ts,
+                    yes_price: point.p,
+                    hours_to_close: Some(hours_to_close),
+                    source: "clob-backfill".to_string(),
+                    minute: true,
+                };
+                db::insert_price_history(db, &minute)?;
+                hourly.insert(truncate_hour(ts), point.p.unwrap_or(0.0));
+                summary.records_saved += 1;
+            }
+            for (ts, price) in hourly {
+                let hourly = PriceHistoryRecord {
+                    city: city_name.clone(),
+                    target_date: target_date.clone(),
+                    bin_label: market.bin_label.clone(),
+                    bin_index: Some(market.bin_index),
+                    token_id_yes: Some(market.token_id_yes.clone()),
+                    timestamp: ts,
+                    yes_price: Some(price),
+                    hours_to_close: Some((close - ts).num_seconds() as f64 / 3600.0),
+                    source: "clob-backfill".to_string(),
+                    minute: false,
+                };
+                db::insert_price_history(db, &hourly)?;
+                summary.records_saved += 1;
+            }
+            thread::sleep(StdDuration::from_millis(150));
+        }
+        thread::sleep(StdDuration::from_millis(300));
     }
     Ok(summary)
 }
@@ -486,22 +531,17 @@ fn contract_filter(city: Option<&str>) -> Vec<&'static config::WeatherContractCo
 }
 
 fn fetch_asos_csv(station: &str, start: &str, end: &str) -> Result<String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(30))
-        .build()?;
-    let text = client
-        .get(ASOS_API)
-        .query(&[
+    crate::data::http::get_text(
+        ASOS_API,
+        &[
             ("station", station.to_string()),
             ("data", "tmpf,dwpf,metar".to_string()),
             ("sts", format!("{start}T00:00:00Z")),
             ("ets", format!("{end}T23:59:59Z")),
             ("format", "csv".to_string()),
-        ])
-        .send()?
-        .error_for_status()?
-        .text()?;
-    Ok(text)
+        ],
+        30,
+    )
 }
 
 fn fetch_daily_high_asos(station: &str, target_date: &str) -> Result<Option<f64>> {
@@ -540,12 +580,9 @@ fn fetch_historical_forecasts(
     start: NaiveDate,
     end: NaiveDate,
 ) -> Result<Value> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(30))
-        .build()?;
-    Ok(client
-        .get(HISTORICAL_FORECAST_URL)
-        .query(&[
+    crate::data::http::get_json(
+        HISTORICAL_FORECAST_URL,
+        &[
             ("latitude", lat.to_string()),
             ("longitude", lon.to_string()),
             ("start_date", start.to_string()),
@@ -554,19 +591,15 @@ fn fetch_historical_forecasts(
             ("models", "ecmwf_ifs025,gfs_seamless".to_string()),
             ("temperature_unit", "fahrenheit".to_string()),
             ("timezone", "UTC".to_string()),
-        ])
-        .send()?
-        .error_for_status()?
-        .json()?)
+        ],
+        30,
+    )
 }
 
 fn fetch_true_gfs_forecast(lat: f64, lon: f64, target_date: NaiveDate) -> Result<Option<f64>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(20))
-        .build()?;
-    let raw: Value = client
-        .get(HISTORICAL_FORECAST_URL)
-        .query(&[
+    let raw: Value = crate::data::http::get_json(
+        HISTORICAL_FORECAST_URL,
+        &[
             ("latitude", lat.to_string()),
             ("longitude", lon.to_string()),
             ("start_date", target_date.to_string()),
@@ -576,10 +609,9 @@ fn fetch_true_gfs_forecast(lat: f64, lon: f64, target_date: NaiveDate) -> Result
             ("past_model_run", true_gfs_model_run(target_date)),
             ("temperature_unit", "fahrenheit".to_string()),
             ("timezone", "UTC".to_string()),
-        ])
-        .send()?
-        .error_for_status()?
-        .json()?;
+        ],
+        20,
+    )?;
     Ok(raw
         .get("daily")
         .and_then(|daily| daily.get("temperature_2m_max"))
@@ -712,19 +744,15 @@ struct ClobPoint {
 }
 
 fn fetch_clob_price_history(token_id: &str, start_ts: i64, end_ts: i64) -> Result<Vec<ClobPoint>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(20))
-        .build()?;
-    let payload: Value = client
-        .get(CLOB_PRICE_HISTORY_URL)
-        .query(&[
+    let payload: Value = crate::data::http::get_json(
+        CLOB_PRICE_HISTORY_URL,
+        &[
             ("market", token_id.to_string()),
             ("startTs", start_ts.to_string()),
             ("endTs", end_ts.to_string()),
-        ])
-        .send()?
-        .error_for_status()?
-        .json()?;
+        ],
+        20,
+    )?;
     Ok(serde_json::from_value(
         payload
             .get("history")

@@ -3,7 +3,6 @@ use chrono::{DateTime, Duration, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::time::Duration as StdDuration;
 
 use crate::data::gamma::value_to_f64;
 use crate::data::models::{ForecastModelRun, ForecastRecord};
@@ -41,13 +40,9 @@ pub fn lead_hours(target: NaiveDate, tz: &str, now: DateTime<Utc>) -> f64 {
 }
 
 pub fn fetch_forecast(lat: f64, lon: f64, tz: &str) -> Result<Value> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(15))
-        .build()
-        .context("failed to build Open-Meteo HTTP client")?;
-    let payload = client
-        .get(OPEN_METEO_URL)
-        .query(&[
+    let payload = crate::data::http::get_json(
+        OPEN_METEO_URL,
+        &[
             ("latitude", lat.to_string()),
             ("longitude", lon.to_string()),
             ("daily", "temperature_2m_max".to_string()),
@@ -55,12 +50,10 @@ pub fn fetch_forecast(lat: f64, lon: f64, tz: &str) -> Result<Value> {
             ("temperature_unit", "fahrenheit".to_string()),
             ("forecast_days", "3".to_string()),
             ("timezone", tz.to_string()),
-        ])
-        .send()
-        .context("Open-Meteo forecast fetch failed")?
-        .error_for_status()?
-        .json()
-        .context("failed to decode Open-Meteo JSON")?;
+        ],
+        15,
+    )
+    .context("Open-Meteo forecast fetch failed")?;
     Ok(payload)
 }
 

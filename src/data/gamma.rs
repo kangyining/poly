@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::Duration;
 use std::{thread, time};
 
 const GAMMA_BASE: &str = "https://gamma-api.polymarket.com";
@@ -66,27 +65,7 @@ pub fn fetch_events_range(city_slug: &str, start: NaiveDate, end: NaiveDate) -> 
 }
 
 pub fn fetch_events_payload(params: &[(&str, String)], timeout_secs: u64) -> Result<Value> {
-    let retries = 3;
-    for attempt in 0..retries {
-        let result = (|| -> Result<Value> {
-            let payload = client(timeout_secs)?
-                .get(format!("{GAMMA_BASE}/events"))
-                .query(params)
-                .send()
-                .context("failed to send Gamma events request")?
-                .error_for_status()
-                .context("Gamma events request returned an error status")?
-                .json()
-                .context("failed to decode Gamma events response")?;
-            Ok(payload)
-        })();
-        match result {
-            Ok(payload) => return Ok(payload),
-            Err(err) if attempt + 1 == retries => return Err(err),
-            Err(_) => thread::sleep(time::Duration::from_secs(1_u64 << attempt)),
-        }
-    }
-    unreachable!("retry loop always returns")
+    crate::data::http::get_json(&format!("{GAMMA_BASE}/events"), params, timeout_secs)
 }
 
 pub fn parse_markets(event: &Value) -> Vec<ParsedMarket> {
@@ -144,36 +123,31 @@ pub fn parse_markets(event: &Value) -> Vec<ParsedMarket> {
 }
 
 pub fn fetch_order_book(token_id: &str) -> Result<Value> {
-    let client = client(20)?;
-    let payload = client
-        .get(format!("{CLOB_BASE}/book"))
-        .query(&[("token_id", token_id)])
-        .send()
-        .with_context(|| {
-            format!(
-                "failed to fetch CLOB order book for {}",
-                abbreviated(token_id)
-            )
-        })?
-        .error_for_status()?
-        .json()?;
-    Ok(payload)
+    crate::data::http::get_json(
+        &format!("{CLOB_BASE}/book"),
+        &[("token_id", token_id.to_string())],
+        20,
+    )
+    .with_context(|| {
+        format!(
+            "failed to fetch CLOB order book for {}",
+            abbreviated(token_id)
+        )
+    })
 }
 
 pub fn fetch_fee_rate(token_id: &str) -> Result<Option<f64>> {
-    let client = client(20)?;
-    let payload: Value = client
-        .get(format!("{CLOB_BASE}/fee-rate"))
-        .query(&[("token_id", token_id)])
-        .send()
-        .with_context(|| {
-            format!(
-                "failed to fetch CLOB fee rate for {}",
-                abbreviated(token_id)
-            )
-        })?
-        .error_for_status()?
-        .json()?;
+    let payload = crate::data::http::get_json(
+        &format!("{CLOB_BASE}/fee-rate"),
+        &[("token_id", token_id.to_string())],
+        20,
+    )
+    .with_context(|| {
+        format!(
+            "failed to fetch CLOB fee rate for {}",
+            abbreviated(token_id)
+        )
+    })?;
     let raw = payload
         .get("base_fee")
         .or_else(|| payload.get("baseFee"))
@@ -261,13 +235,6 @@ pub fn winning_bin(event: &Value) -> Option<String> {
         }
     }
     None
-}
-
-fn client(timeout_secs: u64) -> Result<reqwest::blocking::Client> {
-    reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(timeout_secs))
-        .build()
-        .context("failed to build HTTP client")
 }
 
 pub(crate) fn value_to_f64(value: Option<&Value>) -> Option<f64> {

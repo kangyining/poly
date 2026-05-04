@@ -3,6 +3,7 @@ use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::thread;
 use std::time::Duration as StdDuration;
 
 use crate::config;
@@ -28,18 +29,12 @@ pub struct NwsRunSummary {
 }
 
 pub fn fetch_tafs(icao_list: &[String]) -> Result<Vec<Value>> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(15))
-        .build()
-        .context("failed to build TAF HTTP client")?;
-    let payload: Value = client
-        .get(TAF_URL)
-        .query(&[("ids", icao_list.join(",")), ("format", "json".to_string())])
-        .send()
-        .context("TAF fetch failed")?
-        .error_for_status()?
-        .json()
-        .context("failed to decode TAF JSON")?;
+    let payload = crate::data::http::get_json(
+        TAF_URL,
+        &[("ids", icao_list.join(",")), ("format", "json".to_string())],
+        15,
+    )
+    .context("TAF fetch failed")?;
     Ok(payload.as_array().cloned().unwrap_or_default())
 }
 
@@ -79,11 +74,6 @@ pub fn record_tafs(db: &Database) -> Result<TafRunSummary> {
 }
 
 pub fn record_nws_forecasts(db: &Database) -> Result<NwsRunSummary> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(StdDuration::from_secs(30))
-        .user_agent(NWS_USER_AGENT)
-        .build()
-        .context("failed to build NWS HTTP client")?;
     let now = Utc::now();
     let today = now.date_naive();
     let mut summary = NwsRunSummary {
@@ -94,28 +84,21 @@ pub fn record_nws_forecasts(db: &Database) -> Result<NwsRunSummary> {
     let mut forecast_url_cache = BTreeMap::<String, String>::new();
     for cfg in config::enabled_contracts() {
         summary.cities_requested += 1;
-        let forecast_url = match resolve_nws_forecast_url(&client, cfg, &mut forecast_url_cache) {
+        let forecast_url = match resolve_nws_forecast_url(cfg, &mut forecast_url_cache) {
             Ok(Some(url)) => url,
             Ok(None) => continue,
             Err(_) => {
                 summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_secs(1));
                 continue;
             }
         };
-        let payload: Value = match client
-            .get(&forecast_url)
-            .send()
-            .and_then(|r| r.error_for_status())
-        {
-            Ok(response) => match response.json() {
-                Ok(payload) => payload,
-                Err(_) => {
-                    summary.fetch_errors += 1;
-                    continue;
-                }
-            },
+        let policy = crate::data::http::RetryPolicy::new(30).user_agent(NWS_USER_AGENT);
+        let payload = match crate::data::http::get_json_with_policy(&forecast_url, &[], &policy) {
+            Ok(payload) => payload,
             Err(_) => {
                 summary.fetch_errors += 1;
+                thread::sleep(StdDuration::from_secs(1));
                 continue;
             }
         };
@@ -163,27 +146,28 @@ pub fn record_nws_forecasts(db: &Database) -> Result<NwsRunSummary> {
             db::insert_nws_forecast(db, &rec)?;
             summary.records_saved += 1;
         }
+        thread::sleep(StdDuration::from_millis(500));
     }
     Ok(summary)
 }
 
 fn resolve_nws_forecast_url(
-    client: &reqwest::blocking::Client,
     cfg: &config::WeatherContractConfig,
     cache: &mut BTreeMap<String, String>,
 ) -> Result<Option<String>> {
     if let Some(url) = cache.get(cfg.station_id) {
         return Ok(Some(url.clone()));
     }
-    let payload: Value = client
-        .get(format!(
+    let policy = crate::data::http::RetryPolicy::new(30).user_agent(NWS_USER_AGENT);
+    let payload = crate::data::http::get_json_with_policy(
+        &format!(
             "https://api.weather.gov/points/{:.4},{:.4}",
             cfg.lat, cfg.lon
-        ))
-        .send()
-        .with_context(|| format!("NWS points fetch failed for {}", cfg.display_city))?
-        .error_for_status()?
-        .json()?;
+        ),
+        &[],
+        &policy,
+    )
+    .with_context(|| format!("NWS points fetch failed for {}", cfg.display_city))?;
     let url = payload
         .get("properties")
         .and_then(|p| p.get("forecast"))

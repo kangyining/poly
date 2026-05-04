@@ -72,7 +72,9 @@ Implemented with remaining parity risks.
   dry-run/paper positions, and exports `open_positions.json`.
 - `settle` and recorder settlement checks share one settlement-tracker flow for
   configured weather contracts, Gamma validation, winning-bin extraction,
-  settlement inserts, paper-position closeout, and `open_positions.json` export.
+  settlement inserts, paper-position closeout, and open-position export.
+- `recorder --positions <PATH>` now controls the settlement export path, so
+  opt-in live recorder smoke checks can use temp files instead of repo outputs.
 - Gamma/CLOB read helpers are ported for event lookup, market parsing, order
   books, fee rates, VWAP ask fills, book depth, best prices, and winning-bin
   detection.
@@ -87,8 +89,15 @@ Implemented with remaining parity risks.
   settlements, ASOS daily highs, ASOS METARs, historical Open-Meteo forecasts,
   true 24h `gfs_global` forecasts, CLOB price history, and targeted missing-bin
   retries.
+- Gamma, CLOB, ASOS, METAR, TAF, NWS, Open-Meteo, historical forecast, and true
+  GFS fetches use the shared retry/backoff HTTP helper; long backfill loops
+  continue after per-city/per-token failures where Python does.
 - DB insert/query helpers now cover TAF, NWS, price history, historical
   forecasts, true forecasts, and settlement temp source metadata.
+- Mutable DB opens now apply compatibility migrations for older SQLite files:
+  Python-migrated columns are ensured on `market_snapshots`, `forecast_records`,
+  `settlement_records`, `forecast_model_runs`, `positions`, `price_history_1m`,
+  and `nws_forecasts`.
 - Live order submission is intentionally not ported and returns:
   `unsupported: live order submission is intentionally not ported`.
 
@@ -97,9 +106,9 @@ Known remaining data/settlement risks:
 - Broad Gamma weather-event pagination/discovery is ported behind
   `recorder --broad-gamma-discovery` / `--discover-contracts`; configured-slug
   discovery remains the default recorder path.
-- Gamma event lookup now uses Python-style retries/backoff for event requests;
-  live API behavior still needs opt-in smoke validation because network state is
-  external.
+- Live API behavior still needs opt-in smoke validation because network state is
+  external; the parity harness includes discovery-only and full `recorder --once`
+  live smoke checks that write to temporary Rust-owned DB/files.
 - Settlement source enrichment is improved but not a full clone of Python's
   historical `settlement_tracker` metadata extraction.
 - Live order submission, execute log-file parity, and byte-exact console or
@@ -108,7 +117,7 @@ Known remaining data/settlement risks:
 ## Verification
 
 - `cargo check` passes.
-- `cargo test` passes: 44 unit tests plus 4 integration tests.
+- `cargo test` passes: 47 unit tests plus 4 integration tests.
 - `cargo run -- backtest --list-strategies` passes.
 - `scripts/parity_compare.py --check all` passes for `2026-04-01` through
   `2026-04-02` against `../poly-weather/db/data.db`.
@@ -118,8 +127,13 @@ Known remaining data/settlement risks:
   84 available dates, 93 trades, 86 wins, `total_pnl=170.453`,
   `total_stake=830.0`, `roi=0.20536506024096385`, `sharpe=5.5098`.
 - The parity harness includes opt-in `sweep-full`, `sweep-exhaustive`,
-  `sweep-all-available`, and `live-recorder --live` checks for broader golden
-  coverage without making network calls part of default validation.
+  `sweep-all-available`, `live-recorder --live`, and
+  `live-recorder-once --live` checks for broader golden coverage without making
+  network calls part of default validation.
+- Opt-in live recorder smoke checks passed for `NYC` using temporary Rust-owned
+  DB/export paths:
+  `scripts/parity_compare.py --check live-recorder --live --city NYC` and
+  `scripts/parity_compare.py --check live-recorder-once --live --city NYC`.
 - `sweep-full`, `sweep-exhaustive`, and `sweep-all-available` parity checks pass
   for NYC against `../poly-weather/db/data.db` on bounded validation windows.
 - Full all-city April no-cap `base_no_ev` Rust release run completes in about

@@ -560,6 +560,72 @@ def live_recorder(args: argparse.Namespace) -> list[dict[str, Any]]:
     return failures
 
 
+def live_recorder_once(args: argparse.Namespace) -> list[dict[str, Any]]:
+    if not args.live:
+        return [
+            {
+                "check": "live_recorder_once",
+                "key": "live",
+                "message": "pass --live to run the opt-in recorder --once network smoke check",
+            }
+        ]
+    fixture_db = OUT / "live_recorder_once.db"
+    positions = OUT / "live_recorder_once_open_positions.json"
+    for path in [fixture_db, positions]:
+        if path.exists():
+            path.unlink()
+    rust = run_json(
+        [
+            CARGO,
+            "run",
+            "--quiet",
+            "--",
+            "recorder",
+            "--db",
+            str(fixture_db),
+            "--positions",
+            str(positions),
+            "--once",
+            "--broad-gamma-discovery",
+        ],
+        ROOT,
+    )
+    failures: list[dict[str, Any]] = []
+    if "run" not in rust:
+        failures.append({"check": "live_recorder_once", "key": "run", "rust": rust})
+    if not fixture_db.exists():
+        failures.append({"check": "live_recorder_once", "key": "db_exists", "rust": False})
+    else:
+        conn = sqlite3.connect(fixture_db)
+        try:
+            expected_columns = {
+                "market_snapshots": ["timestamp", "city", "target_date", "bin_label", "hours_to_close", "fee_rate"],
+                "metar_records": ["timestamp", "icao", "city", "temp_f", "obs_time", "raw_metar"],
+                "taf_records": ["timestamp", "icao", "city", "issue_time", "valid_from", "valid_to", "raw_taf"],
+                "nws_forecasts": ["timestamp", "city", "target_date", "temp_f", "forecast_lead_hours"],
+                "forecast_records": ["timestamp", "city", "target_date", "source", "temp_max_gfs_f", "event_slug"],
+                "settlement_records": ["city", "target_date", "event_slug", "winning_bin", "settlement_temp_source"],
+            }
+            for table, columns in expected_columns.items():
+                actual = [row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                if not actual:
+                    failures.append({"check": "live_recorder_once", "key": f"{table}.exists", "rust": False})
+                    continue
+                for column in columns:
+                    if column not in actual:
+                        failures.append({"check": "live_recorder_once", "key": f"{table}.column", "missing": column})
+        finally:
+            conn.close()
+    if not positions.exists():
+        failures.append({"check": "live_recorder_once", "key": "positions_path", "rust": False})
+    else:
+        try:
+            json.loads(positions.read_text())
+        except json.JSONDecodeError as exc:
+            failures.append({"check": "live_recorder_once", "key": "positions_json", "rust": str(exc)})
+    return failures
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--strategy", default="base_no_ev")
@@ -583,6 +649,7 @@ def main() -> None:
             "calibration",
             "lifecycle",
             "live-recorder",
+            "live-recorder-once",
             "all",
         ),
         default=None,
@@ -621,6 +688,8 @@ def main() -> None:
         failures += lifecycle(args)
     if "live-recorder" in checks:
         failures += live_recorder(args)
+    if "live-recorder-once" in checks:
+        failures += live_recorder_once(args)
 
     result = {"checks": checks, "failures": failures, "out_dir": str(OUT)}
     print(json.dumps(result, indent=2))

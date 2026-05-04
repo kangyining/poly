@@ -28,8 +28,16 @@ impl Database {
                 std::fs::create_dir_all(parent)?;
             }
             let conn = Connection::open(path)?;
-            conn.execute_batch(SCHEMA_SQL)?;
+            if let Err(first_err) = conn.execute_batch(SCHEMA_SQL) {
+                ensure_dynamic_columns(&conn)?;
+                conn.execute_batch(SCHEMA_SQL).with_context(|| {
+                    format!(
+                        "failed to apply schema after compatibility migrations; first schema error: {first_err}"
+                    )
+                })?;
+            }
             ensure_dynamic_columns(&conn)?;
+            conn.execute_batch(SCHEMA_SQL)?;
             conn
         };
         Ok(Self { conn })
@@ -41,19 +49,179 @@ impl Database {
 }
 
 fn ensure_dynamic_columns(conn: &Connection) -> Result<()> {
-    ensure_column(conn, "settlement_records", "settlement_temp_source", "TEXT")?;
-    ensure_column(
+    ensure_columns(
+        conn,
+        "weather_contracts",
+        &[
+            ("event_slug", "TEXT"),
+            ("event_id", "TEXT"),
+            ("target_date", "TEXT"),
+            ("market_type", "TEXT"),
+            ("measure", "TEXT"),
+            ("unit", "TEXT"),
+            ("city_slug", "TEXT"),
+            ("display_city", "TEXT"),
+            ("resolution_source_kind", "TEXT"),
+            ("station_id", "TEXT"),
+            ("source_url", "TEXT"),
+            ("timezone", "TEXT"),
+            ("lat", "REAL"),
+            ("lon", "REAL"),
+            ("validation_status", "TEXT"),
+            ("skip_reason", "TEXT"),
+            ("discovered_at", "TEXT"),
+            ("raw_json", "TEXT"),
+        ],
+    )?;
+    ensure_columns(
+        conn,
+        "market_snapshots",
+        &[
+            ("hours_to_close", "REAL"),
+            ("no_asks_json", "TEXT"),
+            ("fee_rate", "REAL"),
+            ("no_vwap_10", "REAL"),
+            ("market_type", "TEXT"),
+            ("measure", "TEXT"),
+            ("unit", "TEXT"),
+            ("city_slug", "TEXT"),
+            ("station_id", "TEXT"),
+            ("source_url", "TEXT"),
+            ("validation_status", "TEXT"),
+            ("skip_reason", "TEXT"),
+        ],
+    )?;
+    ensure_columns(
+        conn,
+        "forecast_records",
+        &[
+            ("temp_max_ecmwf_c", "REAL"),
+            ("temp_max_gfs_c", "REAL"),
+            ("temp_max_ecmwf_f", "REAL"),
+            ("temp_max_gfs_f", "REAL"),
+            ("model_spread_c", "REAL"),
+            ("forecast_lead_hours", "REAL"),
+            ("raw_json", "TEXT"),
+            ("market_type", "TEXT"),
+            ("measure", "TEXT"),
+            ("unit", "TEXT"),
+            ("city_slug", "TEXT"),
+            ("station_id", "TEXT"),
+            ("event_slug", "TEXT"),
+            ("value_ecmwf", "REAL"),
+            ("value_gfs", "REAL"),
+            ("value_unit", "TEXT"),
+        ],
+    )?;
+    ensure_columns(
         conn,
         "settlement_records",
-        "settlement_temp_station",
-        "TEXT",
+        &[
+            ("event_id", "TEXT"),
+            ("event_slug", "TEXT"),
+            ("winning_bin", "TEXT"),
+            ("settlement_temp_f", "REAL"),
+            ("wunderground_station", "TEXT"),
+            ("resolved_at", "TEXT"),
+            ("raw_outcome_prices", "TEXT"),
+            ("market_type", "TEXT"),
+            ("measure", "TEXT"),
+            ("unit", "TEXT"),
+            ("city_slug", "TEXT"),
+            ("station_id", "TEXT"),
+            ("source_url", "TEXT"),
+            ("settlement_value", "REAL"),
+            ("settlement_unit", "TEXT"),
+            ("settlement_temp_source", "TEXT"),
+            ("settlement_temp_station", "TEXT"),
+            ("settlement_temp_raw_json", "TEXT"),
+        ],
     )?;
-    ensure_column(
+    ensure_columns(
         conn,
-        "settlement_records",
-        "settlement_temp_raw_json",
-        "TEXT",
+        "forecast_model_runs",
+        &[
+            ("model_run_time", "TEXT"),
+            ("forecast_lead_hours", "REAL"),
+            ("temp_max_f", "REAL"),
+            ("raw_json", "TEXT"),
+            ("market_type", "TEXT"),
+            ("measure", "TEXT"),
+            ("unit", "TEXT"),
+            ("city_slug", "TEXT"),
+            ("station_id", "TEXT"),
+            ("event_slug", "TEXT"),
+            ("value", "REAL"),
+            ("value_unit", "TEXT"),
+        ],
     )?;
+    ensure_columns(
+        conn,
+        "positions",
+        &[
+            ("fee_rate", "REAL"),
+            ("order_id", "TEXT"),
+            ("status", "TEXT DEFAULT 'open'"),
+            ("pnl", "REAL"),
+            ("opened_at", "TEXT"),
+            ("settled_at", "TEXT"),
+            ("is_paper", "INTEGER DEFAULT 1"),
+            ("strategy_name", "TEXT DEFAULT 'default'"),
+            ("backtest_id", "TEXT"),
+            ("trade_rationale", "TEXT"),
+        ],
+    )?;
+    ensure_columns(
+        conn,
+        "price_history_1m",
+        &[
+            ("bin_index", "INTEGER"),
+            ("token_id_yes", "TEXT"),
+            ("hours_to_close", "REAL"),
+            ("source", "TEXT DEFAULT 'clob-backfill'"),
+        ],
+    )?;
+    ensure_columns(conn, "nws_forecasts", &[("forecast_lead_hours", "REAL")])?;
+    ensure_columns(
+        conn,
+        "market_relationships",
+        &[
+            ("city", "TEXT"),
+            ("target_date", "TEXT"),
+            ("event_slug", "TEXT"),
+            ("market_type", "TEXT"),
+            ("bin_label", "TEXT"),
+            ("lower_bound_f", "REAL"),
+            ("upper_bound_f", "REAL"),
+            ("threshold_f", "REAL"),
+            ("source_station", "TEXT"),
+            ("confidence", "REAL"),
+            ("raw_json", "TEXT"),
+        ],
+    )?;
+    ensure_columns(
+        conn,
+        "wallet_signal_snapshots",
+        &[
+            ("timestamp", "TEXT"),
+            ("wallet", "TEXT"),
+            ("strategy_tag", "TEXT"),
+            ("market_id", "TEXT"),
+            ("event_slug", "TEXT"),
+            ("token_id", "TEXT"),
+            ("side", "TEXT"),
+            ("price", "REAL"),
+            ("size", "REAL"),
+            ("raw_json", "TEXT"),
+        ],
+    )?;
+    Ok(())
+}
+
+fn ensure_columns(conn: &Connection, table: &str, columns: &[(&str, &str)]) -> Result<()> {
+    for (column, sql_type) in columns {
+        ensure_column(conn, table, column, sql_type)?;
+    }
     Ok(())
 }
 
@@ -65,8 +233,12 @@ pub fn ensure_column(conn: &Connection, table: &str, column: &str, sql_type: &st
     let exists = stmt
         .query_map([], |row| row.get::<_, String>(1))?
         .collect::<rusqlite::Result<Vec<_>>>()?
-        .iter()
-        .any(|name| name == column);
+        .into_iter()
+        .collect::<Vec<_>>();
+    if exists.is_empty() {
+        return Ok(());
+    }
+    let exists = exists.iter().any(|name| name == column);
     if !exists {
         conn.execute(
             &format!("ALTER TABLE {table} ADD COLUMN {column} {sql_type}"),
@@ -1084,5 +1256,92 @@ mod tests {
         })];
         assert_eq!(seed_research_sources(&db, &sources).unwrap(), 1);
         assert_eq!(seed_research_sources(&db, &sources).unwrap(), 0);
+    }
+
+    #[test]
+    fn mutable_open_migrates_legacy_python_columns() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "
+                CREATE TABLE market_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    event_id TEXT,
+                    event_slug TEXT,
+                    bin_label TEXT NOT NULL
+                );
+                CREATE TABLE weather_contracts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_slug TEXT
+                );
+                CREATE TABLE forecast_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    source TEXT NOT NULL
+                );
+                CREATE TABLE settlement_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    city TEXT NOT NULL,
+                    target_date TEXT NOT NULL
+                );
+                CREATE TABLE forecast_model_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    model_name TEXT NOT NULL
+                );
+                CREATE TABLE positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    token_id TEXT NOT NULL,
+                    market_id TEXT NOT NULL,
+                    bin_label TEXT NOT NULL,
+                    event_slug TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    entry_price REAL NOT NULL,
+                    shares REAL NOT NULL,
+                    stake_usd REAL NOT NULL
+                );
+                CREATE TABLE price_history_1m (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    city TEXT NOT NULL,
+                    target_date TEXT NOT NULL,
+                    bin_label TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    yes_price REAL
+                );
+                ",
+            )
+            .unwrap();
+        }
+
+        let db = Database::open(&path, false).unwrap();
+        assert!(table_columns(&db, "weather_contracts").contains(&"validation_status".to_string()));
+        assert!(table_columns(&db, "market_snapshots").contains(&"hours_to_close".to_string()));
+        assert!(table_columns(&db, "market_snapshots").contains(&"fee_rate".to_string()));
+        assert!(table_columns(&db, "forecast_records").contains(&"value_gfs".to_string()));
+        assert!(table_columns(&db, "settlement_records")
+            .contains(&"settlement_temp_source".to_string()));
+        assert!(table_columns(&db, "forecast_model_runs").contains(&"event_slug".to_string()));
+        assert!(table_columns(&db, "positions").contains(&"fee_rate".to_string()));
+        assert!(table_columns(&db, "price_history_1m").contains(&"hours_to_close".to_string()));
+    }
+
+    fn table_columns(db: &Database, table: &str) -> Vec<String> {
+        db.conn()
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap()
     }
 }

@@ -65,8 +65,8 @@ Status legend:
 | `commands::settle::run` | `settlement_tracker.daily_check/backfill` | Near parity | Reuses the shared Rust settlement tracker for Gamma validation, settlement insert, paper closeout, and export. |
 | `commands::status::StatusArgs` | `status.py` parser | Near parity | Open/closed/date/db flags. |
 | `commands::status::run` | `status.py::main` | Near parity | Reads positions and prints totals. Formatting not byte-identical. |
-| `commands::recorder::RecorderArgs` | `run_recorder.py` and data scripts parsers | Partial | Flags are present, plus Rust `--db`. |
-| `commands::recorder::run` | `run_recorder.py::main` | Near parity | `--once`, Python-like scheduler cadences, settlement checks, TAF/NWS, Open-Meteo, market snapshots, and backfill dispatch are ported. |
+| `commands::recorder::RecorderArgs` | `run_recorder.py` and data scripts parsers | Near parity | Flags are present, plus Rust `--db` and `--positions` for safe temp exports. |
+| `commands::recorder::run` | `run_recorder.py::main` | Near parity | `--once`, Python-like scheduler cadences, settlement checks, TAF/NWS, Open-Meteo, market snapshots, and backfill dispatch are ported. Live network smoke is opt-in. |
 
 ## Config Module
 
@@ -93,8 +93,8 @@ Python config gaps not yet in Rust:
 
 | Rust item | Python counterpart | Status | Notes |
 |---|---|---:|---|
-| `Database` | `data/db.py::Database` | Partial | Opens read-only/mutable and applies schema. Python has more migration helpers. |
-| `Database::open` | `Database.__init__` | Partial | Read-only or mutable open. Mutable open applies copied schema; Python also applies migrations. |
+| `Database` | `data/db.py::Database` | Near parity | Opens read-only/mutable, applies schema, and runs compatibility migrations for older writable DBs. |
+| `Database::open` | `Database.__init__` | Near parity | Read-only opens stay non-mutating; mutable opens ensure Python-migrated columns on legacy tables before use. |
 | `Database::conn` | `Database.conn` attribute | Rust-only | Exposes the underlying connection for typed query helpers. |
 | `SettlementRow` | settlement row dict/model | Rust-only | Typed query row. |
 | `ForecastSnapshot` | forecast snapshot dict | Rust-only | Typed query row. |
@@ -133,9 +133,10 @@ Python config gaps not yet in Rust:
 
 Python DB/data gaps still in Rust:
 
-- Broad auxiliary migrations still rely mostly on the copied schema.
-- Some Python retry/rate-limit policies around TAF/NWS/ASOS/price-history jobs
-  are simplified.
+- Read-only old DBs are not mutated. Commands fail clearly if a required column
+  is absent and the DB was opened read-only.
+- Exact retry sleep durations can still differ by a few hundred milliseconds,
+  but network fetches now share retry/backoff and per-item continuation behavior.
 
 ## Strategy Core
 
@@ -314,16 +315,16 @@ Most sweep behavior currently lives in `commands::sweep` rather than
 | `data::gamma::build_slug` | `gamma_client.build_slug` | Parity | Delegates to configured daily-high slug builder. |
 | `data::gamma::fetch_event` | `gamma_client.fetch_event` | Near parity | Fetches one event by city/date slug. |
 | `data::gamma::fetch_event_by_slug` | `gamma_client.fetch_event_by_slug` | Near parity | Fetches one event by exact slug. |
-| `data::gamma::fetch_events_range` | `gamma_client.fetch_events_range` | Near parity | Iterates daily slugs across a range. No sleep/rate-limit yet. |
+| `data::gamma::fetch_events_range` | `gamma_client.fetch_events_range` | Near parity | Iterates daily slugs across a range with retry/backoff-backed event fetches and gentle sleeps. |
 | `data::gamma::parse_markets` | `gamma_client.parse_markets` | Near parity | Parses encoded `clobTokenIds` and `outcomePrices`. |
-| `data::gamma::fetch_order_book` | `gamma_client.fetch_order_book` | Near parity | Fetches CLOB book. Python swallows errors; Rust returns them. |
-| `data::gamma::fetch_fee_rate` | `gamma_client.fetch_fee_rate` | Near parity | Fetches and normalizes fee rate. Python swallows errors; Rust returns them. |
+| `data::gamma::fetch_order_book` | `gamma_client.fetch_order_book` | Near parity | Fetches CLOB book through the shared retry helper; callers decide whether to continue or surface errors. |
+| `data::gamma::fetch_fee_rate` | `gamma_client.fetch_fee_rate` | Near parity | Fetches and normalizes fee rate through the shared retry helper; callers decide whether to continue or surface errors. |
 | `data::gamma::normalize_fee_rate` | `gamma_client.normalize_fee_rate` | Parity | Preserves `base_fee / 20_000` behavior. |
 | `data::gamma::effective_ask_vwap` | `gamma_client.effective_ask_vwap` | Parity | Walks ask ladder and requires sufficient depth. |
 | `data::gamma::book_depth` | `gamma_client.book_depth` | Parity | Sums level sizes. |
 | `data::gamma::best_price` | `gamma_client.best_price` | Parity | Max bid/min ask. |
 | `data::gamma::winning_bin` | `gamma_client.winning_bin` | Parity | YES outcome price >= 0.99. |
-| `data::gamma::client` | `_get` session behavior | Rust-only | Builds blocking HTTP client. |
+| `data::http::*` | `_get` / retry wrappers | Near parity | Shared blocking GET helper for JSON/text with timeout, retry, exponential backoff, optional user-agent, and tests. |
 | `data::gamma::value_to_f64` / `value_to_string` | inline coercions | Rust-only | Shared JSON coercion helpers. |
 | `data::gamma::parse_json_array_value` | `json.loads` fallback | Parity | Handles list or JSON-encoded string. |
 | `data::gamma::abbreviated` | token log slicing | Rust-only | Internal helper for shorter error context. |
@@ -331,7 +332,8 @@ Most sweep behavior currently lives in `commands::sweep` rather than
 | `data::weather_contracts::WeatherContractDiscovery::is_valid` | `WeatherContractDiscovery.is_valid` property | Parity | Checks `validation_status == "valid"`. |
 | `data::weather_contracts::parse_daily_high_slug` | `parse_daily_high_slug` | Parity | Slug to city/date. |
 | `data::weather_contracts::configured_weather_contracts` | `configured_weather_contracts` | Parity | Generates allowlisted city/date contracts. |
-| `data::weather_contracts::discover_configured_weather_contracts` | `discover_weather_contracts` | Partial | Fetches configured city/date slugs directly; does not page tag-filtered events. |
+| `data::weather_contracts::discover_configured_weather_contracts` | configured discovery path | Parity | Fetches configured city/date slugs directly. |
+| `data::weather_contracts::discover_weather_contracts` | `fetch_weather_events` / `discover_contracts_from_events` | Near parity | Paginates Gamma weather events, filters target dates, validates events, and records skipped contracts. |
 | `data::weather_contracts::validate_weather_event` | `validate_weather_event` | Near parity | Unit/source/station validation ported. |
 | `data::weather_contracts::skipped` | `_skipped` | Near parity | Internal skipped-contract constructor. |
 | `data::weather_contracts::contract_from_config` | `_contract` / `configured_weather_contracts` | Near parity | Internal configured contract constructor. |
@@ -372,13 +374,15 @@ Most sweep behavior currently lives in `commands::sweep` rather than
 
 These Python functions/classes still have parity risk in live conditions:
 
-- `data/gamma_client.py`: event request retry/backoff and `fetch_events_range`
-  gentle rate limiting are ported; CLOB/backfill-specific live retry timing is
-  still simplified.
+- `data/gamma_client.py`: event, CLOB book/fee, and price-history fetches route
+  through the shared retry/backoff helper. Exact delay values are close rather
+  than byte-for-byte identical.
 - `data/weather_contracts.py`: broad `fetch_weather_events` pagination and
   `discover_contracts_from_events` are ported; live Gamma tag behavior still
   needs opt-in smoke validation.
-- Backfill retry/backoff/rate-limit timing is simplified compared with Python.
+- Backfill retry/backoff/rate-limit behavior is ported at the command-behavior
+  level: individual token/city/date failures increment `fetch_errors` and keep
+  the broader job running. Exact sleep durations may differ slightly.
 - True forecast backfill now uses Python-compatible `gfs_global` and
   `past_model_run`, but live network behavior still needs manual smoke testing.
 
@@ -471,8 +475,10 @@ This is the current open-work list compared with the original Python repo.
 
 ### DB Layer
 
-- Dynamic settlement temp source columns are ensured for writable DBs; broader
-  auxiliary migrations still rely mostly on the copied schema.
+- Mutable DB opens ensure Python-migrated compatibility columns for
+  `market_snapshots`, `forecast_records`, `settlement_records`,
+  `forecast_model_runs`, `positions`, `price_history_1m`, and `nws_forecasts`,
+  then re-apply the copied schema/indexes.
 - Insert/query helpers for TAF, NWS, ASOS-derived METARs, price history, true
   forecasts, and historical forecasts are implemented.
 
@@ -494,9 +500,9 @@ This is the current open-work list compared with the original Python repo.
    parity harness; byte-exact report prose remains intentionally out of scope.
 5. Settlement source enrichment and edge-bin midpoint behavior.
 6. Live market snapshot recorder behavior around closed events, sparse books,
-   fee-rate failures, and configured-slug discovery versus broad event search.
-7. Live METAR/Open-Meteo recorder behavior around API field changes, duplicate
-   rows, and local-time lead-hour parity.
+   and external API shape changes.
+7. Live METAR/Open-Meteo/TAF/NWS recorder behavior around API field changes,
+   duplicate rows, and local-time lead-hour parity.
 
 ## Verification State
 

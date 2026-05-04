@@ -17,6 +17,8 @@ use crate::db::Database;
 pub struct RecorderArgs {
     #[arg(long)]
     pub db: Option<PathBuf>,
+    #[arg(long, default_value = "open_positions.json")]
+    pub positions: PathBuf,
     #[arg(long)]
     pub once: bool,
     #[arg(long)]
@@ -161,7 +163,7 @@ pub fn run(args: RecorderArgs) -> Result<()> {
     }
 
     if args.once {
-        let run_summary = run_once(&db, args.broad_gamma_discovery)?;
+        let run_summary = run_once(&db, args.broad_gamma_discovery, &args.positions)?;
         println!(
             "{}",
             serde_json::to_string_pretty(&json!({
@@ -172,7 +174,7 @@ pub fn run(args: RecorderArgs) -> Result<()> {
         return Ok(());
     }
 
-    let first_run = run_once(&db, args.broad_gamma_discovery)?;
+    let first_run = run_once(&db, args.broad_gamma_discovery, &args.positions)?;
     println!(
         "{}",
         serde_json::to_string_pretty(&json!({
@@ -189,7 +191,13 @@ pub fn run(args: RecorderArgs) -> Result<()> {
         if due.is_empty() {
             continue;
         }
-        let run_summary = run_due(&db, due.clone(), now, args.broad_gamma_discovery)?;
+        let run_summary = run_due(
+            &db,
+            due.clone(),
+            now,
+            args.broad_gamma_discovery,
+            &args.positions,
+        )?;
         scheduler.record(due, now);
         println!(
             "{}",
@@ -202,17 +210,17 @@ pub fn run(args: RecorderArgs) -> Result<()> {
     }
 }
 
-fn run_once(db: &Database, broad_gamma_discovery: bool) -> Result<serde_json::Value> {
+fn run_once(
+    db: &Database,
+    broad_gamma_discovery: bool,
+    positions_path: &std::path::Path,
+) -> Result<serde_json::Value> {
     let metar_summary = metar_recorder::record_metars(db)?;
     let taf_summary = taf_nws_recorder::record_tafs(db)?;
     let nws_summary = taf_nws_recorder::record_nws_forecasts(db)?;
     let market_summary = record_market_snapshots(db, broad_gamma_discovery)?;
     let forecast_summary = forecast_recorder::record_forecasts(db)?;
-    let settlement_summary = settlement_tracker::daily_check(
-        db,
-        None,
-        Some(std::path::Path::new("open_positions.json")),
-    )?;
+    let settlement_summary = settlement_tracker::daily_check(db, None, Some(positions_path))?;
     Ok(json!({
         "metars": metar_summary,
         "tafs": taf_summary,
@@ -301,6 +309,7 @@ fn run_due(
     due: Vec<RecorderJob>,
     now: DateTime<Utc>,
     broad_gamma_discovery: bool,
+    positions_path: &std::path::Path,
 ) -> Result<serde_json::Value> {
     let mut out = serde_json::Map::new();
     for job in due {
@@ -342,7 +351,7 @@ fn run_due(
                     serde_json::to_value(settlement_tracker::daily_check(
                         db,
                         Some(target),
-                        Some(std::path::Path::new("open_positions.json")),
+                        Some(positions_path),
                     )?)?,
                 );
             }

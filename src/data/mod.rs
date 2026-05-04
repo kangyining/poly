@@ -3,6 +3,7 @@
 pub mod backfills;
 pub mod forecast_recorder;
 pub mod gamma;
+pub mod http;
 pub mod market_recorder;
 pub mod metar_recorder;
 pub mod models;
