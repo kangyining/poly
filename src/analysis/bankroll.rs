@@ -1,9 +1,11 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
 
-use crate::analysis::backtest::BacktestTradeRow;
+use crate::analysis::{backtest, backtest::BacktestTradeRow, calibration, replay::ReplayDataset};
 use crate::db::parse_ts;
+use crate::strategy::*;
 
 #[derive(Debug, Clone)]
 pub struct ReplayCandidate {
@@ -29,6 +31,269 @@ pub struct ReplayCandidate {
     pub token_id: String,
     pub market_id: String,
     pub metadata: Value,
+}
+
+pub fn generate_replay_candidates(
+    dataset: &ReplayDataset,
+    strategy_name: &str,
+    params: Value,
+    city: Option<String>,
+    date_from: chrono::NaiveDate,
+    date_to: chrono::NaiveDate,
+    calibration_table: &Value,
+) -> (Vec<ReplayCandidate>, backtest::BacktestSummary) {
+    let mut run_params = params.clone();
+    if let Some(city) = &city {
+        run_params["city"] = Value::String(city.clone());
+    }
+    run_params["replay_mode"] = serde_json::json!("interval");
+    run_params["interval_minutes"] = serde_json::json!(backtest::DEFAULT_INTERVAL_MINUTES);
+
+    let strategy_plugin =
+        crate::strategy::registry::resolve_strategy_name(strategy_name, &run_params);
+    let strategy = strategy_by_name(&strategy_plugin);
+    let fee_rate = run_params
+        .get("fee_rate")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.05);
+    let desired_shares = run_params
+        .get("desired_shares")
+        .and_then(Value::as_f64)
+        .unwrap_or(10.0);
+    let funding_pct = run_params
+        .get("funding_pct")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.0);
+    let shares = desired_shares * funding_pct;
+
+    let mut candidates = Vec::new();
+    let mut days_considered = 0;
+    let mut days_with_forecast = 0;
+    let mut days_with_price_history = 0;
+    let mut days_with_minute_price_history = 0;
+    let mut days_with_snapshot_fills = 0;
+    let mut days_missing_forecast = 0;
+    let mut days_missing_price_history = 0;
+    let mut interval_bars_considered = 0;
+    let mut intervals_with_candidates = 0;
+    let mut forecast_switches = 0;
+    let mut diagnostics = Vec::<StrategyDiagnostic>::new();
+
+    for day in &dataset.days {
+        let settlement_city = day.settlement.city.clone();
+        let target_date = day.settlement.target_date.clone();
+        let Some(winning_bin) = day.settlement.winning_bin.clone() else {
+            continue;
+        };
+        days_considered += 1;
+        if winning_bin.is_empty() {
+            continue;
+        }
+        if day.forecasts.is_empty() {
+            days_missing_forecast += 1;
+            continue;
+        }
+        days_with_forecast += 1;
+        if day.price_bars.is_empty() {
+            days_missing_price_history += 1;
+            continue;
+        }
+        days_with_price_history += 1;
+        days_with_minute_price_history += 1;
+
+        let mut opened_bins = BTreeSet::<String>::new();
+        let mut used_snapshot_fill = false;
+        let mut last_forecast_key: Option<String> = None;
+
+        for (bucket_ts, bucket) in &day.price_bars {
+            if bucket.is_empty() {
+                continue;
+            }
+            interval_bars_considered += 1;
+            let current_lead_hours = bucket
+                .reference_market()
+                .map(|bar| bar.hours_to_close)
+                .unwrap_or(0.0);
+            let Some(active_forecast) =
+                backtest::select_active_forecast(&day.forecasts, *bucket_ts, current_lead_hours)
+            else {
+                continue;
+            };
+            let forecast_key = format!(
+                "{}:{}:{:.4}",
+                active_forecast.source, active_forecast.available_at, active_forecast.forecast_f
+            );
+            if Some(forecast_key.clone()) != last_forecast_key {
+                forecast_switches += 1;
+                last_forecast_key = Some(forecast_key);
+            }
+            let (beta_f, sigma_f) = calibration::lookup(
+                calibration_table,
+                &day.station,
+                day.target_dt.month(),
+                current_lead_hours,
+            );
+            let forecast = ForecastState {
+                source: active_forecast.source.clone(),
+                forecast_f: active_forecast.forecast_f,
+                lead_hours: current_lead_hours,
+                beta_f,
+                sigma_f,
+                mu_f: active_forecast.forecast_f + beta_f,
+                gfs_f: active_forecast.gfs_f,
+                ecmwf_f: active_forecast.ecmwf_f,
+                model_spread_f: active_forecast.model_spread_c.map(|c| c * 9.0 / 5.0),
+            };
+            let mut market_bins = Vec::new();
+            for market in bucket.sorted_markets() {
+                let snapshot_fill = day
+                    .snapshot_fills
+                    .get(&(*bucket_ts, market.bin_label.clone()))
+                    .and_then(|fill| fill.to_fill(shares));
+                if snapshot_fill.is_some() {
+                    used_snapshot_fill = true;
+                }
+                market_bins.push(backtest::build_market_bin(
+                    market,
+                    snapshot_fill.as_ref(),
+                    fee_rate,
+                    current_lead_hours,
+                    *bucket_ts,
+                ));
+            }
+            let context = StrategyContext {
+                city: settlement_city.clone(),
+                target_date: target_date.clone(),
+                winning_bin: winning_bin.clone(),
+                bins: market_bins,
+                forecast: Some(forecast),
+                params: run_params.clone(),
+                replay_mode: "interval".to_string(),
+                evaluation_time: Some(*bucket_ts),
+                event_slug: Some(day.event_slug.clone()),
+                settlement_temp_f: None,
+                metar_max_so_far_f: day.metar.max_before(*bucket_ts),
+                climatology_temps_f: day.climatology.clone(),
+            };
+            let output = strategy.generate_candidates(&context);
+            diagnostics.extend(output.diagnostics);
+
+            let mut interval_candidates = 0;
+            for candidate in output.candidates {
+                let opened_key = format!(
+                    "{}:{}:{}",
+                    candidate.strategy_name, candidate.side, candidate.bin_label
+                );
+                if opened_bins.contains(&opened_key) {
+                    continue;
+                }
+                let (pnl, won) = backtest::candidate_pnl(&candidate, &winning_bin);
+                opened_bins.insert(opened_key);
+                candidates.push(ReplayCandidate {
+                    strategy_name: strategy_name.to_string(),
+                    strategy_plugin: strategy_plugin.clone(),
+                    city: settlement_city.clone(),
+                    target_date: target_date.clone(),
+                    event_slug: day.event_slug.clone(),
+                    bin_label: candidate.bin_label.clone(),
+                    bin_index: bucket.bin_index(&candidate.bin_label),
+                    side: candidate.side.clone(),
+                    opened_at: *bucket_ts,
+                    resolved_at: day.resolved_at,
+                    desired_stake_usd: candidate.stake_usd,
+                    desired_shares: candidate.shares,
+                    pnl,
+                    won,
+                    effective_ask: candidate.effective_ask,
+                    fee_rate: candidate.fee_rate,
+                    p_model: candidate.p_model,
+                    edge: Some(candidate.edge),
+                    fill_source: candidate.fill_source.clone(),
+                    token_id: candidate.token_id.clone(),
+                    market_id: candidate.market_id.clone(),
+                    metadata: Value::Object(candidate.metadata.clone()),
+                });
+                interval_candidates += 1;
+            }
+            if interval_candidates > 0 {
+                intervals_with_candidates += 1;
+            }
+        }
+        if used_snapshot_fill {
+            days_with_snapshot_fills += 1;
+        }
+    }
+
+    candidates.sort_by_key(|c| {
+        (
+            c.opened_at,
+            c.target_date.clone(),
+            c.city.clone(),
+            c.strategy_name.clone(),
+            c.bin_index,
+            c.side.clone(),
+            c.bin_label.clone(),
+        )
+    });
+
+    let mut diagnostic_counts = BTreeMap::new();
+    for diag in diagnostics {
+        let key = format!("{}:{}", diag.strategy_name, diag.severity);
+        *diagnostic_counts.entry(key).or_insert(0) += 1;
+    }
+
+    (
+        candidates.clone(),
+        backtest::BacktestSummary {
+            backtest_id: uuid::Uuid::new_v4().to_string(),
+            strategy: strategy_name.to_string(),
+            params: run_params,
+            city,
+            date_from: date_from.to_string(),
+            date_to: date_to.to_string(),
+            total_trades: candidates.len(),
+            wins: candidates.iter().filter(|c| c.won).count(),
+            win_rate: if candidates.is_empty() {
+                0.0
+            } else {
+                ((candidates.iter().filter(|c| c.won).count() as f64 / candidates.len() as f64)
+                    * 10_000.0)
+                    .round()
+                    / 10_000.0
+            },
+            total_pnl: ((candidates.iter().map(|c| c.pnl).sum::<f64>()) * 10_000.0).round()
+                / 10_000.0,
+            sharpe: 0.0,
+            total_stake: ((candidates.iter().map(|c| c.desired_stake_usd).sum::<f64>()) * 10_000.0)
+                .round()
+                / 10_000.0,
+            turnover_yield: None,
+            pnl_per_calendar_day: None,
+            pnl_per_active_day: None,
+            pnl_per_trade: None,
+            active_trade_days: candidates
+                .iter()
+                .map(|c| c.target_date.clone())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            return_on_daily_cap: None,
+            result_storage: "files".to_string(),
+            days_considered,
+            days_with_forecast,
+            days_with_price_history,
+            days_with_minute_price_history,
+            days_with_snapshot_fills,
+            days_missing_forecast,
+            days_missing_price_history,
+            interval_minutes: backtest::DEFAULT_INTERVAL_MINUTES,
+            interval_bars_considered,
+            intervals_with_trades: intervals_with_candidates,
+            forecast_switches,
+            strategy_plugin,
+            diagnostics: diagnostic_counts,
+            trades: Vec::new(),
+        },
+    )
 }
 
 impl ReplayCandidate {

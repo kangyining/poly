@@ -13,7 +13,6 @@ import argparse
 import csv
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -93,6 +92,15 @@ def compare_headers(name: str, left: Path, right: Path) -> list[dict[str, Any]]:
     if lhead != rhead:
         return [{"check": name, "key": "csv_header", "python": lhead, "rust": rhead}]
     return []
+
+
+def csv_row_count(path: Path) -> int | None:
+    if not path.exists():
+        return None
+    with path.open(newline="") as fh:
+        reader = csv.reader(fh)
+        next(reader, None)
+        return sum(1 for _ in reader)
 
 
 def backtest(args: argparse.Namespace, strategy: str, suffix: str, extra_py: list[str] | None = None, extra_rust: list[str] | None = None) -> list[dict[str, Any]]:
@@ -271,8 +279,13 @@ def sweep(args: argparse.Namespace) -> list[dict[str, Any]]:
         ROOT,
     )
     failures: list[dict[str, Any]] = []
-    if py.get("rows") != rust.get("rows"):
-        failures.append({"check": "sweep", "key": "rows", "python": py.get("rows"), "rust": rust.get("rows")})
+    py_csv = OUT / "python_sweep" / "parity_quick.csv"
+    rust_csv = OUT / "rust_sweep" / "parity_quick.csv"
+    py_rows = py.get("rows", csv_row_count(py_csv))
+    rust_rows = rust.get("rows", csv_row_count(rust_csv))
+    if py_rows != rust_rows:
+        failures.append({"check": "sweep", "key": "rows", "python": py_rows, "rust": rust_rows})
+    failures += compare_headers("sweep_csv", py_csv, rust_csv)
     return failures
 
 
@@ -301,7 +314,13 @@ def calibration(args: argparse.Namespace) -> list[dict[str, Any]]:
 
 def lifecycle(args: argparse.Namespace) -> list[dict[str, Any]]:
     fixture_db = OUT / "lifecycle.db"
-    shutil.copyfile(args.db, fixture_db)
+    if fixture_db.exists():
+        fixture_db.unlink()
+    import sqlite3
+
+    conn = sqlite3.connect(fixture_db)
+    conn.executescript((ROOT / "db" / "schema.sql").read_text())
+    conn.close()
     plan = OUT / "execution_plan.json"
     plan.write_text(
         json.dumps(

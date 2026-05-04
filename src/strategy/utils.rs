@@ -1,6 +1,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TemperatureRange {
@@ -11,8 +12,7 @@ pub enum TemperatureRange {
 
 pub fn parse_temperature_range(label: &str) -> Option<TemperatureRange> {
     let normalized = label.replace(['°', 'F', 'f'], "");
-    let between_re =
-        Regex::new(r"(?i)(\d+(?:\.\d+)?)\s*(?:to|-|through)\s*(\d+(?:\.\d+)?)").ok()?;
+    let between_re = between_re();
     if let Some(caps) = between_re.captures(&normalized) {
         return Some(TemperatureRange::Between {
             low_f: caps.get(1)?.as_str().parse().ok()?,
@@ -20,13 +20,14 @@ pub fn parse_temperature_range(label: &str) -> Option<TemperatureRange> {
         });
     }
 
+    let lower_label = label.to_lowercase();
     let lower_marked = ["below", "lower", "≤", "<="]
         .iter()
-        .any(|token| label.to_lowercase().contains(token));
+        .any(|token| lower_label.contains(token));
     let upper_marked = ["above", "higher", "≥", ">="]
         .iter()
-        .any(|token| label.to_lowercase().contains(token));
-    let number_re = Regex::new(r"(\d+(?:\.\d+)?)").ok()?;
+        .any(|token| lower_label.contains(token));
+    let number_re = number_re();
     let value = number_re
         .captures(&normalized)
         .and_then(|caps| caps.get(1))
@@ -36,6 +37,19 @@ pub fn parse_temperature_range(label: &str) -> Option<TemperatureRange> {
         (_, true, Some(low_f)) => Some(TemperatureRange::AboveOrEqual { low_f }),
         _ => None,
     }
+}
+
+fn between_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"(?i)(\d+(?:\.\d+)?)\s*(?:to|-|through)\s*(\d+(?:\.\d+)?)")
+            .expect("valid temperature range regex")
+    })
+}
+
+fn number_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"(\d+(?:\.\d+)?)").expect("valid temperature number regex"))
 }
 
 pub fn norm_cdf(x: f64) -> f64 {

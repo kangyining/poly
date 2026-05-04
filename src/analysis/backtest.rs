@@ -1,12 +1,12 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use crate::analysis::calibration;
-use crate::config;
+use crate::analysis::replay::ReplayDataset;
 use crate::db;
 use crate::strategy::*;
 
@@ -109,6 +109,20 @@ pub struct BacktestTradeRow {
 }
 
 pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestSummary> {
+    let dataset = ReplayDataset::load(
+        db,
+        req.date_from,
+        req.date_to,
+        req.city.as_deref(),
+        DEFAULT_INTERVAL_MINUTES,
+    )?;
+    run_backtest_with_dataset(&dataset, req)
+}
+
+pub fn run_backtest_with_dataset(
+    dataset: &ReplayDataset,
+    req: BacktestRequest,
+) -> Result<BacktestSummary> {
     let backtest_id = uuid::Uuid::new_v4().to_string();
     let created_at = Utc::now().to_rfc3339();
     let mut params = req.params.clone();
@@ -121,16 +135,15 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
     let strategy_plugin =
         crate::strategy::registry::resolve_strategy_name(&req.strategy_name, &params);
     let strategy = strategy_by_name(&strategy_plugin);
-    let settlements = db::load_settlements(
-        db,
-        &req.date_from.to_string(),
-        &req.date_to.to_string(),
-        req.city.as_deref(),
-    )?;
-
     let max_stake = params
         .get("max_stake_usd")
-        .and_then(Value::as_f64)
+        .map(|value| {
+            if value.is_null() {
+                f64::INFINITY
+            } else {
+                value.as_f64().unwrap_or(50.0)
+            }
+        })
         .unwrap_or(50.0);
     let max_total_stake = params.get("max_total_stake_usd").and_then(Value::as_f64);
     let fee_rate = params
@@ -162,58 +175,34 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
     let mut forecast_switches = 0;
     let mut diagnostics = Vec::<StrategyDiagnostic>::new();
 
-    for settlement in settlements {
-        let settlement_city = settlement.city;
-        let target_date = settlement.target_date;
-        let Some(winning_bin) = settlement.winning_bin else {
+    for day in &dataset.days {
+        let settlement_city = day.settlement.city.clone();
+        let target_date = day.settlement.target_date.clone();
+        let Some(winning_bin) = day.settlement.winning_bin.clone() else {
             continue;
         };
         if winning_bin.is_empty() {
             continue;
         }
         days_considered += 1;
-        let event_slug = settlement
-            .event_slug
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| config::default_event_slug(&settlement_city, &target_date));
-        let market_open = market_open_utc(&target_date)?;
-        let forecast_snapshots =
-            db::load_forecast_snapshots(db, &settlement_city, &target_date, market_open)?;
-        if forecast_snapshots.is_empty() {
+        if day.forecasts.is_empty() {
             days_missing_forecast += 1;
             continue;
         }
         days_with_forecast += 1;
-        let price_rows =
-            db::load_price_bars(db, &settlement_city, &target_date, TRADING_WINDOW_HOURS)?;
-        if price_rows.is_empty() {
+        if day.price_bars.is_empty() {
             days_missing_price_history += 1;
             continue;
         }
         days_with_price_history += 1;
         days_with_minute_price_history += 1;
-        let price_bars = group_price_bars(price_rows, DEFAULT_INTERVAL_MINUTES);
-        let snapshot_fills = db::load_snapshot_fill_bars(
-            db,
-            &settlement_city,
-            &target_date,
-            DEFAULT_INTERVAL_MINUTES,
-            shares,
-            TRADING_WINDOW_HOURS,
-        )
-        .unwrap_or_default();
-        let station = config::station_for_city(&settlement_city);
-        let target_dt = NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")?;
-        let metar_records =
-            db::load_metar_records(db, &settlement_city, &target_date).unwrap_or_default();
-        let climatology =
-            db::load_climatology_temps(db, &settlement_city, &target_date, 14).unwrap_or_default();
+
         let mut day_stake = 0.0;
         let mut opened_bins = BTreeSet::<String>::new();
         let mut last_forecast_key: Option<String> = None;
         let mut used_snapshot_fill = false;
 
-        for (bucket_ts, bucket) in price_bars {
+        for (bucket_ts, bucket) in &day.price_bars {
             if bucket.is_empty() {
                 continue;
             }
@@ -223,7 +212,7 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
                 .map(|bar| bar.hours_to_close)
                 .unwrap_or(0.0);
             let Some(active_forecast) =
-                select_active_forecast(&forecast_snapshots, bucket_ts, current_lead_hours)
+                select_active_forecast(&day.forecasts, *bucket_ts, current_lead_hours)
             else {
                 continue;
             };
@@ -237,8 +226,8 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
             }
             let (beta_f, sigma_f) = calibration::lookup(
                 &req.calibration_table,
-                &station,
-                target_dt.month(),
+                &day.station,
+                day.target_dt.month(),
                 current_lead_hours,
             );
             let forecast = ForecastState {
@@ -253,22 +242,23 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
                 model_spread_f: active_forecast.model_spread_c.map(|c| c * 9.0 / 5.0),
             };
             let mut market_bins = Vec::new();
-            let mut markets = bucket.bars.values().collect::<Vec<_>>();
-            markets.sort_by_key(|market| market.bin_index);
-            for market in markets {
+            for market in bucket.sorted_markets() {
                 if opened_bins.contains(&format!("{}:{}", strategy.name(), market.bin_label)) {
                     continue;
                 }
-                let snapshot_fill = snapshot_fills.get(&(bucket_ts, market.bin_label.clone()));
+                let snapshot_fill = day
+                    .snapshot_fills
+                    .get(&(*bucket_ts, market.bin_label.clone()))
+                    .and_then(|fill| fill.to_fill(shares));
                 if snapshot_fill.is_some() {
                     used_snapshot_fill = true;
                 }
                 market_bins.push(build_market_bin(
                     market,
-                    snapshot_fill,
+                    snapshot_fill.as_ref(),
                     fee_rate,
                     current_lead_hours,
-                    bucket_ts,
+                    *bucket_ts,
                 ));
             }
             let context = StrategyContext {
@@ -279,11 +269,11 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
                 forecast: Some(forecast.clone()),
                 params: params.clone(),
                 replay_mode: "interval".to_string(),
-                evaluation_time: Some(bucket_ts),
-                event_slug: Some(event_slug.clone()),
-                settlement_temp_f: settlement.settlement_temp_f,
-                metar_max_so_far_f: metar_max_before(&metar_records, bucket_ts),
-                climatology_temps_f: climatology.clone(),
+                evaluation_time: Some(*bucket_ts),
+                event_slug: Some(day.event_slug.clone()),
+                settlement_temp_f: day.settlement.settlement_temp_f,
+                metar_max_so_far_f: day.metar.max_before(*bucket_ts),
+                climatology_temps_f: day.climatology.clone(),
             };
             let output = strategy.generate_candidates(&context);
             diagnostics.extend(output.diagnostics);
@@ -305,7 +295,7 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
                         continue;
                     }
                 }
-                let settled_at = market_close_utc(&target_date)?.to_rfc3339();
+                let settled_at = day.fallback_settled_at.to_rfc3339();
                 candidate.settled_at = Some(settled_at.clone());
                 let (pnl, won) = candidate_pnl(&candidate, &winning_bin);
                 day_stake += candidate.stake_usd;
@@ -342,7 +332,7 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
                         &created_at,
                         &settlement_city,
                         &target_date,
-                        &event_slug,
+                        &day.event_slug,
                         &candidate,
                         pnl,
                     ));
@@ -386,52 +376,7 @@ pub fn run_backtest(db: &db::Database, req: BacktestRequest) -> Result<BacktestS
     Ok(summary)
 }
 
-#[derive(Debug, Clone, Default)]
-struct PriceBarBucket {
-    order: Vec<String>,
-    bars: BTreeMap<String, db::PriceBar>,
-}
-
-impl PriceBarBucket {
-    fn insert(&mut self, row: db::PriceBar) {
-        if !self.bars.contains_key(&row.bin_label) {
-            self.order.push(row.bin_label.clone());
-        }
-        self.bars.insert(row.bin_label.clone(), row);
-    }
-
-    fn is_empty(&self) -> bool {
-        self.bars.is_empty()
-    }
-
-    fn reference_market(&self) -> Option<&db::PriceBar> {
-        self.order.first().and_then(|label| self.bars.get(label))
-    }
-}
-
-fn group_price_bars(
-    rows: Vec<db::PriceBar>,
-    interval_minutes: i64,
-) -> BTreeMap<DateTime<Utc>, PriceBarBucket> {
-    let mut out: BTreeMap<DateTime<Utc>, PriceBarBucket> = BTreeMap::new();
-    for row in rows {
-        let bucket = floor_timestamp(row.timestamp, interval_minutes);
-        out.entry(bucket).or_default().insert(row);
-    }
-    out
-}
-
-fn floor_timestamp(ts: DateTime<Utc>, interval_minutes: i64) -> DateTime<Utc> {
-    let minute = (ts.minute() as i64 / interval_minutes) * interval_minutes;
-    ts.with_minute(minute as u32)
-        .unwrap()
-        .with_second(0)
-        .unwrap()
-        .with_nanosecond(0)
-        .unwrap()
-}
-
-fn select_active_forecast(
+pub(crate) fn select_active_forecast(
     snapshots: &[db::ForecastSnapshot],
     evaluation_time: DateTime<Utc>,
     target_lead_hours: f64,
@@ -460,7 +405,7 @@ fn select_active_forecast(
     candidates.into_iter().next()
 }
 
-fn build_market_bin(
+pub(crate) fn build_market_bin(
     market: &db::PriceBar,
     snapshot_fill: Option<&db::SnapshotFill>,
     fee_rate: f64,
@@ -518,17 +463,6 @@ pub fn market_close_utc(target_date: &str) -> Result<DateTime<Utc>> {
 
 pub fn market_open_utc(target_date: &str) -> Result<DateTime<Utc>> {
     Ok(market_close_utc(target_date)? - Duration::hours(TRADING_WINDOW_HOURS as i64))
-}
-
-fn metar_max_before(
-    records: &[(DateTime<Utc>, f64)],
-    evaluation_time: DateTime<Utc>,
-) -> Option<f64> {
-    records
-        .iter()
-        .filter(|(ts, _)| *ts <= evaluation_time)
-        .map(|(_, temp)| *temp)
-        .reduce(f64::max)
 }
 
 pub fn candidate_pnl(candidate: &StrategyCandidate, winning_bin: &str) -> (f64, bool) {
@@ -1034,7 +968,11 @@ fn value_for_csv(value: Option<&Value>) -> String {
 
 fn round4(v: f64) -> f64 {
     let rounded = (v * 10_000.0).round() / 10_000.0;
-    if rounded == 0.0 { 0.0 } else { rounded }
+    if rounded == 0.0 {
+        0.0
+    } else {
+        rounded
+    }
 }
 
 fn round4_preserve_signed_zero(v: f64) -> f64 {
@@ -1043,7 +981,11 @@ fn round4_preserve_signed_zero(v: f64) -> f64 {
 
 fn round6(v: f64) -> f64 {
     let rounded = (v * 1_000_000.0).round() / 1_000_000.0;
-    if rounded == 0.0 { 0.0 } else { rounded }
+    if rounded == 0.0 {
+        0.0
+    } else {
+        rounded
+    }
 }
 
 #[cfg(test)]

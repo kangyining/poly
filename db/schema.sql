@@ -168,6 +168,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_price_history_1m_unique
 
 CREATE INDEX IF NOT EXISTS idx_price_history_1m_city_date
     ON price_history_1m(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_price_history_1m_replay
+    ON price_history_1m(city, target_date, hours_to_close, timestamp, bin_index);
 
 CREATE TABLE IF NOT EXISTS nws_forecasts (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -286,12 +288,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_positions_token_order
 -- Indices
 CREATE INDEX IF NOT EXISTS idx_snapshots_city_date
     ON market_snapshots(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_snapshots_replay
+    ON market_snapshots(city, target_date, timestamp, bin_label);
 CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp
     ON market_snapshots(timestamp);
 CREATE INDEX IF NOT EXISTS idx_metar_city_time
     ON metar_records(icao, timestamp);
+CREATE INDEX IF NOT EXISTS idx_metar_city_obs_time
+    ON metar_records(city, obs_time, timestamp);
 CREATE INDEX IF NOT EXISTS idx_forecast_city_date
     ON forecast_records(city, target_date);
+CREATE INDEX IF NOT EXISTS idx_forecast_replay
+    ON forecast_records(city, target_date, source, timestamp);
 CREATE INDEX IF NOT EXISTS idx_settlement_city_date
     ON settlement_records(city, target_date);
 CREATE INDEX IF NOT EXISTS idx_forecast_model_runs_city_date

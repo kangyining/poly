@@ -4,7 +4,7 @@ use clap::Args;
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::analysis::{backtest, calibration};
+use crate::analysis::{backtest, calibration, replay};
 use crate::config;
 use crate::db::Database;
 use crate::strategy::registry;
@@ -75,6 +75,13 @@ pub fn run(args: BacktestArgs) -> Result<()> {
         .unwrap_or_else(|| PathBuf::from(crate::DEFAULT_DB_PATH));
     let db = Database::open(&db_path, true)?;
     let calibration_table = calibration::load(&args.calibration_file)?;
+    let dataset = replay::ReplayDataset::load(
+        &db,
+        date_from,
+        date_to,
+        city.as_deref(),
+        backtest::DEFAULT_INTERVAL_MINUTES,
+    )?;
     let auto_paths =
         backtest::auto_artifact_paths(&strategy_names, city.as_deref(), date_from, date_to);
     let summary_csv = args
@@ -89,8 +96,8 @@ pub fn run(args: BacktestArgs) -> Result<()> {
     let mut trades = Vec::new();
     for strategy_name in &strategy_names {
         let params = registry::load_strategy_params(&args.strategies_file, strategy_name)?;
-        let summary = backtest::run_backtest(
-            &db,
+        let summary = backtest::run_backtest_with_dataset(
+            &dataset,
             backtest::BacktestRequest {
                 strategy_name: strategy_name.clone(),
                 params,

@@ -25,10 +25,10 @@ Status legend:
 | Rust item | Python counterpart | Status | Notes |
 |---|---|---:|---|
 | `commands::backtest::BacktestArgs` | `analysis/phase1_backtest.py::main` parser | Near parity | Preserves strategy/date/city/db/artifact/list flags. |
-| `commands::backtest::run` | `backtest.py`, `analysis/phase1_backtest.py::main` | Near parity | Runs backtests and writes summary/trade/report artifacts. Exact artifact byte parity pending. |
+| `commands::backtest::run` | `backtest.py`, `analysis/phase1_backtest.py::main` | Parity | Runs backtests from a shared preloaded replay dataset and writes summary/trade/report artifacts. Validated on core parity cases and full all-city April no-cap headline metrics. |
 | `commands::backtest::parse_date_or` | inline date parsing | Parity | Same default-yesterday/date override intent. |
 | `commands::bankroll::BankrollArgs` | `analysis/bankroll_backtest.py::main` parser | Near parity | Includes bankroll, scale-down, and artifact flags. |
-| `commands::bankroll::run` | `run_bankroll_backtest`, `main` | Near parity | Runs Rust backtest candidates through bankroll ledger and writes artifacts. |
+| `commands::bankroll::run` | `run_bankroll_backtest`, `main` | Parity | Generates Python-compatible replay candidates before applying bankroll ledger accounting. |
 | `commands::bankroll::auto_paths` | `_auto_bankroll_paths` | Near parity | Same output set; filename stem may differ. |
 | `commands::bankroll::write_summary_json` | JSON write block in `main` | Near parity | Writes combined summary JSON. |
 | `commands::bankroll::write_summary_csv` | `_write_csv(...summary...)` | Near parity | Preferred columns match the Python summary intent; exact ordering needs golden checks. |
@@ -39,7 +39,7 @@ Status legend:
 | `commands::sweep::RankBy` | `--rank-by` choices | Parity | ROI/PnL/Sharpe/win-rate rank options. |
 | `commands::sweep::Preset` | `PRESETS` names | Near parity | Rust has quick/full/exhaustive presets. Grid values still need golden comparison. |
 | `commands::sweep::SweepArgs` | `param_sweep.py` parser | Near parity | Accepts Python-compatible sweep flags. |
-| `commands::sweep::run` | `param_sweep.py::main` | Near parity | Runs sweep tasks with threaded `--jobs` workers. |
+| `commands::sweep::run` | `param_sweep.py::main` | Near parity | Runs sweep tasks with threaded `--jobs` workers over one shared replay dataset. Quick sweep parity is validated. |
 | `commands::sweep::iter_param_grid` | `iter_param_grid` | Near parity | Expands common, preset, global, and strategy-specific grids. |
 | `commands::sweep::selected_strategies` | `strategy_names` | Near parity | Supports all/group/backtest-ready/default selection. |
 | `commands::sweep::preset_values` | `apply_preset` / `PRESETS` | Near parity | Quick/full/exhaustive values match intent; exact Python grid parity needs golden checks. |
@@ -49,11 +49,11 @@ Status legend:
 | `commands::sweep::cartesian` | `itertools.product` | Parity | Builds grid combinations. |
 | `commands::sweep::preset_extra_grid` | `STRATEGY_EXTRA_GRIDS` | Near parity | Ports quick/full/exhaustive strategy extras. |
 | `commands::sweep::metric_from_values` | `metric_value` | Near parity | Applies min-trade filter and selected metric. |
-| `commands::sweep::write_sweep_csv` | `write_csv` | Near parity | Writes row CSV; field order differs from Python. |
+| `commands::sweep::write_sweep_csv` | `write_csv` | Near parity | Writes Python-compatible quick-sweep CSV headers validated by the parity harness. |
 | `commands::sweep::write_sweep_report` | `write_report` | Near parity | Same top-results purpose, simplified text. |
 | `commands::sweep::write_strategy_artifacts` | `write_strategy_artifacts` | Near parity | Per-strategy CSV/Markdown artifacts. |
 | `commands::sweep::write_best_by_strategy_report` | `write_final_strategy_report` | Near parity | Best-row comparison report. |
-| `commands::sweep::available_date_range` | `available_dates` | Partial | Uses min/max settlement range, not Python's per-date forecast/price validation list. |
+| `commands::sweep::available_date_range` | `available_dates` | Partial | Still uses min/max settlement range for `--all-available`; fixed-window quick sweep parity is validated. |
 | `commands::calibrate::CalibrateArgs` | `calibrate.py` parser | Near parity | Supports DB and output path. |
 | `commands::calibrate::run` | `analysis/calibration.py::main` | Near parity | Builds and writes calibration JSON. |
 | `commands::execute::ExecuteArgs` | `execute.py` parser | Partial | Supports plan/positions/db/dry-run. Live client flags are intentionally absent. |
@@ -92,7 +92,7 @@ Status legend:
 
 Python config gaps not yet in Rust:
 
-- `contract_for_display_city`
+- None known for current configured daily-high contracts.
 
 ## DB Module
 

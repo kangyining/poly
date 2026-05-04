@@ -15,7 +15,7 @@ Done.
 
 ## Stage 2: Backtest Parity First
 
-Mostly implemented, still needs real-DB golden parity runs.
+Implemented for the validated core replay surfaces.
 
 - Strategy core and executable plugins are ported.
 - Calibration lookup is ported.
@@ -30,32 +30,36 @@ Mostly implemented, still needs real-DB golden parity runs.
 - Python-vs-Rust parity harness exists at `scripts/parity_compare.py` and now
   covers backtest, strategy group, bankroll, quick sweep, calibration shape, and
   paper execute lifecycle.
+- Backtests now use a shared preloaded replay dataset so strategy groups and
+  sweeps do not repeatedly reload the same SQLite rows.
+- Broad all-city replays use a hybrid loader that preserves compatibility with
+  the read-only Python DB indexes while still sharing the loaded replay data.
+- `max_stake_usd: null` now matches Python's unlimited daily-cap behavior.
 
 Known remaining backtest gaps:
 
 - Summary CSV/report text is close but not guaranteed byte-identical to Python.
-- Golden parity needs to run once linked test/binary execution is available.
+- Research-source seeding remains intentionally unported.
 
 ## Stage 3: Bankroll, Sweep, Calibration
 
-Mostly implemented.
+Implemented for the validated parity surfaces.
 
-- Bankroll replay now models cash, locked capital, settlement release, scale-down
-  or skips, equity curve, summary JSON/CSV, trades CSV, skips CSV, equity CSV,
-  and Markdown report.
+- Bankroll replay now uses Python-compatible replay candidate generation rather
+  than accepted turnover-backtest trades, then models cash, locked capital,
+  settlement release, scale-down or skips, equity curve, summary JSON/CSV,
+  trades CSV, skips CSV, equity CSV, and Markdown report.
 - Parameter sweep now expands quick/full/exhaustive presets, common grids,
   strategy-specific grids, `--param-grid`, `--strategy-param-grid`, parallel
   `--jobs`, ranking with `--min-trades`, per-strategy artifacts, and
-  best-by-strategy report.
+  best-by-strategy report. Sweep workers share the immutable replay dataset.
 - Calibration fitting from `forecast_records` plus `settlement_records` is
   implemented with station/global fallbacks, dynamic missing-column read
   compatibility, `--show`, and JSON output.
 
 Known remaining analysis gaps:
 
-- Bankroll candidate rows are derived from Rust backtest trade rows, so any
-  remaining backtest artifact mismatch propagates into bankroll.
-- Some artifact wording/ordering still needs real Python golden comparison.
+- Some Markdown wording remains simplified relative to Python.
 
 ## Stage 4+: Data, Paper Execution, Settlement
 
@@ -91,13 +95,16 @@ Known remaining data/settlement risks:
 
 ## Verification
 
-- `cargo fmt -- --check` passes.
-- `cargo check` passes with local WSL Rust:
-  `CARGO_HOME=/tmp/poly-weather-cargo RUSTUP_HOME=/tmp/poly-weather-rustup /tmp/poly-weather-cargo/bin/cargo check`.
-- `cargo test` passes with the same WSL Rust toolchain: 38 tests total.
-- `cargo run -- backtest --list-strategies` passes with the same WSL Rust
-  toolchain.
-- Python-vs-Rust backtest parity passes for NYC `2026-04-01` through
-  `2026-04-02` using `scripts/parity_compare.py --check backtest`.
+- `cargo check` passes.
+- `cargo test` passes: 35 unit tests plus 4 integration tests.
+- `cargo run -- backtest --list-strategies` passes.
+- `scripts/parity_compare.py --check all` passes for `2026-04-01` through
+  `2026-04-02` against `../poly-weather/db/data.db`.
+- Full all-city April no-cap `base_no_ev` Rust release run completes in about
+  92 seconds and matches the Python headline metrics:
+  `total_trades=1050`, `wins=812`, `win_rate=0.7733`,
+  `total_pnl=566.6529`, `total_stake=10270.0`,
+  `turnover_yield=0.055176`, `pnl_per_active_day=19.5398`,
+  `days_considered=319`, `interval_bars_considered=684187`.
 - Windows MSVC Cargo remains environment-blocked because Visual Studio is
   missing VC C headers for bundled SQLite; WSL Rust is the working path here.

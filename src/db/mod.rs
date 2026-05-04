@@ -93,6 +93,7 @@ pub struct SettlementRow {
     pub winning_bin: Option<String>,
     pub event_slug: Option<String>,
     pub settlement_temp_f: Option<f64>,
+    pub resolved_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,6 +210,7 @@ fn settlement_from_row(row: &Row<'_>) -> rusqlite::Result<SettlementRow> {
         winning_bin: row.get("winning_bin")?,
         event_slug: row.get("event_slug")?,
         settlement_temp_f: row.get("settlement_temp_f")?,
+        resolved_at: row.get("resolved_at")?,
     })
 }
 
@@ -219,12 +221,12 @@ pub fn load_settlements(
     city: Option<&str>,
 ) -> Result<Vec<SettlementRow>> {
     let sql = if city.is_some() {
-        "SELECT city, target_date, winning_bin, event_slug, settlement_temp_f
+        "SELECT city, target_date, winning_bin, event_slug, settlement_temp_f, resolved_at
          FROM settlement_records
          WHERE target_date >= ?1 AND target_date <= ?2 AND city = ?3
          ORDER BY target_date, city"
     } else {
-        "SELECT city, target_date, winning_bin, event_slug, settlement_temp_f
+        "SELECT city, target_date, winning_bin, event_slug, settlement_temp_f, resolved_at
          FROM settlement_records
          WHERE target_date >= ?1 AND target_date <= ?2
          ORDER BY target_date, city"

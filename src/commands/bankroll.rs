@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::{json, Map, Value};
 use std::path::PathBuf;
 
-use crate::analysis::{backtest, bankroll, calibration};
+use crate::analysis::{backtest, bankroll, calibration, replay};
 use crate::config;
 use crate::db::Database;
 use crate::strategy::registry;
@@ -28,9 +28,9 @@ pub struct BankrollArgs {
     pub strategies_file: PathBuf,
     #[arg(long, default_value = crate::DEFAULT_CALIBRATION_PATH)]
     pub calibration_file: PathBuf,
-    #[arg(long, default_value_t = 100.0)]
+    #[arg(long, default_value_t = 500.0)]
     pub initial_bankroll: f64,
-    #[arg(long, default_value_t = 1.0)]
+    #[arg(long, default_value_t = 5.0)]
     pub min_trade_stake_usd: f64,
     #[arg(long)]
     pub allow_scale_down: bool,
@@ -72,29 +72,22 @@ pub fn run(args: BankrollArgs) -> Result<()> {
     let db = Database::open(&db_path, true)?;
     let params = registry::load_strategy_params(&args.strategies_file, &args.strategy)?;
     let calibration_table = calibration::load(&args.calibration_file)?;
-    let summary = backtest::run_backtest(
+    let dataset = replay::ReplayDataset::load(
         &db,
-        backtest::BacktestRequest {
-            strategy_name: args.strategy.clone(),
-            params,
-            date_from,
-            date_to,
-            city,
-            calibration_table,
-            include_trades: true,
-        },
+        date_from,
+        date_to,
+        city.as_deref(),
+        backtest::DEFAULT_INTERVAL_MINUTES,
     )?;
-    let candidates = summary
-        .trades
-        .iter()
-        .map(|row| {
-            bankroll::ReplayCandidate::from_trade_row(
-                row,
-                summary.city.as_deref(),
-                &summary.strategy_plugin,
-            )
-        })
-        .collect::<Vec<_>>();
+    let (candidates, summary) = bankroll::generate_replay_candidates(
+        &dataset,
+        &args.strategy,
+        params,
+        city,
+        date_from,
+        date_to,
+        &calibration_table,
+    );
     let allow_scale_down = if args.no_scale_down {
         false
     } else {
@@ -315,6 +308,33 @@ fn combined_summary(
         "days_with_price_history".into(),
         json!(summary.days_with_price_history),
     );
+    out.insert(
+        "days_with_minute_price_history".into(),
+        json!(summary.days_with_minute_price_history),
+    );
+    out.insert(
+        "days_with_snapshot_fills".into(),
+        json!(summary.days_with_snapshot_fills),
+    );
+    out.insert(
+        "days_missing_forecast".into(),
+        json!(summary.days_missing_forecast),
+    );
+    out.insert(
+        "days_missing_price_history".into(),
+        json!(summary.days_missing_price_history),
+    );
+    out.insert("interval_minutes".into(), json!(summary.interval_minutes));
+    out.insert(
+        "interval_bars_considered".into(),
+        json!(summary.interval_bars_considered),
+    );
+    out.insert(
+        "intervals_with_candidates".into(),
+        json!(summary.intervals_with_trades),
+    );
+    out.insert("forecast_switches".into(), json!(summary.forecast_switches));
+    out.insert("diagnostics".into(), json!(summary.diagnostics));
     out.insert("min_trade_stake_usd".into(), json!(min_trade_stake_usd));
     out.insert("allow_scale_down".into(), json!(allow_scale_down));
     out.insert("result_storage".into(), json!("files"));
@@ -322,6 +342,14 @@ fn combined_summary(
     let ledger_value = serde_json::to_value(&ledger.summary).unwrap_or(Value::Null);
     if let Value::Object(obj) = ledger_value {
         out.extend(obj);
+    }
+    for rust_only in [
+        "accepted_trades",
+        "ending_cash",
+        "skipped_trades",
+        "total_pnl",
+    ] {
+        out.remove(rust_only);
     }
     let avg_pnl = if summary.days_considered > 0 {
         Some(ledger.summary.realized_pnl / summary.days_considered as f64)

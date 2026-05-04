@@ -4,9 +4,10 @@ use clap::{Args, ValueEnum};
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::thread;
 
-use crate::analysis::{backtest, calibration};
+use crate::analysis::{backtest, calibration, replay};
 use crate::config;
 use crate::db::Database;
 use crate::strategy::registry;
@@ -123,6 +124,13 @@ pub fn run(mut args: SweepArgs) -> Result<()> {
     }
     let strategy_names = selected_strategies(&args)?;
     let calibration_table = calibration::load(&args.calibration_file)?;
+    let dataset = Arc::new(replay::ReplayDataset::load(
+        &db,
+        date_from,
+        date_to,
+        Some(&city),
+        backtest::DEFAULT_INTERVAL_MINUTES,
+    )?);
     let min_evs = parse_float_list(args.min_ev_thresholds.as_deref())
         .unwrap_or_else(|| preset_values(&args.preset, "min_ev_threshold"));
     let desired_shares = parse_float_list(args.desired_shares.as_deref())
@@ -151,7 +159,7 @@ pub fn run(mut args: SweepArgs) -> Result<()> {
     let mut rows = run_sweep_tasks(
         tasks,
         &args,
-        &db_path,
+        dataset,
         date_from,
         date_to,
         &city,
@@ -258,12 +266,20 @@ fn iter_param_grid(
 #[derive(Debug, Clone, serde::Serialize)]
 struct SweepRow {
     combo_index: usize,
+    backtest_id: String,
     strategy: String,
     strategy_id: String,
     strategy_plugin: String,
     city: Option<String>,
     date_from: String,
     date_to: String,
+    replay_mode: String,
+    interval_minutes: i64,
+    min_ev_threshold: Option<f64>,
+    desired_shares: Option<f64>,
+    max_stake_usd: Option<f64>,
+    fixed_trade_stake_usd: Option<f64>,
+    fee_rate: Option<f64>,
     params: Value,
     total_trades: usize,
     wins: usize,
@@ -274,6 +290,7 @@ struct SweepRow {
     roi: Option<f64>,
     rank_metric: String,
     rank_score: Option<f64>,
+    diagnostics: String,
 }
 
 fn selected_strategies(args: &SweepArgs) -> Result<Vec<String>> {
@@ -478,18 +495,25 @@ fn preset_extra_grid(preset: &Preset, strategy_name: &str) -> BTreeMap<&'static 
 fn run_sweep_tasks(
     tasks: Vec<(usize, String, Value)>,
     args: &SweepArgs,
-    db_path: &Path,
+    dataset: Arc<replay::ReplayDataset>,
     date_from: NaiveDate,
     date_to: NaiveDate,
     city: &str,
     calibration_table: &Value,
 ) -> Result<Vec<SweepRow>> {
     if args.jobs <= 1 || tasks.len() <= 1 {
-        let db = Database::open(db_path, true)?;
         return tasks
             .into_iter()
             .map(|task| {
-                run_one_sweep_task(task, args, &db, date_from, date_to, city, calibration_table)
+                run_one_sweep_task(
+                    task,
+                    args,
+                    &dataset,
+                    date_from,
+                    date_to,
+                    city,
+                    calibration_table,
+                )
             })
             .collect();
     }
@@ -499,19 +523,18 @@ fn run_sweep_tasks(
     for chunk in tasks.chunks(chunk_size) {
         let chunk = chunk.to_vec();
         let args = args.clone();
-        let db_path = db_path.to_path_buf();
+        let dataset = Arc::clone(&dataset);
         let city = city.to_string();
         let calibration_table = calibration_table.clone();
         handles.push(thread::spawn(
             move || -> std::result::Result<Vec<SweepRow>, String> {
-                let db = Database::open(&db_path, true).map_err(|e| e.to_string())?;
                 chunk
                     .into_iter()
                     .map(|task| {
                         run_one_sweep_task(
                             task,
                             &args,
-                            &db,
+                            &dataset,
                             date_from,
                             date_to,
                             &city,
@@ -538,15 +561,15 @@ fn run_sweep_tasks(
 fn run_one_sweep_task(
     task: (usize, String, Value),
     args: &SweepArgs,
-    db: &Database,
+    dataset: &replay::ReplayDataset,
     date_from: NaiveDate,
     date_to: NaiveDate,
     city: &str,
     calibration_table: &Value,
 ) -> Result<SweepRow> {
     let (combo_index, strategy, params) = task;
-    let summary = backtest::run_backtest(
-        db,
+    let summary = backtest::run_backtest_with_dataset(
+        dataset,
         backtest::BacktestRequest {
             strategy_name: format!("{}_{}_{combo_index:04}", args.strategy_prefix, strategy),
             params: params.clone(),
@@ -564,12 +587,25 @@ fn run_one_sweep_task(
     };
     Ok(SweepRow {
         combo_index,
+        backtest_id: summary.backtest_id.clone(),
         strategy: summary.strategy.clone(),
         strategy_id: strategy,
         strategy_plugin: summary.strategy_plugin.clone(),
         city: summary.city.clone(),
         date_from: summary.date_from.clone(),
         date_to: summary.date_to.clone(),
+        replay_mode: summary
+            .params
+            .get("replay_mode")
+            .and_then(Value::as_str)
+            .unwrap_or("interval")
+            .to_string(),
+        interval_minutes: summary.interval_minutes,
+        min_ev_threshold: params.get("min_ev_threshold").and_then(Value::as_f64),
+        desired_shares: params.get("desired_shares").and_then(Value::as_f64),
+        max_stake_usd: params.get("max_stake_usd").and_then(Value::as_f64),
+        fixed_trade_stake_usd: params.get("fixed_trade_stake_usd").and_then(Value::as_f64),
+        fee_rate: params.get("fee_rate").and_then(Value::as_f64),
         params,
         total_trades: summary.total_trades,
         wins: summary.wins,
@@ -588,6 +624,7 @@ fn run_one_sweep_task(
             &args.rank_by,
             args.min_trades,
         ),
+        diagnostics: serde_json::to_string(&summary.diagnostics)?,
     })
 }
 
@@ -615,12 +652,20 @@ fn write_sweep_csv(path: &Path, rows: &[SweepRow]) -> Result<()> {
     let mut writer = csv::Writer::from_path(path)?;
     writer.write_record([
         "combo_index",
+        "backtest_id",
         "strategy",
         "strategy_id",
         "strategy_plugin",
         "city",
         "date_from",
         "date_to",
+        "replay_mode",
+        "interval_minutes",
+        "min_ev_threshold",
+        "desired_shares",
+        "max_stake_usd",
+        "fixed_trade_stake_usd",
+        "fee_rate",
         "total_trades",
         "wins",
         "win_rate",
@@ -628,19 +673,39 @@ fn write_sweep_csv(path: &Path, rows: &[SweepRow]) -> Result<()> {
         "total_stake",
         "roi",
         "sharpe",
+        "diagnostics",
         "rank_metric",
         "rank_score",
         "params_json",
+        "param.desired_shares",
+        "param.fee_rate",
+        "param.fixed_trade_stake_usd",
+        "param.interval_minutes",
+        "param.max_stake_usd",
+        "param.min_ev_threshold",
+        "param.replay_mode",
+        "param.strategy_id",
+        "param.sweep_name",
+        "combo_count",
     ])?;
+    let combo_count = rows.len();
     for row in rows {
         writer.write_record([
             row.combo_index.to_string(),
+            row.backtest_id.clone(),
             row.strategy.clone(),
             row.strategy_id.clone(),
             row.strategy_plugin.clone(),
             row.city.clone().unwrap_or_default(),
             row.date_from.clone(),
             row.date_to.clone(),
+            row.replay_mode.clone(),
+            row.interval_minutes.to_string(),
+            opt_f64(row.min_ev_threshold),
+            opt_f64(row.desired_shares),
+            opt_f64(row.max_stake_usd),
+            opt_f64(row.fixed_trade_stake_usd),
+            opt_f64(row.fee_rate),
             row.total_trades.to_string(),
             row.wins.to_string(),
             row.win_rate.to_string(),
@@ -648,13 +713,38 @@ fn write_sweep_csv(path: &Path, rows: &[SweepRow]) -> Result<()> {
             row.total_stake.to_string(),
             row.roi.map(|v| v.to_string()).unwrap_or_default(),
             row.sharpe.to_string(),
+            row.diagnostics.clone(),
             row.rank_metric.clone(),
             row.rank_score.map(|v| v.to_string()).unwrap_or_default(),
             serde_json::to_string(&row.params)?,
+            param_csv(&row.params, "desired_shares"),
+            param_csv(&row.params, "fee_rate"),
+            param_csv(&row.params, "fixed_trade_stake_usd"),
+            param_csv(&row.params, "interval_minutes"),
+            param_csv(&row.params, "max_stake_usd"),
+            param_csv(&row.params, "min_ev_threshold"),
+            param_csv(&row.params, "replay_mode"),
+            param_csv(&row.params, "strategy_id"),
+            param_csv(&row.params, "sweep_name"),
+            combo_count.to_string(),
         ])?;
     }
     writer.flush()?;
     Ok(())
+}
+
+fn opt_f64(value: Option<f64>) -> String {
+    value.map(|v| v.to_string()).unwrap_or_default()
+}
+
+fn param_csv(params: &Value, key: &str) -> String {
+    match params.get(key) {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Number(n)) => n.to_string(),
+        Some(Value::Bool(b)) => b.to_string(),
+        Some(v) => v.to_string(),
+    }
 }
 
 fn write_sweep_report(
