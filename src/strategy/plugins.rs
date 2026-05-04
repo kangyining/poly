@@ -284,6 +284,9 @@ impl Strategy for DynamicSigmaEvStrategy {
     fn name(&self) -> &'static str {
         "dynamic_sigma_ev"
     }
+    fn required_data(&self) -> &'static [&'static str] {
+        BaseNoEvStrategy.required_data()
+    }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
             return missing(self.name(), "forecast unavailable", &["forecast_records"]);
@@ -307,6 +310,14 @@ pub struct BayesianClimatologyEvStrategy;
 impl Strategy for BayesianClimatologyEvStrategy {
     fn name(&self) -> &'static str {
         "bayesian_climatology_ev"
+    }
+    fn required_data(&self) -> &'static [&'static str] {
+        &[
+            "settlement_records.settlement_temp_f",
+            "forecast_records",
+            "price_history_or_market_snapshots",
+            "settlement_records",
+        ]
     }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
@@ -371,6 +382,9 @@ pub struct CorridorLadderStrategy;
 impl Strategy for CorridorLadderStrategy {
     fn name(&self) -> &'static str {
         "corridor_ladder"
+    }
+    fn required_data(&self) -> &'static [&'static str] {
+        BaseNoEvStrategy.required_data()
     }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
@@ -450,6 +464,14 @@ impl Strategy for ThresholdUnionStrategy {
     fn name(&self) -> &'static str {
         "threshold_union"
     }
+    fn required_data(&self) -> &'static [&'static str] {
+        &[
+            "market_relationships_or_bucket_ladder",
+            "forecast_records",
+            "price_history_or_market_snapshots",
+            "settlement_records",
+        ]
+    }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
             return missing(self.name(), "forecast unavailable", &["forecast_records"]);
@@ -523,6 +545,9 @@ impl Strategy for BasketArbStrategy {
     fn name(&self) -> &'static str {
         "basket_arb"
     }
+    fn required_data(&self) -> &'static [&'static str] {
+        &["complete_bucket_ladder", "executable_yes_prices"]
+    }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let mut bins = context.bins.clone();
         bins.sort_by_key(|b| b.bin_index);
@@ -578,6 +603,9 @@ pub struct MakerQuoteSimStrategy;
 impl Strategy for MakerQuoteSimStrategy {
     fn name(&self) -> &'static str {
         "maker_quote_sim"
+    }
+    fn required_data(&self) -> &'static [&'static str] {
+        &["market_snapshots.no_best_bid", "forecast_records"]
     }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
@@ -643,6 +671,14 @@ impl Strategy for NowcastMetarStrategy {
     fn name(&self) -> &'static str {
         "nowcast_metar"
     }
+    fn required_data(&self) -> &'static [&'static str] {
+        &[
+            "metar_records",
+            "forecast_records",
+            "price_history_or_market_snapshots",
+            "settlement_records",
+        ]
+    }
     fn generate_candidates(&self, context: &StrategyContext) -> StrategyOutput {
         let Some(forecast) = context.forecast.as_ref() else {
             return missing(self.name(), "forecast unavailable", &["forecast_records"]);
@@ -706,9 +742,29 @@ pub fn strategy_by_name(name: &str) -> Box<dyn Strategy> {
         "cross_market_semantic_arb" => Box::new(UnsupportedResearchStrategy { name: "cross_market_semantic_arb", reason: "requires linked threshold/bucket markets with verified equivalent rule text", required: &["market_relationships"] }),
         "exit_overlay" => Box::new(UnsupportedResearchStrategy { name: "exit_overlay", reason: "requires position lifecycle price path simulation after entry; tracked as a follow-up overlay", required: &["post_entry_price_path"] }),
         "sharp_wallet_copy" => Box::new(UnsupportedResearchStrategy { name: "sharp_wallet_copy", reason: "requires configured wallet allowlist and fetched public Data API activity", required: &["wallet_signal_snapshots"] }),
-        "resolution_lag_anomaly" => Box::new(UnsupportedResearchStrategy { name: "resolution_lag_anomaly", reason: "requires official-source lag features and anomaly labels", required: &["resolution_lag_features"] }),
+        "resolution_lag_anomaly" => Box::new(UnsupportedResearchStrategy { name: "resolution_lag_anomaly", reason: "requires official-source lag features and anomaly labels", required: &["official_source_publication_times"] }),
         _ => Box::new(BaseNoEvStrategy),
     }
+}
+
+pub fn plugin_names() -> Vec<&'static str> {
+    vec![
+        "base_no_ev",
+        "base_yes_no_ev",
+        "ensemble_bucket_ev",
+        "dynamic_sigma_ev",
+        "bayesian_climatology_ev",
+        "corridor_ladder",
+        "threshold_union",
+        "basket_arb",
+        "maker_quote_sim",
+        "nowcast_metar",
+        "monthly_remainder",
+        "cross_market_semantic_arb",
+        "exit_overlay",
+        "sharp_wallet_copy",
+        "resolution_lag_anomaly",
+    ]
 }
 
 #[cfg(test)]

@@ -18,7 +18,7 @@ Status legend:
 |---|---|---:|---|
 | `main.rs::Cli` | separate Python scripts | Rust-only | One subcommand CLI replaces multiple Python entry scripts. |
 | `main.rs::Command` | separate Python scripts | Rust-only | Enumerates all migrated command surfaces. |
-| `main.rs::main` | script `main()` functions | Partial | Dispatches implemented Rust commands. Python still owns recorder/backfill breadth. |
+| `main.rs::main` | script `main()` functions | Near parity | Dispatches the migrated Rust command surfaces; live order submission remains intentionally excluded. |
 
 ## Command Modules
 
@@ -53,7 +53,7 @@ Status legend:
 | `commands::sweep::write_sweep_report` | `write_report` | Near parity | Same top-results purpose, simplified text. |
 | `commands::sweep::write_strategy_artifacts` | `write_strategy_artifacts` | Near parity | Per-strategy CSV/Markdown artifacts. |
 | `commands::sweep::write_best_by_strategy_report` | `write_final_strategy_report` | Near parity | Best-row comparison report. |
-| `commands::sweep::available_date_range` | `available_dates` | Partial | Still uses min/max settlement range for `--all-available`; fixed-window quick sweep parity is validated. |
+| `commands::sweep::available_dates` | `available_dates` | Parity | `--all-available` requires settlement, usable forecast, and usable `price_history_1m` rows. |
 | `commands::calibrate::CalibrateArgs` | `calibrate.py` parser | Near parity | Supports DB and output path. |
 | `commands::calibrate::run` | `analysis/calibration.py::main` | Near parity | Builds and writes calibration JSON. |
 | `commands::execute::ExecuteArgs` | `execute.py` parser | Partial | Supports plan/positions/db/dry-run. Live client flags are intentionally absent. |
@@ -62,16 +62,11 @@ Status legend:
 | `commands::execute::default_true` | Python default dry-run behavior | Parity | Plan dry-run defaults true. |
 | `commands::execute::run` | `execute.py::main` | Partial | Parses plan, rejects live, inserts paper positions, exports open positions. No live submission. |
 | `commands::settle::SettleArgs` | `settle.py` / `settlement_tracker.py` parser | Partial | Date/backfill/db/positions support. |
-| `commands::settle::run` | `settlement_tracker.daily_check/backfill` | Partial | Fetches Gamma outcomes, inserts settlements, closes paper positions. |
-| `commands::settle::fetch_event_by_slug` | `gamma_client.fetch_event_by_slug` | Near parity | Uses Gamma events endpoint by slug. |
-| `commands::settle::winning_bin` | `gamma_client.winning_bin` | Near parity | Detects settled winning market from outcome prices. |
-| `commands::settle::outcome_snapshot` | settlement raw outcome snapshot | Near parity | Captures label to prices JSON. |
-| `commands::settle::parse_bin_midpoint` | `settlement_tracker._parse_bin_midpoint` | Near parity | Estimates midpoint from label; edge labels are approximated. |
-| `commands::settle::settle_positions` | `settlement_tracker._settle_positions` | Near parity | Paper NO PnL closeout. Live/order reconciliation is out of scope. |
+| `commands::settle::run` | `settlement_tracker.daily_check/backfill` | Near parity | Reuses the shared Rust settlement tracker for Gamma validation, settlement insert, paper closeout, and export. |
 | `commands::status::StatusArgs` | `status.py` parser | Near parity | Open/closed/date/db flags. |
 | `commands::status::run` | `status.py::main` | Near parity | Reads positions and prints totals. Formatting not byte-identical. |
 | `commands::recorder::RecorderArgs` | `run_recorder.py` and data scripts parsers | Partial | Flags are present, plus Rust `--db`. |
-| `commands::recorder::run` | `run_recorder.py::main` | Near parity | `--once`, continuous scheduling, TAF/NWS, Open-Meteo, market snapshots, and backfill dispatch are ported. |
+| `commands::recorder::run` | `run_recorder.py::main` | Near parity | `--once`, Python-like scheduler cadences, settlement checks, TAF/NWS, Open-Meteo, market snapshots, and backfill dispatch are ported. |
 
 ## Config Module
 
@@ -133,6 +128,7 @@ Python config gaps not yet in Rust:
 | `export_open_positions_json` | `open_positions.json` export | Near parity | Preserves shape for open paper positions. |
 | `settlement_exists` | `settlement_tracker.backfill` skip check | Parity | City/date existence check. |
 | `insert_settlement` | settlement insert/replace | Near parity | Uses compatible schema columns. |
+| `seed_research_sources` | `Database.seed_research_sources` | Parity | Inserts `analysis/research_sources.json` rows with `INSERT OR IGNORE`. |
 | `scalar_count` | ad hoc count queries | Rust-only | Utility helper. |
 
 Python DB/data gaps still in Rust:
@@ -181,16 +177,16 @@ Python DB/data gaps still in Rust:
 |---|---|---:|---|
 | `StrategyConfigFile` | strategy config dict | Rust-only | Typed JSON wrapper. |
 | `load_config` | `_load_config` | Parity | Reads `strategies.json`. |
-| `list_strategy_configs` | `list_strategy_configs` | Near parity | Metadata shape/order may differ slightly. |
-| `group_members` | `group_members` | Parity | Reads configured group. |
+| `list_strategy_configs` | `list_strategy_configs` | Near parity | Includes plugin/config union, `enabled`, and plugin `required_data`; JSON ordering may differ. |
+| `list_strategy_names` | `list_strategy_names` | Parity | Returns sorted plugin/config union. |
+| `group_members` | `group_members` | Parity | Reads configured group and errors on unknown groups. |
 | `all_members` | `group_members("all")` | Parity | Convenience wrapper. |
-| `resolve_strategy_name` | `resolve_strategy_name` | Parity | Supports `strategy_id` and `base_ev -> base_no_ev`. |
+| `resolve_strategy_name` | `resolve_strategy_name` | Parity | Supports `strategy_id`, `plugin`, `default`, `base_ev`, and `sweep_base_ev*` aliases. |
 | `load_strategy_params` | `load_strategy_params` | Near parity | Merges defaults and per-strategy overrides. No legacy TOML fallback. |
 
 Python registry gap:
 
 - `get_strategy` exists in Python; Rust equivalent is `plugins::strategy_by_name`.
-- `list_strategy_names` is not separately implemented in Rust.
 
 ## Strategy Plugins
 
@@ -213,7 +209,8 @@ Python registry gap:
 | `MakerQuoteSimStrategy` | `MakerQuoteSimStrategy` | Near parity | Same quote simulation/proxy intent. Snapshot bid parity still needs fixtures. |
 | `NowcastMetarStrategy` | `NowcastMetarStrategy` | Near parity | Same METAR-adjusted logic. |
 | `UnsupportedResearchStrategy` | `UnsupportedResearchStrategy` | Parity | Explicit missing-data diagnostics for research placeholders. |
-| `strategy_by_name` | `all_strategy_instances` / `get_strategy` | Near parity | Resolves implemented and placeholder strategies. Unknown defaults to base strategy instead of raising. |
+| `strategy_by_name` | `all_strategy_instances` / `get_strategy` | Near parity | Resolves implemented and placeholder strategies; command-level registry loading now catches unknown configured names/groups. |
+| `plugin_names` | `all_strategy_instances().keys()` | Parity | Provides the sorted strategy universe for listing and registry metadata. |
 
 ## Backtest Analysis
 
@@ -245,7 +242,7 @@ Python registry gap:
 
 Python backtest gaps:
 
-- `_seed_research_sources` not ported.
+- `_seed_research_sources` is ported for the Rust default DB; explicit external DB runs remain read-only.
 - `_hours_to_close_at` is not a standalone Rust helper; equivalent math is embedded.
 - `_jsonish`, `_fmt_num`, `_fmt_pct`, `_turnover_yield`, `_diagnostics_text` are not standalone Rust helpers.
 - Exact summary CSV/report formatting remains to golden-test and tighten.
@@ -272,8 +269,9 @@ Python calibration gaps:
 
 | Rust item | Python counterpart | Status | Notes |
 |---|---|---:|---|
-| `ReplayCandidate` | `ReplayCandidate` dataclass | Near parity | Typed replay input. Rust derives candidates from backtest trade rows. |
-| `ReplayCandidate::from_trade_row` | conversion after `generate_replay_candidates` | Partial | Avoids a separate candidate generation loop by using backtest trade rows. |
+| `ReplayCandidate` | `ReplayCandidate` dataclass | Near parity | Typed replay input generated before bankroll ledger filtering. |
+| `generate_replay_candidates` | `generate_replay_candidates` | Near parity | Replays strategy candidates directly from the shared replay dataset. |
+| `ReplayCandidate::from_trade_row` | conversion helper | Rust-only | Legacy helper retained for tests/utility code, not the main bankroll path. |
 | `OpenPosition` | `OpenPosition` dataclass | Near parity | Internal locked position. |
 | `LedgerTrade` | trade dict in `apply_bankroll_ledger` | Near parity | Artifact row shape. |
 | `LedgerSkip` | skip dict | Parity | Insufficient-cash skip shape. |
@@ -378,9 +376,8 @@ These Python functions/classes still differ materially from Rust:
 - `data/weather_contracts.py`: broad `fetch_weather_events` pagination and
   `discover_contracts_from_events` over arbitrary event lists are not fully ported.
 - Backfill retry/backoff/rate-limit timing is simplified compared with Python.
-- True forecast backfill is represented with `gfs-global-24h`-compatible
-  metadata from historical Open-Meteo data rather than a byte-for-byte clone of
-  the Python helper.
+- True forecast backfill now uses Python-compatible `gfs_global` and
+  `past_model_run`, but live network behavior still needs manual smoke testing.
 
 ## Remaining Gaps By Area
 
@@ -402,7 +399,8 @@ This is the current open-work list compared with the original Python repo.
 - Summary CSV flattening/order is close but not byte-identical to
   `_write_summary_csv`.
 - Markdown report text is simplified versus `_write_summary_report`.
-- `_seed_research_sources` is not ported.
+- `_seed_research_sources` is ported for the Rust default DB; explicit external
+  DB runs remain read-only.
 - `_jsonish`, `_fmt_num`, `_fmt_pct`, `_turnover_yield`, and
   `_diagnostics_text` are not separate Rust helpers.
 - Real DB golden checks are still needed for forecast ordering, snapshot fills,
@@ -410,8 +408,8 @@ This is the current open-work list compared with the original Python repo.
 
 ### Bankroll
 
-- Rust derives bankroll candidates from Rust backtest trade rows instead of
-  separately porting `generate_replay_candidates`.
+- Rust bankroll now generates replay candidates directly from the shared replay
+  dataset before ledger filtering.
 - `_settlement_rows`, `_settlement_resolved_at`, and `_fallback_resolved_at`
   are not separate Rust helpers.
 - Bankroll artifact field order/text still needs golden comparison against
@@ -423,8 +421,8 @@ This is the current open-work list compared with the original Python repo.
   processes; exact scheduling/log output differs.
 - Python's `exhaustive` preset is implemented, but exact grid values still need
   golden comparison.
-- `available_dates` parity is incomplete: Rust uses min/max settlement range,
-  while Python filters each date for forecast and price-history availability.
+- `available_dates` parity is implemented for settlement, forecast, and
+  `price_history_1m` availability.
 - Sweep CSV/report column order and compact parameter formatting still need
   golden checks.
 
@@ -449,18 +447,19 @@ This is the current open-work list compared with the original Python repo.
 
 ### Recorder And Data Collection
 
-- Continuous scheduling from `run_recorder.py` is ported with
-  `--interval-seconds`.
+- Continuous scheduling from `run_recorder.py` is ported with Python-like
+  cadences and `--interval-seconds` as the polling interval.
 - TAF recording is ported.
 - NWS forecast recording is ported.
+- Gamma settlement daily check/backfill is ported for configured weather
+  contracts.
 - ASOS daily high settlement-temperature backfill is ported.
 - ASOS METAR historical backfill is ported.
 - Historical Open-Meteo forecast backfill is ported.
-- True 24h GFS-style forecast backfill is ported using the historical forecast
-  source and `gfs-global-24h`-compatible model-run metadata.
+- True 24h GFS forecast backfill is ported with `models=gfs_global`,
+  `past_model_run=D-1T06:00`, and lead hours `26.0`.
 - CLOB price-history backfill is ported.
-- Missing-bin price-history retry backfill dispatches through the price-history
-  backfill path.
+- Missing-bin price-history retry now targets missing bin indexes.
 - Broad weather event pagination/discovery over arbitrary Gamma event lists is
   partial; Rust currently fetches configured slugs directly.
 - Gamma `_get` retry/backoff and gentle rate limiting are not fully matched.
@@ -486,13 +485,11 @@ This is the current open-work list compared with the original Python repo.
 1. Backtest summary CSV flattening and Markdown report text.
 2. Forecast snapshot ordering on real mixed-source rows.
 3. Snapshot fill VWAP selection when order book ladders are sparse.
-4. Bankroll candidate derivation from trade rows versus Python's separate
-   `generate_replay_candidates` path.
-5. Parameter sweep output column ordering and final report text.
-6. Settlement source enrichment and edge-bin midpoint behavior.
-7. Live market snapshot recorder behavior around closed events, sparse books,
+4. Parameter sweep output column ordering and final report text.
+5. Settlement source enrichment and edge-bin midpoint behavior.
+6. Live market snapshot recorder behavior around closed events, sparse books,
    fee-rate failures, and configured-slug discovery versus broad event search.
-8. Live METAR/Open-Meteo recorder behavior around API field changes, duplicate
+7. Live METAR/Open-Meteo recorder behavior around API field changes, duplicate
    rows, and local-time lead-hour parity.
 
 ## Verification State
@@ -500,11 +497,20 @@ This is the current open-work list compared with the original Python repo.
 - `cargo fmt -- --check` passes.
 - `cargo check` passes with local WSL Rust:
   `CARGO_HOME=/tmp/poly-weather-cargo RUSTUP_HOME=/tmp/poly-weather-rustup /tmp/poly-weather-cargo/bin/cargo check`.
-- `cargo test` passes with the same WSL Rust toolchain: 38 tests total.
+- `cargo test` passes with the same WSL Rust toolchain: 44 unit tests plus 4
+  integration tests.
 - `cargo run -- backtest --list-strategies` passes with the same WSL Rust
   toolchain.
 - `scripts/parity_compare.py --check backtest` passes for NYC `2026-04-01` to
   `2026-04-02` against `../poly-weather/db/data.db`.
+- `scripts/parity_compare.py --check all` passes for `2026-04-01` to
+  `2026-04-02` against `../poly-weather/db/data.db`.
+- NYC April `base_ev` and `base_no_ev` backtest parity passes for
+  `2026-04-01` to `2026-04-30`.
+- NYC `param-sweep --all-available` one-combination smoke matches Python on 84
+  dates, 93 trades, 86 wins, PnL, stake, ROI, and Sharpe.
+- Full all-city April no-cap `base_no_ev` matches Python headline metrics and
+  trade-row count.
 - Windows MSVC Cargo remains blocked by missing VC C headers for bundled SQLite;
   the working local execution path is WSL Rust.
 - No files in `../poly-weather` were modified.

@@ -117,10 +117,12 @@ pub fn run(mut args: SweepArgs) -> Result<()> {
         .transpose()?
         .unwrap_or(date_to - Duration::days(args.days - 1));
     if args.all_available {
-        if let Some((first, last)) = available_date_range(&db, &city)? {
-            date_from = first;
-            date_to = last;
+        let available = available_dates(&db, &city)?;
+        if available.is_empty() {
+            bail!("No backtest-ready dates found for {city}");
         }
+        date_from = *available.first().unwrap();
+        date_to = *available.last().unwrap();
     }
     let strategy_names = selected_strategies(&args)?;
     let calibration_table = calibration::load(&args.calibration_file)?;
@@ -893,19 +895,84 @@ fn write_best_by_strategy_report(path: &Path, rows: &[SweepRow], rank_by: &RankB
     Ok(())
 }
 
-fn available_date_range(db: &Database, city: &str) -> Result<Option<(NaiveDate, NaiveDate)>> {
+fn available_dates(db: &Database, city: &str) -> Result<Vec<NaiveDate>> {
     let mut stmt = db.conn().prepare(
-        "SELECT MIN(target_date), MAX(target_date)
+        "SELECT target_date
          FROM settlement_records
-         WHERE city = ?1 AND winning_bin IS NOT NULL",
+         WHERE city = ?1 AND winning_bin IS NOT NULL
+         ORDER BY target_date",
     )?;
-    let row: (Option<String>, Option<String>) =
-        stmt.query_row([city], |row| Ok((row.get(0)?, row.get(1)?)))?;
-    Ok(match row {
-        (Some(first), Some(last)) => Some((
-            NaiveDate::parse_from_str(&first, "%Y-%m-%d")?,
-            NaiveDate::parse_from_str(&last, "%Y-%m-%d")?,
-        )),
-        _ => None,
-    })
+    let mut out = Vec::new();
+    for row in stmt.query_map([city], |row| row.get::<_, String>(0))? {
+        let target_date = row?;
+        if has_usable_forecast(db, city, &target_date)?
+            && has_usable_price_bins(db, city, &target_date)?
+        {
+            out.push(NaiveDate::parse_from_str(&target_date, "%Y-%m-%d")?);
+        }
+    }
+    Ok(out)
+}
+
+fn has_usable_forecast(db: &Database, city: &str, target_date: &str) -> Result<bool> {
+    let count: i64 = db.conn().query_row(
+        "SELECT COUNT(*)
+         FROM forecast_records
+         WHERE city = ?1 AND target_date = ?2
+           AND source IN ('open-meteo', 'gfs-global-24h', 'historical-open-meteo', 'open-meteo-historical')
+           AND (temp_max_gfs_f IS NOT NULL OR temp_max_ecmwf_f IS NOT NULL)",
+        (city, target_date),
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+fn has_usable_price_bins(db: &Database, city: &str, target_date: &str) -> Result<bool> {
+    let count: i64 = db.conn().query_row(
+        "SELECT COUNT(DISTINCT bin_label)
+         FROM price_history_1m
+         WHERE city = ?1 AND target_date = ?2
+           AND hours_to_close > 0 AND hours_to_close <= 36",
+        (city, target_date),
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+#[cfg(test)]
+mod all_available_tests {
+    use super::*;
+
+    #[test]
+    fn all_available_requires_settlement_forecast_and_prices() {
+        let db = Database::open(":memory:", false).unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO settlement_records (
+                city, target_date, event_id, event_slug, winning_bin, settlement_temp_f,
+                wunderground_station, raw_outcome_prices
+            ) VALUES ('NYC','2026-04-01','e','s','70-71°F',70.5,'KLGA','{}')",
+                [],
+            )
+            .unwrap();
+        db.conn()
+            .execute(
+                "INSERT INTO forecast_records (
+                timestamp, city, target_date, source, temp_max_gfs_f, forecast_lead_hours
+            ) VALUES ('2026-03-31T06:00:00Z','NYC','2026-04-01','gfs-global-24h',70.0,26.0)",
+                [],
+            )
+            .unwrap();
+        assert!(available_dates(&db, "NYC").unwrap().is_empty());
+        db.conn().execute(
+            "INSERT INTO price_history_1m (
+                city, target_date, bin_label, bin_index, timestamp, yes_price, hours_to_close, source
+            ) VALUES ('NYC','2026-04-01','70-71°F',0,'2026-03-31T12:00:00Z',0.5,24.0,'test')",
+            [],
+        ).unwrap();
+        assert_eq!(
+            available_dates(&db, "NYC").unwrap(),
+            vec![NaiveDate::from_ymd_opt(2026, 4, 1).unwrap()]
+        );
+    }
 }

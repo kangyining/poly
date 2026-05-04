@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use chrono::{Duration, NaiveDate, Utc};
 use clap::Args;
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::analysis::{backtest, calibration, replay};
 use crate::config;
@@ -70,9 +70,13 @@ pub fn run(args: BacktestArgs) -> Result<()> {
     } else {
         vec![args.strategy.clone()]
     };
+    let explicit_db = args.db.is_some();
     let db_path = args
         .db
         .unwrap_or_else(|| PathBuf::from(crate::DEFAULT_DB_PATH));
+    if !explicit_db {
+        seed_research_sources_if_present(&db_path)?;
+    }
     let db = Database::open(&db_path, true)?;
     let calibration_table = calibration::load(&args.calibration_file)?;
     let dataset = replay::ReplayDataset::load(
@@ -138,4 +142,20 @@ fn parse_date_or(raw: Option<&str>, default: NaiveDate) -> Result<NaiveDate> {
         Some(raw) => NaiveDate::parse_from_str(raw, "%Y-%m-%d")?,
         None => default,
     })
+}
+
+fn seed_research_sources_if_present(db_path: &Path) -> Result<()> {
+    let path = Path::new("analysis/research_sources.json");
+    if !path.exists() {
+        return Ok(());
+    }
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Ok(());
+    };
+    let Ok(sources) = serde_json::from_str::<Vec<Value>>(&text) else {
+        return Ok(());
+    };
+    let db = Database::open(db_path, false)?;
+    let _ = crate::db::seed_research_sources(&db, &sources);
+    Ok(())
 }

@@ -39,7 +39,8 @@ Implemented for the validated core replay surfaces.
 Known remaining backtest gaps:
 
 - Summary CSV/report text is close but not guaranteed byte-identical to Python.
-- Research-source seeding remains intentionally unported.
+- Research-source seeding is ported for the Rust default DB; explicit `--db`
+  validation runs stay read-only and do not mutate the Python DB.
 
 ## Stage 3: Bankroll, Sweep, Calibration
 
@@ -53,6 +54,8 @@ Implemented for the validated parity surfaces.
   strategy-specific grids, `--param-grid`, `--strategy-param-grid`, parallel
   `--jobs`, ranking with `--min-trades`, per-strategy artifacts, and
   best-by-strategy report. Sweep workers share the immutable replay dataset.
+- `--all-available` now filters dates the Python way: settlement present,
+  usable forecast present, and usable `price_history_1m` bins present.
 - Calibration fitting from `forecast_records` plus `settlement_records` is
   implemented with station/global fallbacks, dynamic missing-column read
   compatibility, `--show`, and JSON output.
@@ -67,19 +70,23 @@ Implemented with remaining parity risks.
 
 - `execute` parses `execution_plan.json`, rejects live execution, records
   dry-run/paper positions, and exports `open_positions.json`.
-- `settle` can fetch Gamma event outcomes by slug, insert settlement records,
-  close paper positions, and export `open_positions.json`.
+- `settle` and recorder settlement checks share one settlement-tracker flow for
+  configured weather contracts, Gamma validation, winning-bin extraction,
+  settlement inserts, paper-position closeout, and `open_positions.json` export.
 - Gamma/CLOB read helpers are ported for event lookup, market parsing, order
   books, fee rates, VWAP ask fills, book depth, best prices, and winning-bin
   detection.
 - Weather contract slug parsing, configured-contract materialization, and
   Wunderground station validation are ported.
 - `recorder --once` now records METAR observations, TAFs, NWS forecasts, market
-  snapshots, and Open-Meteo forecasts/model runs into the Rust DB.
-- Continuous recorder scheduling is implemented with `--interval-seconds`.
-- Recorder/backfill flags now dispatch to Rust implementations for ASOS daily
-  highs, ASOS METARs, historical Open-Meteo forecasts, true 24h GFS-style
-  forecasts, CLOB price history, and missing-bin retries.
+  snapshots, Open-Meteo forecasts/model runs, and the daily settlement check.
+- Continuous recorder scheduling now follows the Python cadences: market every
+  5 minutes, NWS every 30 minutes, METAR/TAF/Open-Meteo hourly, settlement
+  daily after 06:00, with `--interval-seconds` as the polling interval.
+- Recorder/backfill flags now dispatch to Rust implementations for Gamma
+  settlements, ASOS daily highs, ASOS METARs, historical Open-Meteo forecasts,
+  true 24h `gfs_global` forecasts, CLOB price history, and targeted missing-bin
+  retries.
 - DB insert/query helpers now cover TAF, NWS, price history, historical
   forecasts, true forecasts, and settlement temp source metadata.
 - Live order submission is intentionally not ported and returns:
@@ -92,14 +99,21 @@ Known remaining data/settlement risks:
 - Gamma retry/backoff and rate-limit timing are not byte-for-byte Python parity.
 - Settlement source enrichment is improved but not a full clone of Python's
   historical `settlement_tracker` metadata extraction.
+- Live order submission, execute log-file parity, and byte-exact console or
+  Markdown formatting are intentionally excluded from this migration pass.
 
 ## Verification
 
 - `cargo check` passes.
-- `cargo test` passes: 35 unit tests plus 4 integration tests.
+- `cargo test` passes: 44 unit tests plus 4 integration tests.
 - `cargo run -- backtest --list-strategies` passes.
 - `scripts/parity_compare.py --check all` passes for `2026-04-01` through
   `2026-04-02` against `../poly-weather/db/data.db`.
+- NYC April `base_ev` and `base_no_ev` parity checks pass for `2026-04-01`
+  through `2026-04-30` against `../poly-weather/db/data.db`.
+- `param-sweep --all-available` one-combination smoke matches Python for NYC:
+  84 available dates, 93 trades, 86 wins, `total_pnl=170.453`,
+  `total_stake=830.0`, `roi=0.20536506024096385`, `sharpe=5.5098`.
 - Full all-city April no-cap `base_no_ev` Rust release run completes in about
   92 seconds and matches the Python headline metrics:
   `total_trades=1050`, `wins=812`, `win_rate=0.7733`,

@@ -1,9 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
+
+use crate::strategy::plugins;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyConfigFile {
@@ -24,12 +26,34 @@ pub fn load_config(path: &Path) -> Result<StrategyConfigFile> {
 
 pub fn list_strategy_configs(path: &Path) -> Result<Vec<Value>> {
     let cfg = load_config(path)?;
-    Ok(cfg
-        .strategies
-        .iter()
-        .map(|(name, values)| {
-            let mut obj = values.clone();
-            obj.insert("name".to_string(), Value::String(name.clone()));
+    let mut names = plugins::plugin_names()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<BTreeSet<_>>();
+    names.extend(cfg.strategies.keys().cloned());
+    Ok(names
+        .into_iter()
+        .map(|name| {
+            let mut obj = cfg.strategies.get(&name).cloned().unwrap_or_default();
+            obj.entry("name".to_string())
+                .or_insert_with(|| Value::String(name.clone()));
+            obj.entry("enabled".to_string())
+                .or_insert(Value::Bool(true));
+            if !obj.contains_key("required_data")
+                && plugins::plugin_names().iter().any(|plugin| *plugin == name)
+            {
+                let strategy = plugins::strategy_by_name(&name);
+                obj.insert(
+                    "required_data".to_string(),
+                    Value::Array(
+                        strategy
+                            .required_data()
+                            .iter()
+                            .map(|item| Value::String((*item).to_string()))
+                            .collect(),
+                    ),
+                );
+            }
             Value::Object(obj)
         })
         .collect())
@@ -37,12 +61,23 @@ pub fn list_strategy_configs(path: &Path) -> Result<Vec<Value>> {
 
 pub fn list_strategy_names(path: &Path) -> Result<Vec<String>> {
     let cfg = load_config(path)?;
-    Ok(cfg.strategies.keys().cloned().collect())
+    let mut names = plugins::plugin_names()
+        .into_iter()
+        .map(ToString::to_string)
+        .collect::<BTreeSet<_>>();
+    names.extend(cfg.strategies.keys().cloned());
+    Ok(names.into_iter().collect())
 }
 
 pub fn group_members(path: &Path, group_name: &str) -> Result<Vec<String>> {
     let cfg = load_config(path)?;
-    Ok(cfg.groups.get(group_name).cloned().unwrap_or_default())
+    let Some(members) = cfg.groups.get(group_name) else {
+        bail!("Unknown strategy group '{group_name}'");
+    };
+    Ok(members
+        .iter()
+        .map(|name| resolve_strategy_name(name, &Value::Null))
+        .collect())
 }
 
 pub fn all_members(path: &Path) -> Result<Vec<String>> {
@@ -50,41 +85,36 @@ pub fn all_members(path: &Path) -> Result<Vec<String>> {
 }
 
 pub fn resolve_strategy_name(strategy_name: &str, params: &Value) -> String {
-    params
+    if let Some(explicit) = params
         .get("strategy_id")
         .and_then(Value::as_str)
-        .unwrap_or(match strategy_name {
-            "base_ev" => "base_no_ev",
-            other => other,
-        })
-        .to_string()
+        .or_else(|| params.get("plugin").and_then(Value::as_str))
+    {
+        return explicit.to_string();
+    }
+    if strategy_name.starts_with("sweep_base_ev") {
+        return "base_no_ev".to_string();
+    }
+    match strategy_name {
+        "base_ev" | "default" => "base_no_ev".to_string(),
+        other => other.to_string(),
+    }
 }
 
 pub fn load_strategy_params(path: &Path, strategy_name: &str) -> Result<Value> {
     let cfg = load_config(path)?;
+    let resolved = resolve_strategy_name(strategy_name, &Value::Null);
     let mut merged = cfg.defaults;
-    let mut selected = if strategy_name == "base_ev" {
-        cfg.strategies
-            .get("base_no_ev")
-            .cloned()
-            .unwrap_or_default()
-    } else {
-        cfg.strategies
-            .get(strategy_name)
-            .cloned()
-            .with_context(|| format!("unknown strategy: {strategy_name}"))?
-    };
+    let mut selected = cfg
+        .strategies
+        .get(&resolved)
+        .or_else(|| cfg.strategies.get(strategy_name))
+        .cloned()
+        .with_context(|| format!("unknown strategy: {strategy_name}"))?;
     let strategy_id = selected
         .remove("strategy_id")
         .and_then(|v| v.as_str().map(ToString::to_string))
-        .unwrap_or_else(|| {
-            if strategy_name == "base_ev" {
-                "base_no_ev"
-            } else {
-                strategy_name
-            }
-            .to_string()
-        });
+        .unwrap_or_else(|| resolved.clone());
     for (k, v) in selected {
         if k != "description" && k != "required_data" {
             merged.insert(k, v);
@@ -92,4 +122,43 @@ pub fn load_strategy_params(path: &Path, strategy_name: &str) -> Result<Value> {
     }
     merged.insert("strategy_id".to_string(), Value::String(strategy_id));
     Ok(Value::Object(merged))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn config_file() -> tempfile::NamedTempFile {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        write!(
+            file,
+            r#"{{
+                "defaults": {{"min_ev_threshold": 0.05}},
+                "groups": {{"core": ["default", "sweep_base_ev_1"]}},
+                "strategies": {{"base_no_ev": {{"description": "base"}}}}
+            }}"#
+        )
+        .unwrap();
+        file
+    }
+
+    #[test]
+    fn resolves_python_aliases() {
+        assert_eq!(resolve_strategy_name("default", &Value::Null), "base_no_ev");
+        assert_eq!(
+            resolve_strategy_name("sweep_base_ev_abc", &Value::Null),
+            "base_no_ev"
+        );
+    }
+
+    #[test]
+    fn unknown_group_errors_like_python() {
+        let file = config_file();
+        assert!(group_members(file.path(), "missing").is_err());
+        assert_eq!(
+            group_members(file.path(), "core").unwrap(),
+            vec!["base_no_ev", "base_no_ev"]
+        );
+    }
 }

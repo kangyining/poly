@@ -1002,6 +1002,40 @@ pub fn insert_settlement(db: &Database, rec: &NewSettlement) -> Result<()> {
     Ok(())
 }
 
+pub fn seed_research_sources(db: &Database, sources: &[Value]) -> Result<usize> {
+    let mut saved = 0;
+    for source in sources {
+        let Some(url) = source.get("url").and_then(Value::as_str) else {
+            continue;
+        };
+        let source_type = source
+            .get("source_type")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let date_checked = source
+            .get("date_checked")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let claim_summary = source
+            .get("claim_summary")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let strategy_tags = source
+            .get("strategy_tags")
+            .cloned()
+            .unwrap_or_else(|| Value::Array(Vec::new()))
+            .to_string();
+        let changed = db.conn().execute(
+            "INSERT OR IGNORE INTO research_sources (
+                url, source_type, date_checked, claim_summary, strategy_tags
+            ) VALUES (?1,?2,?3,?4,?5)",
+            params![url, source_type, date_checked, claim_summary, strategy_tags],
+        )?;
+        saved += changed;
+    }
+    Ok(saved)
+}
+
 pub fn scalar_count(db: &Database, table: &str) -> Result<i64> {
     let sql = format!("SELECT COUNT(*) FROM {table}");
     Ok(db
@@ -1036,5 +1070,19 @@ mod tests {
         let vwap = effective_ask_from_levels(ask, 10.0).unwrap();
         assert!((vwap - 0.26).abs() < 1e-9);
         assert!(effective_ask_from_levels(ask, 11.0).is_none());
+    }
+
+    #[test]
+    fn seeds_research_sources_idempotently() {
+        let db = Database::open(":memory:", false).unwrap();
+        let sources = vec![serde_json::json!({
+            "url": "https://example.com",
+            "source_type": "test",
+            "date_checked": "2026-04-26",
+            "claim_summary": "claim",
+            "strategy_tags": ["base_no_ev"]
+        })];
+        assert_eq!(seed_research_sources(&db, &sources).unwrap(), 1);
+        assert_eq!(seed_research_sources(&db, &sources).unwrap(), 0);
     }
 }
