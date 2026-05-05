@@ -72,19 +72,19 @@ impl App {
             &bus,
             &state,
             ConsumerServices {
-                strategy: strategy_service.clone(),
-                execution: execution_service.clone(),
-                portfolio: portfolio_service.clone(),
+                strategy: Arc::clone(&strategy_service),
+                execution: Arc::clone(&execution_service),
+                portfolio: Arc::clone(&portfolio_service),
             },
         );
 
         for market_service in &market_services {
             let initial_markets = market_service.publish_metadata().await?;
-            let market_service = market_service.clone();
+            let market_service = Arc::clone(market_service);
             tasks.spawn(async move { market_service.run_poller(initial_markets).await });
         }
         for weather_service in &weather_services {
-            let weather_service = weather_service.clone();
+            let weather_service = Arc::clone(weather_service);
             tasks.spawn(async move { weather_service.run_poller().await });
         }
 
