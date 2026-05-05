@@ -9,6 +9,7 @@ use polymarket_weather_bot::strategy::CalibrationTable;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenvy::dotenv().ok();
     let cli = Cli::parse();
     let config = AppConfig::load(&cli.config)?;
     let _logging_guard = init_logging(&config.log_directory)?;
