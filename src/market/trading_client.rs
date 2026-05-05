@@ -46,11 +46,12 @@ impl TradingClient {
             error!(error = %error, "failed to load signer before order submission");
             error
         })?;
-        let token_id = U256::from_str(token_id).map_err(|error| {
-            error!(error = %error, raw_token_id = token_id, "failed to parse token id");
-            error
-        })
-        .with_context(|| format!("failed to parse token id {}", token_id))?;
+        let token_id = U256::from_str(token_id)
+            .map_err(|error| {
+                error!(error = %error, raw_token_id = token_id, "failed to parse token id");
+                error
+            })
+            .with_context(|| format!("failed to parse token id {}", token_id))?;
 
         let order = client
             .limit_order()
@@ -129,7 +130,7 @@ impl TradingClient {
         let mut auth = base
             .authentication_builder(&signer)
             .credentials(credentials)
-            // Match the user's known Polymarket setup by default.
+            // Match existing proxy/Safe users by default; new API users should set Poly1271.
             .signature_type(load_signature_type().unwrap_or(SignatureType::GnosisSafe));
 
         if let Some(funder) = load_funder_address()? {
@@ -181,10 +182,12 @@ fn decimal_from_f64(value: f64) -> Result<Decimal> {
 
 fn load_api_credentials() -> Result<Option<Credentials>> {
     let api_key = first_non_empty_env(&["POLYMARKET_API_KEY", "API_KEY", "api_key"]);
-    let api_secret =
-        first_non_empty_env(&["POLYMARKET_API_SECRET", "API_SECRET", "api_secret"]);
-    let api_passphrase =
-        first_non_empty_env(&["POLYMARKET_API_PASSPHRASE", "API_PASSPHRASE", "api_passphrase"]);
+    let api_secret = first_non_empty_env(&["POLYMARKET_API_SECRET", "API_SECRET", "api_secret"]);
+    let api_passphrase = first_non_empty_env(&[
+        "POLYMARKET_API_PASSPHRASE",
+        "API_PASSPHRASE",
+        "api_passphrase",
+    ]);
 
     let all_blank = api_key.is_none() && api_secret.is_none() && api_passphrase.is_none();
     if all_blank {
@@ -213,6 +216,8 @@ fn load_signature_type() -> Option<SignatureType> {
         Some("2") | Some("safe") | Some("SAFE") | Some("gnosis_safe") => {
             Some(SignatureType::GnosisSafe)
         }
+        Some("3") | Some("poly_1271") | Some("POLY_1271") | Some("poly1271") | Some("POLY1271")
+        | Some("erc1271") | Some("ERC1271") => Some(SignatureType::Poly1271),
         Some(_) | None => None,
     }
 }
