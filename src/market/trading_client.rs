@@ -11,6 +11,7 @@ use polymarket_client_sdk_v2::clob::types::{AssetType, OrderType, Side, Signatur
 use polymarket_client_sdk_v2::clob::{Client as ClobClient, Config as ClobConfig};
 use polymarket_client_sdk_v2::types::{Address as PolyAddress, Decimal, U256};
 use polymarket_client_sdk_v2::POLYGON;
+use tracing::{error, info, instrument};
 
 #[derive(Clone)]
 pub struct TradingClient {
@@ -24,16 +25,32 @@ impl TradingClient {
         }
     }
 
+    #[instrument(
+        name = "submit_no_buy_order",
+        skip(self),
+        fields(token_id = %token_id, price, shares)
+    )]
     pub async fn submit_no_buy_order(
         &self,
         token_id: &str,
         price: f64,
         shares: f64,
     ) -> Result<String> {
-        let client = self.authenticate().await?;
-        let signer = load_signer()?;
-        let token_id = U256::from_str(token_id)
-            .with_context(|| format!("failed to parse token id {}", token_id))?;
+        info!("submitting live NO buy order");
+
+        let client = self.authenticate().await.map_err(|error| {
+            error!(error = %error, "failed to authenticate before order submission");
+            error
+        })?;
+        let signer = load_signer().map_err(|error| {
+            error!(error = %error, "failed to load signer before order submission");
+            error
+        })?;
+        let token_id = U256::from_str(token_id).map_err(|error| {
+            error!(error = %error, raw_token_id = token_id, "failed to parse token id");
+            error
+        })
+        .with_context(|| format!("failed to parse token id {}", token_id))?;
 
         let order = client
             .limit_order()
@@ -44,25 +61,44 @@ impl TradingClient {
             .side(Side::Buy)
             .build()
             .await
+            .map_err(|error| {
+                error!(error = %error, instrument = %token_id, "failed to build live order");
+                error
+            })
             .with_context(|| format!("failed to build live order for token {}", token_id))?;
 
         let signed = client
             .sign(&signer, order)
             .await
+            .map_err(|error| {
+                error!(error = %error, instrument = %token_id, "failed to sign live order");
+                error
+            })
             .with_context(|| format!("failed to sign live order for token {}", token_id))?;
 
         let response = client
             .post_order(signed)
             .await
+            .map_err(|error| {
+                error!(error = %error, instrument = %token_id, "failed to submit live order");
+                error
+            })
             .with_context(|| format!("failed to submit live order for token {}", token_id))?;
 
         if !response.success {
             let message = response
                 .error_msg
                 .unwrap_or_else(|| "unknown exchange error".to_string());
+            error!(
+                instrument = %token_id,
+                order_id = %response.order_id,
+                error_message = %message,
+                "live order rejected by exchange"
+            );
             anyhow::bail!("live order rejected for token {}: {}", token_id, message);
         }
 
+        info!(instrument = %token_id, order_id = %response.order_id, "live order submitted");
         Ok(response.order_id)
     }
 
