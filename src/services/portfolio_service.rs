@@ -36,7 +36,7 @@ impl PortfolioService {
 
     async fn reconcile_positions(&self, portfolio: &mut PortfolioState) -> Result<()> {
         let today = Utc::now().date_naive();
-        let client = PolymarketClient::new(&self.config.gamma_url, &self.config.clob_url);
+        let client = PolymarketClient::new(&self.config.api.gamma_url, &self.config.api.clob_url);
 
         for idx in 0..portfolio.positions.len() {
             if portfolio.positions[idx].status != "open" {
@@ -275,8 +275,8 @@ impl PortfolioService {
     }
 
     fn load_or_init_portfolio(&self) -> Result<PortfolioState> {
-        if self.config.paper_portfolio_path.exists() {
-            let text = std::fs::read_to_string(&self.config.paper_portfolio_path)?;
+        if self.config.paths.paper_portfolio_path.exists() {
+            let text = std::fs::read_to_string(&self.config.paths.paper_portfolio_path)?;
             let mut portfolio: PortfolioState = serde_json::from_str(&text)?;
             if portfolio.next_sequence == 0 {
                 portfolio.next_sequence = 1;
@@ -292,8 +292,8 @@ impl PortfolioService {
             .map(|position| position.stake_usd)
             .sum();
         let mut portfolio = PortfolioState {
-            starting_balance_usd: self.config.paper_starting_balance_usd,
-            cash_usd: self.config.paper_starting_balance_usd - imported_paper_stake,
+            starting_balance_usd: self.config.trading.paper_starting_balance_usd,
+            cash_usd: self.config.trading.paper_starting_balance_usd - imported_paper_stake,
             realized_pnl_usd: 0.0,
             equity_usd: 0.0,
             last_updated_at: Utc::now().to_rfc3339(),
@@ -342,10 +342,10 @@ impl PortfolioService {
     }
 
     fn load_existing_open_positions(&self) -> Result<Vec<PortfolioPosition>> {
-        if !self.config.open_positions_path.exists() {
+        if !self.config.paths.open_positions_path.exists() {
             return Ok(Vec::new());
         }
-        let text = std::fs::read_to_string(&self.config.open_positions_path)?;
+        let text = std::fs::read_to_string(&self.config.paths.open_positions_path)?;
         let positions = serde_json::from_str(&text)?;
         Ok(positions)
     }
@@ -363,7 +363,7 @@ impl PortfolioService {
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(&self.config.performance_csv_path)?;
+            .open(&self.config.paths.performance_csv_path)?;
         let line = [
             action.sequence.to_string(),
             action
@@ -407,28 +407,31 @@ impl PortfolioService {
     }
 
     fn ensure_csv_header(&self) -> Result<()> {
-        if let Some(parent) = self.config.performance_csv_path.parent() {
+        if let Some(parent) = self.config.paths.performance_csv_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        if !self.config.performance_csv_path.exists() {
-            std::fs::write(&self.config.performance_csv_path, PERFORMANCE_CSV_HEADER)?;
+        if !self.config.paths.performance_csv_path.exists() {
+            std::fs::write(
+                &self.config.paths.performance_csv_path,
+                PERFORMANCE_CSV_HEADER,
+            )?;
         }
         Ok(())
     }
 
     fn write_portfolio_state(&self, portfolio: &PortfolioState) -> Result<()> {
-        if let Some(parent) = self.config.paper_portfolio_path.parent() {
+        if let Some(parent) = self.config.paths.paper_portfolio_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(
-            &self.config.paper_portfolio_path,
+            &self.config.paths.paper_portfolio_path,
             serde_json::to_string_pretty(portfolio)?,
         )?;
         Ok(())
     }
 
     fn write_open_positions_export(&self, portfolio: &PortfolioState) -> Result<()> {
-        if let Some(parent) = self.config.open_positions_path.parent() {
+        if let Some(parent) = self.config.paths.open_positions_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let open_positions: Vec<_> = portfolio
@@ -438,7 +441,7 @@ impl PortfolioService {
             .cloned()
             .collect();
         std::fs::write(
-            &self.config.open_positions_path,
+            &self.config.paths.open_positions_path,
             serde_json::to_string_pretty(&open_positions)?,
         )?;
         Ok(())

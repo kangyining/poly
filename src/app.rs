@@ -38,7 +38,7 @@ impl App {
                 Arc::new(WeatherService::new(
                     bus.clone(),
                     context,
-                    self.config.forecast_refresh_secs,
+                    self.config.runtime.forecast_refresh_secs,
                 ))
             })
             .collect::<Vec<_>>();
@@ -48,8 +48,8 @@ impl App {
             .map(|context| {
                 Arc::new(MarketService::new(
                     bus.clone(),
-                    &self.config.gamma_url,
-                    &self.config.clob_url,
+                    &self.config.api.gamma_url,
+                    &self.config.api.clob_url,
                     context,
                 ))
             })
@@ -93,7 +93,7 @@ impl App {
             "event-driven bot framework started"
         );
 
-        if self.config.run_loop {
+        if self.config.runtime.run_loop {
             tokio::signal::ctrl_c().await?;
             info!("received ctrl-c, stopping");
             bus.publish(EventSource::App, Event::Stopping);

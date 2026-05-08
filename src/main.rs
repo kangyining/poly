@@ -12,10 +12,10 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let cli = Cli::parse();
     let config = AppConfig::load(&cli.config)?;
-    let _logging_guard = init_logging(&config.log_directory)?;
+    let _logging_guard = init_logging(&config.paths.log_directory)?;
 
-    let calibration = if config.calibration_path.exists() {
-        match CalibrationTable::load(&config.calibration_path) {
+    let calibration = if config.paths.calibration_path.exists() {
+        match CalibrationTable::load(&config.paths.calibration_path) {
             Ok(table) => Some(table),
             Err(error) => {
                 warn!(error = %error, "failed to load calibration, using defaults");
@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
         }
     } else {
         warn!(
-            path = %config.calibration_path.display(),
+            path = %config.paths.calibration_path.display(),
             "calibration.json not found, using defaults"
         );
         None
