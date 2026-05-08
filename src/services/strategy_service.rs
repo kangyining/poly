@@ -113,7 +113,6 @@ impl StrategyService {
                 mu_f,
                 sigma_f,
                 min_ev_threshold: strategy.min_ev_threshold,
-                desired_shares: strategy.desired_shares,
                 context_key: context.key.clone(),
                 city_slug: context.city_slug.clone(),
                 target_date: context.target_date,
@@ -214,7 +213,11 @@ fn log_evaluation(context: &MarketContext, strategy_name: &str, evaluation: &Str
 }
 
 fn retain_by_total_stake(evaluation: &mut StrategyEvaluation, max_stake_usd: f64) {
-    let total_stake: f64 = evaluation.candidates.iter().map(|candidate| candidate.stake_usd).sum();
+    let total_stake: f64 = evaluation
+        .candidates
+        .iter()
+        .map(|candidate| candidate.stake_usd)
+        .sum();
     if total_stake <= max_stake_usd {
         return;
     }

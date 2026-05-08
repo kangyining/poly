@@ -38,6 +38,7 @@ pub struct PlannedTrade {
     pub side: &'static str,
     pub no_token_id: String,
     pub effective_ask: f64,
+    pub min_order_size: Option<f64>,
     pub shares: f64,
     pub stake_usd: f64,
     pub p_model: f64,
@@ -70,6 +71,7 @@ pub struct ExecutedTrade {
     pub side: String,
     pub token_id: String,
     pub effective_ask: f64,
+    pub min_order_size: Option<f64>,
     pub shares: f64,
     pub stake_usd: f64,
     pub p_model: f64,
@@ -145,6 +147,7 @@ impl PlannedTrade {
             side: "NO",
             no_token_id: candidate.no_token_id.clone(),
             effective_ask: candidate.effective_ask,
+            min_order_size: candidate.min_order_size,
             shares: candidate.shares,
             stake_usd: candidate.stake_usd,
             p_model: candidate.p_model,
@@ -229,6 +232,7 @@ impl ExecutionService {
             side: trade.side.to_string(),
             token_id: trade.no_token_id.clone(),
             effective_ask: trade.effective_ask,
+            min_order_size: trade.min_order_size,
             shares: trade.shares,
             stake_usd: trade.stake_usd,
             p_model: trade.p_model,
@@ -291,6 +295,17 @@ impl ExecutionService {
         )
     )]
     async fn submit_live_trade(&self, trade: &PlannedTrade) -> Result<String> {
+        if let Some(min_order_size) = trade.min_order_size {
+            if trade.shares + 1e-9 < min_order_size {
+                anyhow::bail!(
+                    "planned order size {} is below CLOB min_order_size {} for token {}",
+                    trade.shares,
+                    min_order_size,
+                    trade.no_token_id
+                );
+            }
+        }
+
         let order_id = self
             .trading_client
             .submit_no_buy_order(&trade.no_token_id, trade.effective_ask, trade.shares)

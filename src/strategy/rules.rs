@@ -164,9 +164,14 @@ impl StrategyRule for NoEdgeRule {
         market: &WeatherMarket,
         trace: &mut DecisionTrace,
     ) -> bool {
-        let (Some(effective_ask), Some(fee_rate)) = (market.effective_ask_no, market.fee_rate)
-        else {
-            let reason = "no CLOB data available (effective_ask or fee_rate missing)".to_string();
+        let (Some(effective_ask), Some(fee_rate), Some(min_order_size)) = (
+            market.effective_ask_no,
+            market.fee_rate,
+            market.min_order_size_no,
+        ) else {
+            let reason =
+                "no CLOB data available (effective_ask, fee_rate, or min_order_size missing)"
+                    .to_string();
             warn!(
                 decision_id = %trace.decision_id,
                 market_id = %market.id,
@@ -185,8 +190,8 @@ impl StrategyRule for NoEdgeRule {
         let passed = ev_no >= input.min_ev_threshold;
 
         let reason = format!(
-            "p_model={:.4} effective_ask={:.4} fee_rate={:.4} ev_no={:.4} threshold={:.4} passed={}",
-            p, effective_ask, fee_rate, ev_no, input.min_ev_threshold, passed
+            "p_model={:.4} effective_ask={:.4} fee_rate={:.4} min_order_size={:.4} ev_no={:.4} threshold={:.4} passed={}",
+            p, effective_ask, fee_rate, min_order_size, ev_no, input.min_ev_threshold, passed
         );
 
         info!(

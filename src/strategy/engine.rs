@@ -87,6 +87,9 @@ impl StrategyEngine {
                 .no_token_id
                 .clone()
                 .expect("accepted market has no_token_id");
+            let shares = market
+                .min_order_size_no
+                .expect("accepted market has min_order_size");
 
             Some(TradeCandidate {
                 strategy_name: input.strategy_name.clone(),
@@ -101,12 +104,11 @@ impl StrategyEngine {
                 p_model: p,
                 ev_no,
                 effective_ask,
+                min_order_size: market.min_order_size_no,
                 fee_rate,
                 no_token_id,
-                shares: input.desired_shares,
-                stake_usd: input.desired_shares
-                    * effective_ask
-                    * (1.0 + fee_rate * (1.0 - effective_ask)),
+                shares,
+                stake_usd: shares * effective_ask * (1.0 + fee_rate * (1.0 - effective_ask)),
                 decision_id,
             })
         } else {
@@ -148,6 +150,7 @@ mod tests {
             yes_token_id: None,
             no_token_id: Some(format!("token-{id}")),
             effective_ask_no: Some(effective_ask),
+            min_order_size_no: Some(5.0),
             fee_rate: Some(fee_rate),
         }
     }
@@ -170,7 +173,6 @@ mod tests {
             mu_f: 50.0,
             sigma_f: 2.0,
             min_ev_threshold: 0.02,
-            desired_shares: 10.0,
             context_key: "nyc:2026-04-20".into(),
             city_slug: "nyc".into(),
             target_date: NaiveDate::from_ymd_opt(2026, 4, 20).unwrap(),
