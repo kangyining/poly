@@ -1,13 +1,13 @@
 days_in_future = 2
 gamma_url = "https://gamma-api.polymarket.com"
 clob_url = "https://clob.polymarket.com"
-max_total_stake_usd = 5.0
+max_total_stake_usd = 10.0
 max_open_positions = 8
-calibration_path = "../poly-weather/calibration.json"
-open_positions_path = "../poly-weather/open_positions.json"
-execution_plan_dir = "../poly-weather"
-paper_portfolio_path = "../poly-weather/paper_portfolio.json"
-performance_csv_path = "../poly-weather/performance_log.csv"
+calibration_path = "./calibration.json"
+open_positions_path = "./open_positions.json"
+execution_plan_dir = "./plan"
+paper_portfolio_path = "./paper_portfolio.json"
+performance_csv_path = "./performance_log.csv"
 log_directory = "logs"
 dry_run = true
 paper_starting_balance_usd = 1000.0
@@ -19,8 +19,8 @@ forecast_refresh_secs = 1800
 name = "base_ev"
 enabled = true
 funding_pct = 1.0
-min_ev_threshold = 0.11
-max_stake_usd = 5.0
+min_ev_threshold = 0.05
+max_stake_usd = 10.0
 
 [[cities]]
 slug = "nyc"
