@@ -1,29 +1,65 @@
+# Optional override for the first target date; omit to auto-pick based on market close.
+# start_date = 2026-05-08
+
+# Number of calendar days ahead to trade.
 days_in_future = 2
+
+[api]
+# Gamma API base URL for event and market metadata.
 gamma_url = "https://gamma-api.polymarket.com"
+# CLOB API base URL for order book and trading calls.
 clob_url = "https://clob.polymarket.com"
-max_total_stake_usd = 10.0
-max_open_positions = 8
+
+[paths]
+# Path to the calibration data used by strategies.
 calibration_path = "./calibration.json"
+# Path to the JSON export of tracked open positions.
 open_positions_path = "./open_positions.json"
+# Directory where execution plans are written.
 execution_plan_dir = "./plan"
+# Path to the persisted paper-trading portfolio state.
 paper_portfolio_path = "./paper_portfolio.json"
+# Path to the CSV performance log.
 performance_csv_path = "./performance_log.csv"
+# Directory where structured run logs are written.
 log_directory = "logs"
+
+[trading]
+# Run in paper-trading mode instead of submitting live orders.
 dry_run = true
+# Maximum total USD stake across the portfolio.
+max_total_stake_usd = 10.0
+# Maximum number of open positions allowed at once.
+max_open_positions = 8
+# Starting cash for a new paper portfolio.
 paper_starting_balance_usd = 1000.0
+
+[runtime]
+# Keep polling continuously until interrupted.
 run_loop = false
+# Seconds between market polling cycles when looping.
 poll_interval_secs = 15
+# Seconds between weather forecast refreshes when looping.
 forecast_refresh_secs = 1800
 
 [[strategies]]
+# Strategy identifier used in logs and outputs.
 name = "base_ev"
+# Enable or disable this strategy without removing it.
 enabled = true
+# Fraction of total stake budget allocated to this strategy.
 funding_pct = 1.0
+# Minimum expected value threshold required to place a trade.
 min_ev_threshold = 0.05
+# Maximum USD stake for a single trade from this strategy.
 max_stake_usd = 10.0
 
 [[cities]]
+# Short city slug used in event lookup and output filenames.
 slug = "nyc"
+# NOAA station code used for observed weather data.
 station_code = "KLGA"
+# City latitude in decimal degrees.
 lat = 40.7769
+# City longitude in decimal degrees.
 lon = -73.8740

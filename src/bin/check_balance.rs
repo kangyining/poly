@@ -9,7 +9,7 @@ async fn main() -> Result<()> {
     dotenv().ok();
 
     let config = AppConfig::load(std::path::Path::new("config.toml"))?;
-    let client = TradingClient::new(&config.clob_url);
+    let client = TradingClient::new(&config.api.clob_url);
     let wallet_address = client.wallet_address()?;
     let balance = client.get_balance_allowance().await?;
 

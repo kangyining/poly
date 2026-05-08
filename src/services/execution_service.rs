@@ -160,7 +160,7 @@ impl PlannedTrade {
 
 impl ExecutionService {
     pub fn new(config: AppConfig) -> Self {
-        let trading_client = TradingClient::new(&config.clob_url);
+        let trading_client = TradingClient::new(&config.api.clob_url);
         Self {
             config,
             trading_client,
@@ -168,19 +168,19 @@ impl ExecutionService {
     }
 
     pub fn is_dry_run(&self) -> bool {
-        self.config.dry_run
+        self.config.trading.dry_run
     }
 
     pub fn max_total_stake_usd(&self) -> f64 {
-        self.config.max_total_stake_usd
+        self.config.trading.max_total_stake_usd
     }
 
     pub fn write_plan(&self, plan: &ExecutionPlan) -> Result<()> {
-        plan.write_to_dir(&self.config.execution_plan_dir)
+        plan.write_to_dir(&self.config.paths.execution_plan_dir)
     }
 
     pub async fn execute(&self, plan: &ExecutionPlan) -> Result<ExecutionReport> {
-        plan.write_to_dir(&self.config.execution_plan_dir)?;
+        plan.write_to_dir(&self.config.paths.execution_plan_dir)?;
         self.execute_plan(plan).await
     }
 

@@ -84,7 +84,7 @@ impl StrategyService {
         let mu_f = forecast.forecast_high_f + beta_f;
         let sigma_f = sigma_f.clamp(0.8, 4.0);
 
-        let open_token_ids = load_open_positions(&self.config.open_positions_path);
+        let open_token_ids = load_open_positions(&self.config.paths.open_positions_path);
         let markets = market_service.fetch_event_markets().await?;
 
         let markets: Vec<_> = markets
@@ -127,7 +127,7 @@ impl StrategyService {
                 &mut evaluation,
                 strategy
                     .max_stake_usd
-                    .min(self.config.max_total_stake_usd * strategy.funding_pct),
+                    .min(self.config.trading.max_total_stake_usd * strategy.funding_pct),
             );
 
             outcomes.push(StrategyOutcome {

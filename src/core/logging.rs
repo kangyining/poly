@@ -1,6 +1,8 @@
+use std::fs::OpenOptions;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use chrono::Local;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -13,8 +15,14 @@ pub fn init_logging(log_directory: &Path) -> Result<WorkerGuard> {
         )
     })?;
 
-    let file_appender = tracing_appender::rolling::daily(log_directory, "trading-bot.log");
-    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+    let started_at = Local::now().format("%Y%m%d-%H%M%S");
+    let log_path = log_directory.join(format!("trading-bot-{started_at}.log"));
+    let log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .with_context(|| format!("failed to open log file at {}", log_path.display()))?;
+    let (file_writer, guard) = tracing_appender::non_blocking(log_file);
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     tracing_subscriber::registry()

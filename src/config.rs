@@ -42,18 +42,38 @@ pub struct AppConfig {
     pub days_in_future: u32,
     pub cities: Vec<CityConfig>,
     pub strategies: Vec<StrategyConfig>,
+    pub api: ApiConfig,
+    pub paths: PathsConfig,
+    pub trading: TradingConfig,
+    pub runtime: RuntimeConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ApiConfig {
     pub gamma_url: String,
     pub clob_url: String,
-    pub max_total_stake_usd: f64,
-    pub max_open_positions: usize,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PathsConfig {
     pub calibration_path: PathBuf,
     pub open_positions_path: PathBuf,
     pub execution_plan_dir: PathBuf,
     pub paper_portfolio_path: PathBuf,
     pub performance_csv_path: PathBuf,
     pub log_directory: PathBuf,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TradingConfig {
     pub dry_run: bool,
+    pub max_total_stake_usd: f64,
+    pub max_open_positions: usize,
     pub paper_starting_balance_usd: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeConfig {
     pub run_loop: bool,
     pub poll_interval_secs: u64,
     pub forecast_refresh_secs: u64,
@@ -131,19 +151,19 @@ impl AppConfig {
         if self.cities.is_empty() {
             bail!("cities must not be empty");
         }
-        if self.max_total_stake_usd <= 0.0 {
+        if self.trading.max_total_stake_usd <= 0.0 {
             bail!("max_total_stake_usd must be positive");
         }
         if self.strategies.is_empty() {
             bail!("strategies must not be empty");
         }
-        if self.paper_starting_balance_usd <= 0.0 {
+        if self.trading.paper_starting_balance_usd <= 0.0 {
             bail!("paper_starting_balance_usd must be positive");
         }
-        if self.poll_interval_secs == 0 {
+        if self.runtime.poll_interval_secs == 0 {
             bail!("poll_interval_secs must be positive");
         }
-        if self.forecast_refresh_secs == 0 {
+        if self.runtime.forecast_refresh_secs == 0 {
             bail!("forecast_refresh_secs must be positive");
         }
 
