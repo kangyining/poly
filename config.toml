@@ -36,7 +36,7 @@ paper_starting_balance_usd = 1000.0
 
 [runtime]
 # Keep polling continuously until interrupted.
-run_loop = false
+run_loop = true
 # Seconds between market polling cycles when looping.
 poll_interval_secs = 15
 # Seconds between weather forecast refreshes when looping.
