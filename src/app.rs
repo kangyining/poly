@@ -51,7 +51,6 @@ impl App {
                     &self.config.gamma_url,
                     &self.config.clob_url,
                     context,
-                    self.config.max_desired_shares(),
                 ))
             })
             .collect::<Vec<_>>();

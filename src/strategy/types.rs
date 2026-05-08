@@ -13,8 +13,6 @@ pub struct StrategyInput {
     pub sigma_f: f64,
     /// Minimum fee-adjusted EV per share to qualify a bin
     pub min_ev_threshold: f64,
-    /// Shares to attempt to buy per bin
-    pub desired_shares: f64,
     pub context_key: String,
     pub city_slug: String,
     pub target_date: NaiveDate,
@@ -37,6 +35,7 @@ pub struct TradeCandidate {
     pub p_model: f64,
     pub ev_no: f64,
     pub effective_ask: f64,
+    pub min_order_size: Option<f64>,
     pub fee_rate: f64,
     pub no_token_id: String,
     pub shares: f64,

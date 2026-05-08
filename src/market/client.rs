@@ -79,7 +79,15 @@ impl PolymarketClient {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        Ok(OrderBook { asks })
+        let min_order_size = raw
+            .min_order_size
+            .as_deref()
+            .and_then(|value| value.parse::<f64>().ok());
+
+        Ok(OrderBook {
+            asks,
+            min_order_size,
+        })
     }
 
     pub(crate) async fn get_fee_rate(&self, token_id: &str) -> Result<f64> {
@@ -138,8 +146,10 @@ pub struct WeatherMarket {
     pub no_price: Option<f64>,
     pub yes_token_id: Option<String>,
     pub no_token_id: Option<String>,
-    /// VWAP ask price for desired_shares on the NO token CLOB book
+    /// VWAP ask price for min_order_size on the NO token CLOB book
     pub effective_ask_no: Option<f64>,
+    /// Minimum order size from the NO token CLOB book
+    pub min_order_size_no: Option<f64>,
     /// Normalized fee rate for this NO token (e.g. 0.05)
     pub fee_rate: Option<f64>,
 }
@@ -195,6 +205,7 @@ impl WeatherMarket {
             yes_token_id,
             no_token_id,
             effective_ask_no: None,
+            min_order_size_no: None,
             fee_rate: None,
         })
     }
@@ -320,12 +331,14 @@ struct RawOrderLevel {
 #[derive(Debug)]
 pub struct OrderBook {
     pub asks: Vec<OrderLevel>,
+    pub min_order_size: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
 struct RawOrderBook {
     #[serde(default)]
     asks: Vec<RawOrderLevel>,
+    min_order_size: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -20,7 +20,6 @@ name = "base_ev"
 enabled = true
 funding_pct = 1.0
 min_ev_threshold = 0.11
-desired_shares = 1.0
 max_stake_usd = 5.0
 
 [[cities]]

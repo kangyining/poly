@@ -24,7 +24,12 @@ pub struct MarketService {
     bus: EventBus,
     client: PolymarketClient,
     context: MarketContext,
-    desired_shares: f64,
+}
+
+struct ClobData {
+    effective_ask: f64,
+    fee_rate: f64,
+    min_order_size: Option<f64>,
 }
 
 impl MarketService {
@@ -32,18 +37,11 @@ impl MarketService {
         &self.context.key
     }
 
-    pub fn new(
-        bus: EventBus,
-        gamma_url: &str,
-        clob_url: &str,
-        context: MarketContext,
-        desired_shares: f64,
-    ) -> Self {
+    pub fn new(bus: EventBus, gamma_url: &str, clob_url: &str, context: MarketContext) -> Self {
         Self {
             bus,
             client: PolymarketClient::new(gamma_url, clob_url),
             context,
-            desired_shares,
         }
     }
 
@@ -88,10 +86,11 @@ impl MarketService {
 
         for market in &mut markets {
             if let Some(no_token_id) = &market.no_token_id {
-                match self.fetch_clob_data(no_token_id, self.desired_shares).await {
-                    Ok((effective_ask, fee_rate)) => {
-                        market.effective_ask_no = Some(effective_ask);
-                        market.fee_rate = Some(fee_rate);
+                match self.fetch_clob_data(no_token_id).await {
+                    Ok(data) => {
+                        market.min_order_size_no = data.min_order_size;
+                        market.effective_ask_no = Some(data.effective_ask);
+                        market.fee_rate = Some(data.fee_rate);
                     }
                     Err(error) => {
                         warn!(
@@ -148,17 +147,28 @@ impl MarketService {
         }
     }
 
-    async fn fetch_clob_data(&self, no_token_id: &str, desired_shares: f64) -> Result<(f64, f64)> {
+    async fn fetch_clob_data(&self, no_token_id: &str) -> Result<ClobData> {
         let (book, fee_rate) = tokio::try_join!(
             self.client.get_order_book(no_token_id),
             self.client.get_fee_rate(no_token_id),
         )?;
 
-        let effective_ask = effective_ask_vwap(&book.asks, desired_shares).ok_or_else(|| {
-            anyhow::anyhow!("insufficient ask depth for {} shares", desired_shares)
+        let min_order_size = book
+            .min_order_size
+            .ok_or_else(|| anyhow::anyhow!("CLOB /book did not include min_order_size"))?;
+
+        let effective_ask = effective_ask_vwap(&book.asks, min_order_size).ok_or_else(|| {
+            anyhow::anyhow!(
+                "insufficient ask depth for min_order_size {}",
+                min_order_size
+            )
         })?;
 
-        Ok((effective_ask, fee_rate))
+        Ok(ClobData {
+            effective_ask,
+            fee_rate,
+            min_order_size: Some(min_order_size),
+        })
     }
 
     async fn publish_stream(&self, asset_ids: &[String]) -> Result<()> {

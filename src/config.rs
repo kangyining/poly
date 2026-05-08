@@ -22,7 +22,6 @@ pub struct StrategyConfig {
     #[serde(default = "one")]
     pub funding_pct: f64,
     pub min_ev_threshold: f64,
-    pub desired_shares: f64,
     pub max_stake_usd: f64,
 }
 
@@ -118,12 +117,6 @@ impl AppConfig {
         self.active_strategies().count()
     }
 
-    pub fn max_desired_shares(&self) -> f64 {
-        self.active_strategies()
-            .map(|strategy| strategy.desired_shares)
-            .fold(0.0_f64, f64::max)
-    }
-
     fn target_dates(&self) -> Vec<NaiveDate> {
         let start = resolve_start_date(self.start_date);
         (0..self.days_in_future)
@@ -177,9 +170,6 @@ impl AppConfig {
             }
             if strategy.min_ev_threshold <= 0.0 {
                 bail!("strategy min_ev_threshold must be positive");
-            }
-            if strategy.desired_shares <= 0.0 {
-                bail!("strategy desired_shares must be positive");
             }
             if strategy.max_stake_usd <= 0.0 {
                 bail!("strategy max_stake_usd must be positive");

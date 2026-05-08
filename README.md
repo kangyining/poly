@@ -273,7 +273,7 @@ For each evaluation run, `StrategyService` builds a `StrategyInput` with:
 - calibrated mean `mu_f = forecast_high_f + beta_f`
 - calibrated sigma from `CalibrationTable`, clamped to `[0.8, 4.0]`
 - EV threshold
-- desired shares and stake sizing
+- CLOB `min_order_size` and stake sizing
 - run metadata such as `run_id` and `event_slug`
 
 It also re-fetches market data from Polymarket on each evaluation pass and excludes tokens already present in `open_positions.json`.
@@ -443,7 +443,7 @@ The most important config knobs in [src/config.rs](/Users/ryanqin/git/poly/poly-
 - `[[cities]]` entries with `slug`, `station_code`, `lat`, `lon`
 - per-city `forecast_high_f` to bypass live weather fetches
 - `gamma_url`, `clob_url`
-- `[[strategies]]` entries with `name`, `enabled`, `funding_pct`, `min_ev_threshold`, `desired_shares`, and `max_stake_usd`
+- `[[strategies]]` entries with `name`, `enabled`, `funding_pct`, `min_ev_threshold`, and `max_stake_usd`
 - `max_total_stake_usd`
 - `open_positions_path`, `execution_plan_dir`
 - `dry_run`
