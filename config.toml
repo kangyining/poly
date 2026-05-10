@@ -28,9 +28,9 @@ log_directory = "logs"
 # Run in paper-trading mode instead of submitting live orders.
 dry_run = true
 # Maximum total USD stake across the portfolio.
-max_total_stake_usd = 10.0
+max_total_stake_usd = 1000.0
 # Maximum number of open positions allowed at once.
-max_open_positions = 8
+max_open_positions = 10
 # Starting cash for a new paper portfolio.
 paper_starting_balance_usd = 1000.0
 
