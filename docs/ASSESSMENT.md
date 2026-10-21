@@ -74,6 +74,10 @@ data/API mismatches or make the Rust backend a complete replacement for Python.
   files inside the writable workspace. An initial run hit a sandbox temp-path
   permission error; the repeat resolved that environmental issue.
 - Reproduced the dashboard's unsupported backtest CLI argument.
+- Published the private `kangyining/poly` monorepo and verified a fresh GitHub
+  clone: all four imported trees match their source trees, all 12 archived source
+  branch heads match, all 77 original commits are retained, Git object
+  connectivity passes, and the default branch is `main`.
 - Reviewed the source Rust verification notes as historical claims; did not
   rerun Rust builds, parity benchmarks, frontend builds or live network flows.
 - Did not start a recorder, trading loop or order-submission command.
