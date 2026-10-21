@@ -1,0 +1,26 @@
+[package]
+name = "poly-weather-rust"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone Rust migration of the poly-weather Python repo"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["clock", "serde"] }
+chrono-tz = "0.10"
+clap = { version = "4", features = ["derive", "env"] }
+csv = "1"
+libm = "0.2"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"

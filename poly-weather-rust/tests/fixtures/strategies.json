@@ -1,0 +1,44 @@
+{
+  "defaults": {
+    "min_ev_threshold": 0.05,
+    "desired_shares": 10.0,
+    "funding_pct": 1.0,
+    "max_stake_usd": 10.0,
+    "fixed_trade_stake_usd": 10.0,
+    "fee_rate": 0.05
+  },
+  "groups": {
+    "core": ["base_no_ev", "base_yes_no_ev", "ensemble_bucket_ev", "dynamic_sigma_ev"],
+    "forecast": ["base_no_ev", "ensemble_bucket_ev", "dynamic_sigma_ev", "bayesian_climatology_ev", "nowcast_metar"],
+    "structure": ["corridor_ladder", "threshold_union", "basket_arb", "maker_quote_sim"],
+    "research": ["monthly_remainder", "cross_market_semantic_arb", "exit_overlay", "sharp_wallet_copy", "resolution_lag_anomaly"],
+    "all": ["base_no_ev", "base_yes_no_ev", "ensemble_bucket_ev", "dynamic_sigma_ev", "bayesian_climatology_ev", "corridor_ladder", "nowcast_metar", "threshold_union", "monthly_remainder", "basket_arb", "cross_market_semantic_arb", "maker_quote_sim", "exit_overlay", "sharp_wallet_copy", "resolution_lag_anomaly"]
+  },
+  "strategies": {
+    "aggressive_tail": {
+      "description": "Compatibility profile for the old TOML aggressive_tail strategy; runs base_no_ev with looser threshold and smaller size.",
+      "strategy_id": "base_no_ev",
+      "min_ev_threshold": 0.02,
+      "desired_shares": 5.0,
+      "funding_pct": 0.5,
+      "max_stake_usd": 10.0,
+      "fixed_trade_stake_usd": 10.0,
+      "required_data": ["forecast_records", "price_history_or_market_snapshots", "settlement_records"]
+    },
+    "base_no_ev": {"description": "Current calibrated exact-bucket NO EV strategy."},
+    "base_yes_no_ev": {"description": "Exact-bucket strategy that evaluates both YES and NO."},
+    "ensemble_bucket_ev": {"description": "Averages GFS/ECMWF bucket probabilities when both are available."},
+    "dynamic_sigma_ev": {"description": "Widens uncertainty by lead time and model disagreement."},
+    "bayesian_climatology_ev": {"description": "Blends model probability with historical settlement climatology."},
+    "corridor_ladder": {"description": "Buys adjacent bucket corridors when summed probability beats summed cost."},
+    "nowcast_metar": {"description": "Reprices same-day buckets with METAR current max observations."},
+    "threshold_union": {"description": "Synthesizes threshold/tail markets from bucket ladders."},
+    "monthly_remainder": {"description": "Placeholder for monthly precipitation/snow remainder pricing."},
+    "basket_arb": {"description": "Scans full bucket ladders for buy-every-bucket arbitrage."},
+    "cross_market_semantic_arb": {"description": "Placeholder for linked-market semantic arbitrage."},
+    "maker_quote_sim": {"description": "Simulates passive NO quote improvement and maker-fee advantage."},
+    "exit_overlay": {"description": "Placeholder for post-entry exit-rule simulation."},
+    "sharp_wallet_copy": {"description": "Placeholder for public wallet/copy-signal strategy."},
+    "resolution_lag_anomaly": {"description": "Placeholder for official-source lag/anomaly monitoring."}
+  }
+}
