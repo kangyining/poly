@@ -16,6 +16,18 @@ def git(*args: str) -> str:
     ).strip()
 
 
+def archive_commit(branch: str) -> str:
+    # A fresh clone has origin/archive/* references, rather than local branches.
+    for ref in (f"refs/heads/{branch}", f"refs/remotes/origin/{branch}"):
+        result = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "--verify", ref],
+            text=True, encoding="utf-8", capture_output=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    raise SystemExit(f"Missing archived source branch: {branch}")
+
+
 def main() -> None:
     manifest = json.loads((ROOT / "docs/source-repositories.json").read_text())
     retained = set(git("rev-list", "--all").splitlines())
@@ -28,8 +40,8 @@ def main() -> None:
         if imported_tree != source["default_tree"]:
             raise SystemExit(f"Imported tree differs from source: {name}")
         for branch, sha in source["branches"].items():
-            ref = f"refs/heads/archive/{name}/{branch}"
-            if git("rev-parse", ref) != sha:
+            ref = f"archive/{name}/{branch}"
+            if archive_commit(ref) != sha:
                 raise SystemExit(f"Archived branch differs from source: {ref}")
             checked_branches += 1
         for tag, sha in source["tags"].items():
