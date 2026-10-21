@@ -1,0 +1,55 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug weather bot (CLI args)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin",
+          "polymarket-weather-bot"
+        ],
+        "filter": {
+          "name": "polymarket-weather-bot",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "--target-date",
+        "2026-04-13",
+        "--forecast-high-f",
+        "50",
+        "--market-query",
+        "nyc temperature high",
+        "--dry-run"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ]
+    },
+    {
+      "name": "Debug weather bot (.env)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin",
+          "polymarket-weather-bot"
+        ],
+        "filter": {
+          "name": "polymarket-weather-bot",
+          "kind": "bin"
+        }
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ]
+    }
+  ]
+}

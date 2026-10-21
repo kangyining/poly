@@ -1,0 +1,85 @@
+use std::sync::Arc;
+
+use anyhow::Result;
+use tokio::sync::broadcast::error::RecvError;
+use tracing::{debug, info, warn};
+
+use crate::core::bus::EventBus;
+use crate::core::events::{Event, EventSource};
+use crate::core::state::SharedState;
+use crate::services::StrategyService;
+
+pub struct StrategyConsumer {
+    bus: EventBus,
+    state: SharedState,
+    strategy_service: Arc<StrategyService>,
+}
+
+impl StrategyConsumer {
+    pub fn new(bus: EventBus, state: SharedState, strategy_service: Arc<StrategyService>) -> Self {
+        Self {
+            bus,
+            state,
+            strategy_service,
+        }
+    }
+
+    pub async fn consume(self) -> Result<()> {
+        let mut rx = self.bus.subscribe();
+
+        loop {
+            match rx.recv().await {
+                Ok(envelope) => match envelope.payload {
+                    Event::EvaluationRequested(request) => {
+                        let forecast = {
+                            let state = self.state.read().await;
+                            state
+                                .weather
+                                .get(&request.context_key)
+                                .and_then(|weather| weather.forecast.clone())
+                        };
+
+                        let Some(forecast) = forecast else {
+                            debug!(
+                                context_key = %request.context_key,
+                                reason = ?request.reason,
+                                "skipping evaluation until forecast is available"
+                            );
+                            continue;
+                        };
+
+                        info!(
+                            context_key = %request.context_key,
+                            reason = ?request.reason,
+                            "running strategy evaluation"
+                        );
+                        match self.strategy_service.evaluate(forecast).await {
+                            Ok(outcomes) => {
+                                for outcome in outcomes {
+                                    self.bus.publish(
+                                        EventSource::StrategyEngine,
+                                        Event::EvaluationCompleted(Arc::new(outcome)),
+                                    );
+                                }
+                            }
+                            Err(error) => {
+                                warn!(error = %error, "strategy evaluation failed");
+                            }
+                        }
+                    }
+                    Event::Stopping => break,
+                    _ => {}
+                },
+                Err(RecvError::Lagged(dropped)) => {
+                    warn!(dropped, "strategy consumer lagged behind the event stream");
+                }
+                Err(RecvError::Closed) => {
+                    debug!("strategy consumer channel closed");
+                    break;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
