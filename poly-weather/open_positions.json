@@ -1,0 +1,34 @@
+[
+  {
+    "token_id": "11092162610186246472459159471956363159225690748858983397160835756297189255451",
+    "market_id": "2003712",
+    "bin_label": "48F to 49F",
+    "event_slug": "highest-temperature-in-nyc-on-april-19-2026",
+    "target_date": "2026-04-19",
+    "entry_price": 0.999,
+    "shares": 1.0,
+    "stake_usd": 5.0,
+    "order_id": null,
+    "status": "open",
+    "pnl": null,
+    "opened_at": "2026-04-19T05:04:59.245509+00:00",
+    "settled_at": null,
+    "is_paper": true
+  },
+  {
+    "token_id": "110565928810535684355061849337968075945485648349749133478458150052568606782274",
+    "market_id": "2003721",
+    "bin_label": "66F or above",
+    "event_slug": "highest-temperature-in-nyc-on-april-19-2026",
+    "target_date": "2026-04-19",
+    "entry_price": 0.999,
+    "shares": 1.0,
+    "stake_usd": 5.0,
+    "order_id": null,
+    "status": "open",
+    "pnl": null,
+    "opened_at": "2026-04-19T05:04:59.252618+00:00",
+    "settled_at": null,
+    "is_paper": true
+  }
+]
