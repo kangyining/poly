@@ -1,0 +1,142 @@
+{
+  "reviewed_on": "2026-10-21",
+  "sources": [
+    {
+      "name": "poly-weather",
+      "url": "https://github.com/lynx-canadensis/poly-weather.git",
+      "default_branch": "main",
+      "default_commit": "cf7cd42c680acd6ed1d30ae503f4dc76ba1954b3",
+      "default_tree": "c4822de3ab03ea1d88b9b651e56bd42442a766da",
+      "branches": {
+        "backtest_more_live_data": "91702a91fbd8cd6996a35e8bae081a1a16c5b738",
+        "main": "cf7cd42c680acd6ed1d30ae503f4dc76ba1954b3",
+        "paper_trading": "3b34c7fb1d753551d78e9ab1fbd66cf75257ca24",
+        "phase1-backtest-framework": "3478352b5a34b82e64f57dee047ea3c7c072deb5",
+        "ubuntu-stability-setup": "f7783ce094e5e6a93d81f9855ede57076e05ffe0"
+      },
+      "tags": {},
+      "all_commits": [
+        "cf7cd42c680acd6ed1d30ae503f4dc76ba1954b3",
+        "91702a91fbd8cd6996a35e8bae081a1a16c5b738",
+        "4c3913f96abd9ed540d5a6e5c0e787e1ac5b2474",
+        "7ebb7fa24df187dd65d040815b934c20e1e79223",
+        "3b34c7fb1d753551d78e9ab1fbd66cf75257ca24",
+        "917f43598dd79bd617c0abdfcb7284a184d128f9",
+        "a7c975e78310254a52fe6f476c1dd5dc52417036",
+        "98fbf9d05da8f6588360160b3610a26fca8ebbf6",
+        "9cbec9487265d4a3379864585882a7e91fe0f413",
+        "a85dd2146bfa42c58cdf1db3404482856ef89610",
+        "d96ab2ad308b440551d7be1a8b486c3b5c4c6cc5",
+        "e0b8bc40c9c944cc28f885613dd78b901a10feab",
+        "3478352b5a34b82e64f57dee047ea3c7c072deb5",
+        "b906e236a3a379d6fcdce361245e27924a8e4466",
+        "f7783ce094e5e6a93d81f9855ede57076e05ffe0",
+        "847765689b8c39b54fd8e187b56b07a4048124d6",
+        "fc8f0428210b8c31c5a198880bd9fcdcc074b27c",
+        "785ca8cee4584b0795d21d73eba946eb3e9aa313",
+        "6267e3d96e3b1babf7f9944037d3a77f02d6f8a3",
+        "64a4d0247fb924de028cab2e81524285b721277d",
+        "781159d268ebe0c30495635355b15c4406923e28",
+        "52ed1ff1ce061ecd7bc85b5636a35aea4183f0f3",
+        "f4f7a88a3871951de9bdb960b8dfb9f5e4319eb7",
+        "7b4e0a0886bece16c07f0469b6f9b81fe1a467aa",
+        "f4a81c8a7f859425c636cc132e1f43f683b6a0a8",
+        "6ec233d884a2960d7adccf9e17f31104870a7fb4",
+        "1524d4d95c108f50324adc1ccd811417116c4091",
+        "259fcec7d846ba70f940c4dc1b9ef285950b5553",
+        "eaae69029352a3bd52f698a8f51efdb4ff4545af"
+      ]
+    },
+    {
+      "name": "poly-weather-rust",
+      "url": "https://github.com/lynx-canadensis/poly-weather-rust.git",
+      "default_branch": "master",
+      "default_commit": "9c3e60ea06451f0285053ee3b269c8f134408b0c",
+      "default_tree": "a15eb17cafe98894543725277b83f85d51c3c168",
+      "branches": {
+        "master": "9c3e60ea06451f0285053ee3b269c8f134408b0c"
+      },
+      "tags": {},
+      "all_commits": [
+        "9c3e60ea06451f0285053ee3b269c8f134408b0c",
+        "65309cc9e4f0d849bf7abe9561bca90f8c2ecc48",
+        "1035e18c77691901d5f92521209c2a3c5afefb44",
+        "89c294def619420efeed6385880b436ccee167a1",
+        "197e8393c77a7e767cc5bc6e0d74296a53a04ee2"
+      ]
+    },
+    {
+      "name": "poly-weather-bot",
+      "url": "https://github.com/lynx-canadensis/poly-weather-bot.git",
+      "default_branch": "main",
+      "default_commit": "175db66cc96d8a07a97ecebb0009d3e94627f16d",
+      "default_tree": "9cbf8e4cc58335785b5bd96967e66bb1b0d2563a",
+      "branches": {
+        "add-weather-and-websocket": "f87fdccf81bbfbe1e404456a965b91cf10166f2f",
+        "execution-service": "b38168bf053c79523bf75ecacff20bd502840c29",
+        "main": "175db66cc96d8a07a97ecebb0009d3e94627f16d",
+        "ready_for_paper_trading": "b2b085bd2668c4d6cc030bddb861696d41dbf98e",
+        "use-listener": "80430e8f9d83e583f5c39762b6e8855557b24da5"
+      },
+      "tags": {},
+      "all_commits": [
+        "175db66cc96d8a07a97ecebb0009d3e94627f16d",
+        "c05e622b2ab94fc3610c2a4b8659f14889a385ff",
+        "18af1d4b7f0cd3c930e93d212e5254ab04aab82b",
+        "2e604d830fb1c6139154cf255b1b67903a529850",
+        "2d7a57c656f99fffda03cb24ea98784badb5bee8",
+        "2fa5df190d005a41dec7907a85af2e321ae13ca7",
+        "c9ebc78bc068573e35eaed07b1af27e3a28612f7",
+        "2500170c31f92382002b3263f2a2bfa11bb3f99b",
+        "f1e926c4a1a0f9b57a8bce14a030daa00a9b78c0",
+        "03a1dd3d2833d6946863c76c9dee1b5e9e3c6072",
+        "ab71aff276b4d3196be089ac7b96696325cd4301",
+        "c61da345fef8921ea99cd596f052cac17c880145",
+        "3cbc0e9ff00a263305d5352260a13b9db9dd60c5",
+        "b1764c0c9e6ce67554357fd0b5a9fb7017c6c17b",
+        "e12eb175cb9ee67ee5a3965c7ed8f82830424116",
+        "b17c3af535c2216e600e6b06c550fe285eeb876f",
+        "aa0dd2d947566be945f69c372eb70e0a56d331cf",
+        "ad36d156990d4247acd20eb164c45790e61a534a",
+        "9e2ebde26279d57b0d925571ae7935fdc1b2c605",
+        "7bf993f8181c1f4460a62b4c8e961f6772e92bae",
+        "f851dd7bb5cbba497425d15f642c5f8926809888",
+        "b38168bf053c79523bf75ecacff20bd502840c29",
+        "c7bb5ec58cd0a1a2d1208cbc025ac88b5cf0069c",
+        "b2b085bd2668c4d6cc030bddb861696d41dbf98e",
+        "b0c63d311670b3f8966eb37e5c1712fa99efb45c",
+        "006709eb26b4e8455337cfad9a3a099839da3bc6",
+        "948380724647d2e7f123d84bdb92a68124c684b1",
+        "c7925a615dacf13c76b0fcd5a13b8ac502a3d324",
+        "80430e8f9d83e583f5c39762b6e8855557b24da5",
+        "b2502a4377d439e83044fd137fdbe7db983f774b",
+        "14e094401cc53623e8af4a875d0089a5df38d803",
+        "3a0ea9e158056422d471fc381dd9decc220ccc4f",
+        "f87fdccf81bbfbe1e404456a965b91cf10166f2f",
+        "42e2b67f9af421e78f7d9bc350a5aef827029a0a",
+        "fe11f5d1e1725bbba302ad02307c65881e5069e0",
+        "cabf540f399f06ff13dfee9a930dd3b8c29160dc",
+        "4ff1052c27c8cc41c27b73c70045d817befd67f3",
+        "541f1455c9c9ae0c25503d9c189e1ffb47b447f3",
+        "7bb4d7074e7894714adad8897160e38115c84331",
+        "e5045566c21f327ac6f9e4a212d1473161b73010",
+        "8fa9811d6e62428741ea8325bbbc30b882190ae1"
+      ]
+    },
+    {
+      "name": "poly-dashboard",
+      "url": "https://github.com/lynx-canadensis/poly-dashboard.git",
+      "default_branch": "main",
+      "default_commit": "e507d0db5b8d8efb097fe0fc1e98e5b0b005bdb6",
+      "default_tree": "dd4d5f5fbc83a6de35781e6920d802a4eb6fd838",
+      "branches": {
+        "main": "e507d0db5b8d8efb097fe0fc1e98e5b0b005bdb6"
+      },
+      "tags": {},
+      "all_commits": [
+        "e507d0db5b8d8efb097fe0fc1e98e5b0b005bdb6",
+        "fc94c4cd40f13d144ce4c11a55dcbdd86e2c28ae"
+      ]
+    }
+  ]
+}

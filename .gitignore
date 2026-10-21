@@ -1,0 +1,38 @@
+# Local credentials and Python environments
+.env
+.env.*
+!.env.example
+!.env.sample
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Dependency/build outputs
+node_modules/
+target/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# New local runtime state and results. Existing imported tracked files remain.
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+logs/
+execution_plan.json
+open_positions.json
+paper_portfolio.json
+performance_log.csv
+parity_runs/
+backtest/
+**/backtest_param_finetune/results/
+
+# Local editor/OS files
+.DS_Store
+Thumbs.db
+*.pdb
