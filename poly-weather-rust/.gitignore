@@ -1,0 +1,6 @@
+/target
+/backtest
+/backtest_param_finetune/results
+/db/data.db
+/open_positions.json
+/parity_runs
