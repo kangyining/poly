@@ -1,0 +1,13 @@
+{
+  "name": "poly-dashboard",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:api": "python3 -m uvicorn --app-dir apps/api main:app --reload --host 127.0.0.1 --port 8000",
+    "build": "npm run build:web",
+    "build:web": "npm --prefix apps/web run build",
+    "lint:web": "npm --prefix apps/web run lint"
+  }
+}
