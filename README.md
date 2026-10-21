@@ -18,17 +18,7 @@ lockfile; this import does not change dependency versions or merge Cargo locks.
 
 ## Current architecture
 
-```mermaid
-flowchart LR
-    Sources[Weather and Polymarket APIs] --> Python["poly-weather<br/>Python data and research"]
-    Sources --> Bot["poly-weather-bot<br/>Rust strategy and execution"]
-    Python --> SQLite[(Python SQLite database)]
-    SQLite --> API["poly-dashboard<br/>FastAPI backend"]
-    API --> Web[React dashboard]
-    Bot --> JSON[(Bot JSON portfolio and plans)]
-    Rust["poly-weather-rust<br/>Rust backend migration"] -. parity comparisons .-> Python
-    Rust -. compatible data schema .-> SQLite
-```
+![Architecture of the four Poly projects](docs/architecture.svg)
 
 The diagram describes the checked-in code. It does not establish what is currently
 deployed or running. In particular, the current bot's JSON portfolio is not wired

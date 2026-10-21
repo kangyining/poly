@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="630" viewBox="0 0 1000 630" role="img" aria-labelledby="title desc">
+  <title id="title">Poly monorepo architecture</title>
+  <desc id="desc">Weather and Polymarket APIs feed the Python backend, its Rust migration, and the Rust trading bot. Python stores data in SQLite, which the dashboard API reads. The bot uses separate JSON state, with no current adapter into the dashboard. Rust tools can explicitly read the Python database for parity checks.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker>
+  </defs>
+  <rect width="1000" height="630" rx="16" fill="#f8fafc"/>
+  <g font-family="Arial, sans-serif" fill="#0f172a" text-anchor="middle">
+    <rect x="205" y="25" width="590" height="55" rx="12" fill="#e2e8f0" stroke="#cbd5e1"/>
+    <text x="500" y="59" font-size="19" font-weight="700">Weather and Polymarket APIs</text>
+    <g stroke="#64748b" stroke-width="2" fill="none">
+      <path d="M500 80 V110 H175 V155" marker-end="url(#arrow)"/>
+      <path d="M500 110 V155" marker-end="url(#arrow)"/>
+      <path d="M500 110 H825 V155" marker-end="url(#arrow)"/>
+      <path d="M175 250 V310" marker-end="url(#arrow)"/>
+      <path d="M500 250 V310" marker-end="url(#arrow)"/>
+      <path d="M825 250 V310" marker-end="url(#arrow)"/>
+      <path d="M175 385 V470" marker-end="url(#arrow)"/>
+    </g>
+    <rect x="30" y="155" width="290" height="95" rx="12" fill="#dbeafe" stroke="#93c5fd"/>
+    <text x="175" y="184" font-size="19" font-weight="700">poly-weather</text>
+    <text x="175" y="210" font-size="15">Python data and research</text>
+    <text x="175" y="232" font-size="14" fill="#475569">Recorders, backtests, settlement</text>
+    <rect x="355" y="155" width="290" height="95" rx="12" fill="#ede9fe" stroke="#c4b5fd"/>
+    <text x="500" y="184" font-size="19" font-weight="700">poly-weather-rust</text>
+    <text x="500" y="210" font-size="15">Rust backend migration</text>
+    <text x="500" y="232" font-size="14" fill="#475569">Parity harness; paper execution</text>
+    <rect x="680" y="155" width="290" height="95" rx="12" fill="#dcfce7" stroke="#86efac"/>
+    <text x="825" y="184" font-size="19" font-weight="700">poly-weather-bot</text>
+    <text x="825" y="210" font-size="15">Rust strategy and execution</text>
+    <text x="825" y="232" font-size="14" fill="#475569">Event bus; REST and websockets</text>
+    <rect x="30" y="310" width="290" height="75" rx="12" fill="white" stroke="#93c5fd"/>
+    <text x="175" y="340" font-size="17" font-weight="700">Python SQLite database</text>
+    <text x="175" y="365" font-size="14" fill="#475569">Observations, positions and history</text>
+    <rect x="355" y="310" width="290" height="75" rx="12" fill="white" stroke="#c4b5fd"/>
+    <text x="500" y="340" font-size="17" font-weight="700">Rust-owned SQLite default</text>
+    <text x="500" y="365" font-size="14" fill="#475569">Compatible schema; explicit --db</text>
+    <rect x="680" y="310" width="290" height="75" rx="12" fill="white" stroke="#86efac"/>
+    <text x="825" y="340" font-size="17" font-weight="700">Bot JSON state</text>
+    <text x="825" y="365" font-size="14" fill="#475569">Portfolio, positions and plans</text>
+    <rect x="20" y="435" width="635" height="125" rx="14" fill="#e0f2fe" stroke="#7dd3fc"/>
+    <text x="337" y="460" font-size="18" font-weight="700">poly-dashboard</text>
+    <rect x="40" y="475" width="265" height="60" rx="10" fill="white" stroke="#bae6fd"/>
+    <text x="172" y="512" font-size="17">FastAPI backend</text>
+    <path d="M305 505 H350" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="355" y="475" width="280" height="60" rx="10" fill="white" stroke="#bae6fd"/>
+    <text x="495" y="512" font-size="17">React / Vite web dashboard</text>
+    <rect x="680" y="435" width="290" height="125" rx="14" fill="#fff7ed" stroke="#fdba74" stroke-dasharray="6 4"/>
+    <text x="825" y="466" font-size="18" font-weight="700" fill="#9a3412">Integration gap</text>
+    <text x="825" y="493" font-size="15">No current adapter from bot</text>
+    <text x="825" y="516" font-size="15">JSON positions into the</text>
+    <text x="825" y="539" font-size="15">dashboard's SQLite queries.</text>
+    <text x="500" y="595" font-size="15" fill="#475569">Rust backend tools can explicitly read the Python DB for parity checks.</text>
+  </g>
+</svg>
