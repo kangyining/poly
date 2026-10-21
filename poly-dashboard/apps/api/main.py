@@ -15,6 +15,7 @@ import json
 import os
 import subprocess
 import sys
+from uuid import UUID, uuid4
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -36,18 +37,23 @@ def _path_from_env(name: str, default: Path) -> Path:
 POLY_WEATHER = _path_from_env("POLY_WEATHER_DIR", WORKSPACE_DIR / "poly-weather")
 BOT_DIR = _path_from_env("POLY_WEATHER_BOT_DIR", WORKSPACE_DIR / "poly-weather-bot")
 DB_PATH = _path_from_env("POLY_WEATHER_DB_PATH", POLY_WEATHER / "db" / "data.db")
-STRATEGIES_TOML = _path_from_env(
-    "POLY_WEATHER_STRATEGIES_PATH",
-    BOT_DIR / "strategies.toml",
+STRATEGIES_JSON = _path_from_env(
+    "POLY_WEATHER_STRATEGIES_PATH", POLY_WEATHER / "analysis/strategies/strategies.json",
 )
+BOT_CONFIG = BOT_DIR / "config.toml"
+BACKTEST_DIR = _path_from_env("POLY_BACKTEST_DIR", DASHBOARD_DIR / ".data/backtests")
 
 sys.path.insert(0, str(POLY_WEATHER))
 
 import sqlite3
 from config.cities import CITIES
+from data.db import Database
+from analysis.strategies import list_strategy_configs
 
 
 def get_db():
+    if not DB_PATH.exists():
+        Database(DB_PATH).close()
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
@@ -72,142 +78,111 @@ app.add_middleware(
 
 # ── Backtest routes ────────────────────────────────────────────────────────────
 
+def _read_run(run_id: str) -> dict:
+    try:
+        if str(UUID(run_id)) != run_id:
+            raise ValueError("Invalid run ID")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Backtest not found")
+    path = BACKTEST_DIR / run_id / "result.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Backtest not found")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _run_meta(result: dict) -> dict:
+    return {**{key: value for key, value in result.items() if key not in {"trades", "artifacts"}},
+            "params": json.dumps(result.get("params", {}))}
+
+
 @app.get("/api/backtest/runs")
 def list_backtest_runs(limit: int = Query(50, ge=1, le=500)):
-    """List all backtest runs, newest first."""
-    conn = get_db()
-    rows = conn.execute("""
-        SELECT id, strategy, params, date_from, date_to, created_at,
-               total_trades, win_rate, total_pnl, sharpe, status
-        FROM backtests
-        ORDER BY created_at DESC
-        LIMIT ?
-    """, (limit,)).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    rows = []
+    for path in BACKTEST_DIR.glob("*/result.json"):
+        try:
+            result = _read_run(path.parent.name)
+            rows.append(_run_meta(result))
+        except (HTTPException, ValueError, OSError):
+            continue
+    return sorted(rows, key=lambda row: row["created_at"], reverse=True)[:limit]
 
 
 @app.post("/api/backtest/run")
 def trigger_backtest(
-    strategy: str = Query("base_ev"),
+    strategy: str = Query("base_no_ev"),
     days: int = Query(60, ge=1, le=730),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     city: str | None = Query(None),
-    replay_mode: str = Query("single"),
-    interval_minutes: int = Query(5, ge=1, le=60),
+    replay_mode: str = Query("interval"),
+    interval_minutes: int = Query(1, ge=1, le=60),
 ):
-    """
-    Trigger a backtest run synchronously. Returns the summary JSON when done.
-    For long runs, consider running python backtest.py directly in a terminal.
-    """
-    cmd = [sys.executable, str(POLY_WEATHER / "backtest.py"),
-           "--strategy", strategy, "--days", str(days)]
-    if date_from:
-        cmd += ["--date-from", date_from]
-    if date_to:
-        cmd += ["--date-to", date_to]
+    if replay_mode != "interval" or interval_minutes != 1:
+        raise HTTPException(status_code=400, detail="The current engine supports 1-minute interval replay.")
+    available = {row["name"] for row in list_strategy_configs(STRATEGIES_JSON)}
+    if strategy not in available and strategy != "base_ev":
+        raise HTTPException(status_code=400, detail="Unknown strategy")
     if city:
-        city = city.strip()
-        if city.upper() == "NYC":
-            city = "NYC"
-        elif city.title() in CITIES:
-            city = city.title()
+        city = "NYC" if city.upper() == "NYC" else city.title()
         if city not in CITIES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported city '{city}'. Expected one of: {', '.join(sorted(CITIES))}",
-            )
-        cmd += ["--city", city]
-    if replay_mode not in {"single", "interval"}:
-        raise HTTPException(status_code=400, detail="replay_mode must be 'single' or 'interval'")
-    cmd += ["--replay-mode", replay_mode]
-    if replay_mode == "interval":
-        cmd += ["--interval-minutes", str(interval_minutes)]
-
+            raise HTTPException(status_code=400, detail="Unsupported city")
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True, text=True, timeout=300,
-            cwd=str(POLY_WEATHER),
-        )
+        end = datetime.fromisoformat(date_to).date() if date_to else datetime.now(timezone.utc).date() - timedelta(days=1)
+        start = datetime.fromisoformat(date_from).date() if date_from else end - timedelta(days=days - 1)
+        if start > end or (end - start).days >= 730:
+            raise ValueError("Invalid date range")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Use a valid date range of at most 730 days.")
+
+    conn = get_db()
+    conn.close()
+    run_id = str(uuid4())
+    run_dir = BACKTEST_DIR / run_id
+    run_dir.mkdir(parents=True)
+    pending = run_dir / "pending.json"
+    created_at = datetime.now(timezone.utc).isoformat()
+    cmd = [sys.executable, str(POLY_WEATHER / "backtest.py"),
+           "--strategy", strategy, "--date-from", start.isoformat(), "--date-to", end.isoformat(),
+           "--db", str(DB_PATH), "--strategies-file", str(STRATEGIES_JSON),
+           "--json", str(pending), "--csv", str(run_dir / "summary.csv"),
+           "--trades-csv", str(run_dir / "trades.csv"), "--report", str(run_dir / "report.md")]
+    if city:
+        cmd += ["--city", city]
+    try:
+        completed = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(POLY_WEATHER))
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=504, detail="Backtest timed out after 300s")
-
-    if result.returncode != 0:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Backtest failed: {result.stderr[-2000:]}"
-        )
-
-    # Last non-empty line of stdout is the JSON summary
-    lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-    for line in reversed(lines):
-        try:
-            return json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-    raise HTTPException(status_code=500, detail="Backtest produced no JSON output")
+    if completed.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {completed.stderr[-2000:]}")
+    try:
+        result = json.loads(pending.read_text(encoding="utf-8"))
+        if not isinstance(result, dict) or not isinstance(result.get("trades"), list) or "backtest_id" not in result:
+            raise ValueError("Invalid result schema")
+    except (OSError, ValueError):
+        raise HTTPException(status_code=500, detail="Backtest produced an invalid result file")
+    result.update(id=run_id, created_at=created_at, status="done", result_storage="files")
+    pending.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    pending.replace(run_dir / "result.json")
+    return _run_meta(result)
 
 
 @app.get("/api/backtest/strategies")
 def list_strategies():
-    """List strategies from strategies.toml."""
-    if not STRATEGIES_TOML.exists():
-        return []
-    try:
-        try:
-            import tomllib
-        except ImportError:
-            import tomli as tomllib  # type: ignore
-        with open(STRATEGIES_TOML, "rb") as f:
-            data = tomllib.load(f)
-        return data.get("strategy", [])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse strategies.toml: {e}")
+    return list_strategy_configs(STRATEGIES_JSON)
 
 
 @app.get("/api/backtest/compare")
-def compare_backtests(ids: str = Query(..., description="Comma-separated backtest IDs")):
-    """Side-by-side metrics for multiple backtest IDs."""
-    id_list = [i.strip() for i in ids.split(",") if i.strip()]
-    if not id_list:
+def compare_backtests(ids: str = Query(...)):
+    run_ids = [value.strip() for value in ids.split(",") if value.strip()]
+    if not run_ids:
         raise HTTPException(status_code=400, detail="Provide at least one backtest ID")
-
-    conn = get_db()
-    placeholders = ",".join("?" * len(id_list))
-    rows = conn.execute(
-        f"SELECT * FROM backtests WHERE id IN ({placeholders}) ORDER BY created_at DESC",
-        id_list,
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return [_run_meta(_read_run(run_id)) for run_id in run_ids]
 
 
 @app.get("/api/backtest/{backtest_id}")
 def get_backtest(backtest_id: str):
-    """Full backtest detail: metadata + all simulated trades."""
-    conn = get_db()
-    meta = conn.execute(
-        "SELECT * FROM backtests WHERE id=?", (backtest_id,)
-    ).fetchone()
-    if not meta:
-        raise HTTPException(status_code=404, detail="Backtest not found")
-
-    trades = conn.execute("""
-        SELECT target_date, bin_label, entry_price, shares, stake_usd, pnl,
-               strategy_name, trade_rationale
-        FROM positions
-        WHERE backtest_id=?
-        ORDER BY target_date, bin_label
-    """, (backtest_id,)).fetchall()
-    conn.close()
-
-    return {
-        "meta": dict(meta),
-        "trades": [dict(t) for t in trades],
-    }
+    result = _read_run(backtest_id)
+    return {"meta": _run_meta(result), "trades": result["trades"]}
 
 
 # ── Live trading routes ────────────────────────────────────────────────────────
@@ -298,15 +273,15 @@ def get_live_strategies():
 
     # Merge with strategies.toml if available
     strategy_configs = []
-    if STRATEGIES_TOML.exists():
+    if BOT_CONFIG.exists():
         try:
             try:
                 import tomllib
             except ImportError:
                 import tomli as tomllib  # type: ignore
-            with open(STRATEGIES_TOML, "rb") as f:
+            with open(BOT_CONFIG, "rb") as f:
                 data = tomllib.load(f)
-            for s in data.get("strategy", []):
+            for s in data.get("strategies", []):
                 entry = dict(s)
                 entry.update(pnl_by_strategy.get(s["name"], {}))
                 strategy_configs.append(entry)

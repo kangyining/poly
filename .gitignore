@@ -16,7 +16,7 @@ dist/
 .ruff_cache/
 .mypy_cache/
 
-# New local runtime state and results. Existing imported tracked files remain.
+# Local runtime state and results
 *.db
 *.db-shm
 *.db-wal
@@ -36,3 +36,6 @@ backtest/
 .DS_Store
 Thumbs.db
 *.pdb
+# Dashboard-generated backtest results
+poly-dashboard/.data/
+tmp/

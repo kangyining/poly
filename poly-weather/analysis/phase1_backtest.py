@@ -1247,6 +1247,7 @@ def main():
     parser.add_argument("--csv", dest="summary_csv", help="Custom path for per-strategy summary CSV")
     parser.add_argument("--trades-csv", help="Custom path for trade-level CSV")
     parser.add_argument("--report", help="Custom path for Markdown strategy comparison report")
+    parser.add_argument("--json", dest="result_json", help="Structured result JSON, including simulated trades")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -1318,6 +1319,10 @@ def main():
         "trades_csv": str(trades_csv_path),
         "report": str(report_path),
     }
+    if args.result_json:
+        result_path = Path(args.result_json)
+        result_path.parent.mkdir(parents=True, exist_ok=True)
+        result_path.write_text(json.dumps({**payload, "trades": trade_rows}, indent=2), encoding="utf-8")
     print(json.dumps(payload, indent=2))
 
 

@@ -1,81 +1,44 @@
 # Poly
 
-A monorepo containing the four Polymarket weather projects from `lynx-canadensis`.
-The initial import preserves their default-branch files and original Git commits.
+A Polymarket weather research and trading monorepo, combining four projects from
+`lynx-canadensis` with contributor attribution and sanitized Git history.
 
-## Projects
-
-| Folder | Role |
+| Project | Purpose |
 | --- | --- |
-| [`poly-weather/`](poly-weather/) | Python weather/market data collection, SQLite storage, calibration, backtesting, parameter sweeps, settlement and an older execution bridge. |
-| [`poly-weather-rust/`](poly-weather-rust/) | Rust migration of the Python data/research tools, with a parity harness and paper execution. Live order submission is deliberately unsupported. |
-| [`poly-weather-bot/`](poly-weather-bot/) | Event-driven Rust weather strategy and execution engine. Uses REST/weather polling and market websockets; supports paper and live execution. Checked-in configuration sets `dry_run = true`. |
-| [`poly-dashboard/`](poly-dashboard/) | FastAPI backend and React/Vite frontend for backtests, market observations and position/PnL monitoring. |
+| [poly-weather](poly-weather/) | Python data collection, SQLite storage, calibration and backtesting. |
+| [poly-weather-rust](poly-weather-rust/) | Rust migration of the research backend; paper execution only. |
+| [poly-weather-bot](poly-weather-bot/) | Event-driven Rust strategy/execution engine; dry run by default. |
+| [poly-dashboard](poly-dashboard/) | FastAPI API and React dashboard. |
 
-The original folder names remain siblings because the dashboard and Rust parity
-harness already use those paths. Each project retains its dependency manifest and
-lockfile; this import does not change dependency versions or merge Cargo locks.
+## Development checks
 
-## Current architecture
-
-![Architecture of the four Poly projects](docs/architecture.svg)
-
-The diagram describes the checked-in code. It does not establish what is currently
-deployed or running. In particular, the current bot's JSON portfolio is not wired
-into the dashboard's SQLite position queries.
-
-## Development
-
-Install dependencies for the project you are working on, using its own manifest.
-For Python, use a virtual environment; the API also needs its own requirements.
-
-Dashboard frontend, from this directory:
+From the repository root, with Python 3.14+, Node 24 and a Rust toolchain:
 
 ```sh
-npm --prefix poly-dashboard/apps/web ci
-npm --prefix poly-dashboard run dev:web
-```
-
-Dashboard API, from this directory:
-
-```sh
-python -m pip install -r poly-weather/requirements.txt -r poly-dashboard/apps/api/requirements.txt
-python -m uvicorn --app-dir poly-dashboard/apps/api main:app --host 127.0.0.1 --port 8000
-```
-
-Backend strategy metadata, from this directory:
-
-```sh
+python -m pip install -r poly-weather/requirements.txt
+python -m pip install -r poly-dashboard/apps/api/requirements-dev.txt
 python poly-weather/backtest.py --list-strategies
-```
-
-Build each Rust project from its own directory with `cargo build --locked`.
-The Rust migration includes bundled SQLite; its existing documentation records
-Windows C-toolchain requirements and a previously working WSL build setup.
-The bot resolves config/state paths from its working directory; run its commands
-from `poly-weather-bot/`. Its current CLI accepts `--config`, while several older
-README/launcher examples describe flags that no longer exist.
-
-These are developer entry points, not a claim that all cross-project integration
-is working. Read [the assessment](docs/ASSESSMENT.md) for the known issues.
-
-## History and migration verification
-
-Original branch heads are preserved as `archive/<source-repo>/<source-branch>`.
-Those branches contain their original standalone trees. Use `main` for the
-combined monorepo. Original commit hashes remain unchanged; commits before an
-import still show the paths they had in the original standalone repository.
-
-```sh
+npm --prefix poly-dashboard/apps/web ci --ignore-scripts
+npm --prefix poly-dashboard/apps/web run build
+python -m unittest discover -s poly-dashboard/apps/api/tests
+cargo test --locked --manifest-path poly-weather-rust/Cargo.toml
+cargo check --locked --all-targets --manifest-path poly-weather-bot/Cargo.toml
 python tools/verify_import.py
 ```
 
-The verifier checks imported tree identity, archived branch heads, and retention
-of every source commit recorded in [the manifest](docs/source-repositories.json).
-GitHub issues, pull requests, secrets, settings and deployment configuration are
-not part of this Git import.
+Rust dependencies need a native C toolchain. The [CI workflow](.github/workflows/review-checks.yml)
+also runs the Python fixture suite. Each component keeps its own manifest and lockfile.
 
-The imported snapshots include previously tracked database/log/portfolio files.
-The root ignore rules prevent new matching artifacts from being added by default;
-they do not remove existing tracked files or historical content. A separate data
-cleanup should retain any research data needed for backtests.
+## Current limits
+
+- Dashboard backtests use the Python strategy registry and 1-minute replay, with structured JSON results and file-based history.
+- The bot writes JSON positions; the dashboard reads Python SQLite state.
+- Runtime databases, document caches, logs and portfolio files have been removed from shared history. Generate synthetic inputs with `python tools/review_demo.py --output tmp/review-demo` and point `POLY_WEATHER_DB_PATH` at its `data.db`.
+
+Passing checks do not establish profitable trading or complete dashboard integration.
+
+Sanitized source branch heads remain under `archive/<repo>/<branch>`.
+The verifier checks the immutable import snapshot, the sanitized source commits and 12 archived
+branches recorded in [the source manifest](docs/source-repositories.json).
+
+The history cleanup changes commit IDs; full originals are backed up locally.
