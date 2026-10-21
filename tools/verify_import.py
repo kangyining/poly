@@ -30,13 +30,14 @@ def archive_commit(branch: str) -> str:
 
 def main() -> None:
     manifest = json.loads((ROOT / "docs/source-repositories.json").read_text())
+    snapshot = manifest["import_snapshot_commit"]
     retained = set(git("rev-list", "--all").splitlines())
     checked_branches = 0
     source_commits: set[str] = set()
     results = []
     for source in manifest["sources"]:
         name = source["name"]
-        imported_tree = git("rev-parse", f"main:{name}")
+        imported_tree = git("rev-parse", f"{snapshot}:{name}")
         if imported_tree != source["default_tree"]:
             raise SystemExit(f"Imported tree differs from source: {name}")
         for branch, sha in source["branches"].items():
@@ -57,6 +58,7 @@ def main() -> None:
         "projects": results,
         "archived_branches": checked_branches,
         "original_commits_retained": len(source_commits),
+        "import_snapshot_commit": snapshot,
         "status": "verified",
     }, indent=2))
 

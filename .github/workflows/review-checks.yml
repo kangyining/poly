@@ -1,0 +1,52 @@
+name: Review checks
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - run: python tools/verify_import.py
+      - run: python -m pip install -r poly-weather/requirements.txt
+      - working-directory: poly-weather
+        run: python -m unittest analysis.strategies.test_strategies data.test_weather_contracts data.test_market_recorder data.test_us_high_temp_data_paths analysis.test_bankroll_backtest
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: poly-dashboard/apps/web
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: poly-dashboard/apps/web/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustc --version
+      - run: cargo test --locked --manifest-path poly-weather-rust/Cargo.toml
+      - run: cargo check --locked --all-targets --manifest-path poly-weather-bot/Cargo.toml

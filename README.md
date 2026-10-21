@@ -3,6 +3,9 @@
 A monorepo containing the four Polymarket weather projects from `lynx-canadensis`.
 The initial import preserves their default-branch files and original Git commits.
 
+For a code review, start with [the review guide](docs/REVIEW_GUIDE.md), which lists
+the verified entry points and the current integration gaps.
+
 ## Projects
 
 | Folder | Role |
@@ -70,9 +73,10 @@ import still show the paths they had in the original standalone repository.
 python tools/verify_import.py
 ```
 
-The verifier checks imported tree identity, archived branch heads, and retention
+The verifier checks the original import snapshot, archived branch heads, and retention
 of every source commit recorded in [the manifest](docs/source-repositories.json).
-GitHub issues, pull requests, secrets, settings and deployment configuration are
+Later development can change project files without changing that historical
+snapshot. GitHub issues, pull requests, secrets, settings and deployment configuration are
 not part of this Git import.
 
 The imported snapshots include previously tracked database/log/portfolio files.

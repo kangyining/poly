@@ -1,5 +1,6 @@
 {
   "reviewed_on": "2026-10-21",
+  "import_snapshot_commit": "3c1d0c2e094dbbf9e311d476b1d4dcc3f52ddb83",
   "sources": [
     {
       "name": "poly-weather",
