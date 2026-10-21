@@ -20,13 +20,13 @@ lockfile; this import does not change dependency versions or merge Cargo locks.
 
 ```mermaid
 flowchart LR
-    Sources[Weather and Polymarket APIs] --> Python[poly-weather\nPython data and research]
-    Sources --> Bot[poly-weather-bot\nRust strategy and execution]
+    Sources[Weather and Polymarket APIs] --> Python["poly-weather<br/>Python data and research"]
+    Sources --> Bot["poly-weather-bot<br/>Rust strategy and execution"]
     Python --> SQLite[(Python SQLite database)]
-    SQLite --> API[poly-dashboard\nFastAPI backend]
+    SQLite --> API["poly-dashboard<br/>FastAPI backend"]
     API --> Web[React dashboard]
     Bot --> JSON[(Bot JSON portfolio and plans)]
-    Rust[poly-weather-rust\nRust backend migration] -. parity comparisons .-> Python
+    Rust["poly-weather-rust<br/>Rust backend migration"] -. parity comparisons .-> Python
     Rust -. compatible data schema .-> SQLite
 ```
 
